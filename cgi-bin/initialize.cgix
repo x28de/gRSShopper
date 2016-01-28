@@ -1,0 +1,944 @@
+#!/usr/bin/perl
+$|++;    # Turn off print buffering
+use strict;
+
+
+# print "Content-type: text/html; charset=utf-8\n\n";
+# Forbid agents
+
+if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/) { 
+  	print "Content-type: text/html; charset=utf-8\n";
+	print "HTTP/1.1 403 Forbidden\n\n";
+	print "403 Forbidden\n"; 
+	exit; 
+}
+
+# Initialize gRSShopper Library
+
+use FindBin qw($Bin);
+require "$Bin/grsshopper.pl";
+our ($query,$vars) = &load_modules("admin");				# Get Request Variables
+our $Site;								# Site that will be used throughout
+
+
+
+if ($vars->{action}) {					# Perform Action, or
+
+	if ($vars->{action} eq "create_db") {  &config_db_initialize(); }
+	elsif ($vars->{action} eq "conpack") {  &config_pack(); }	
+	elsif ($vars->{action} eq "conweb") {  &config_website(); }
+	elsif ($vars->{action} eq "confirm_cookie") {  &confirm_cookie(); }	
+	else { &error("","","","Initialize Command Not Recognized: ".$vars->{action}); }
+} 
+
+
+print "Content-type: text/html; charset=utf-8\n\n";
+print &iheader("Start");
+print qq|<p style="margin-left:100px;">Welcome to the gRSShopper Initializer. 
+To begin, <a href="initialize.cgi?action=create_db">click here</a>|;
+exit;
+
+
+
+#-----------------------------------------------------------------------------------------------------------------
+#
+#
+#         STEP 1  -  Create Database
+#
+#
+#
+#-----------------------------------------------------------------------------------------------------------------
+
+sub config_db_initialize {
+	
+	print "Content-type: text/html; charset=utf-8\n\n";
+	print &iheader("Database Initialization");
+	
+										# 1.1 Get Basic Site Information
+	
+	$Site = &site_config("initialize");					# Located at the top of grsshopper.pl
+	if ($Site->{multisite} eq "on") { $Site->multisite_db_info(); }		# Get db info if we're on multisite
+	$Site->{script} = $Site->{site_url} . $ENV{'SCRIPT_NAME'};		# Find URL of this script		
+	
+										# 1.2 Access the Database
+										
+										# 1.2.1 Try to access the database
+										# and try to create if it's inaccessible
+											
+	
+	my $dbh = DBI->connect("DBI:mysql:$Site->{database_name}:$Site->{database_loc}", 
+		$Site->{database_usr},$Site->{database_pwd})
+		or &db_create("db",$DBI::errstr);	
+								
+
+										# 1.2.2 If database is not empty, demand the reset key
+										# Because this will wipe out the previous database
+
+	print qq|<p style="margin-left:100px;">Using database $Site->{database_name}...<br>|;	
+	die "Reset Key total fail" unless (test_reset_key($dbh));
+
+
+										# 1.3 Build Config and Cache Tables
+										
+										# Build the config table
+										# using sql/grsshopper_config.sql
+						
+	&run_sql_file($dbh,"sql/grsshopper_config.sql");	
+	&run_sql_file($dbh,"sql/grsshopper_cache.sql");	
+	
+	
+										# 1.4 Set Reset Key
+										
+										# Generate or reuse reset key
+										# and insert it into the cofig table
+	unless ($vars->{reset_key}) { $vars->{reset_key} = time; }
+	&db_insert($dbh,$query,"config",{config_noun=>'reset_key',config_value=>$vars->{reset_key}})
+		or die "Cannot execute config reset_key: ";		
+		
+						
+	print qq|<p style="margin-left:100px; width:700px;">Database '<i>$Site->{database_name}</i>' has been initialized. 
+		$DBI::errstr In order to ensure your database is not accidentally over-written, I have generated a 
+		<b>reset key</b> which you will have to use should you decide to restart this initialization process. 
+		Write this key down now. Your reset key is: <b> $vars->{reset_key} </b> </p>|;		
+		
+		
+										# 1.5 Set site config values
+
+										# We'll set these up in a table with
+										# our best guesses, and ask for
+										# user confirmation
+
+	my $prop_title = ucfirst($Site->{database_name});
+	my $sn = "initialize.cgi";
+	my $cgi_url = $ENV{'SCRIPT_URI'}; $cgi_url =~ s/$sn//;
+	my $cgi_file = $ENV{'SCRIPT_FILENAME'}; $cgi_file =~ s/$sn//;
+	my $co_host = $ENV{'SERVER_NAME'}; $co_host =~ s/^(.*?)\.//;	
+	
+	print qq|<p style="margin-left:100px; width:700px;">I will now create the site configuration table. This defines major site
+		parameters. Site parameters can also be edited in the site administration</a> tool. Please complete all 
+		values in the form below. Some values have been suggested based on script location but may be changed 
+		as desired.</b></p>
+		<form  style="margin-left:100px;"  method="post" action="initialize.cgi">
+		<input type="hidden" name="action" value="conpack">
+		<input type="hidden" name="reset_key" value="$vars->{reset_key}">
+		<table cellpadding=2 cellspacing=0 border=1 style="background-color:#eeeeee;">
+		<tr><td>Site URL</td><td><input type="text" size="40" name="st_url" value="http://$ENV{'SERVER_NAME'}/"></td><td>What you type to get to the site home page, eg., www.downes.ca</td></tr>
+		<tr><td>CGI URL</td><td><input type="text" size="40"  name="st_cgi" value="$cgi_url"></td><td>The location of the gRSShopper scripts, eg., www.downes.ca/cgi-bin</td></tr>
+		<tr><td>Cookie Host</td><td><input type="text" size="40"  name="co_host" value="$co_host"></td><td>Root URL used to serve cookies on the site</td></tr>
+		<tr><td>Document Directory</td><td><input type="text" size="40"  name="st_urlf" value="$ENV{'DOCUMENT_ROOT'}/"></td><td>Location of web pages on your server, eg. /var/www/downes</td></tr>
+		<tr><td>CGI Directory</td><td><input type="text" size="40"  name="st_cgif" value="$cgi_file"></td><td>Location of gRSShopper scripts on your server eg. /var/www/downes/cgi-bin</td></tr>
+		<tr><td>Data Directory</td><td><input type="text" size="40"  name="st_data" value="|.$cgi_file.qq|data/"></td><td>Location of gRSShopper data on your server /var/www/downes/cgi-bin/data/</td></tr>
+		<tr><td>Site Name</td><td><input type="text" size="40" name="st_name" value="$prop_title"></td><td>Site Name</td></tr>
+		<tr><td>Site Tag</td><td><input type="text" size="40"  name="st_tag" value="#$prop_title"></td><td>Site Tag - starts with a hash mark #</td></tr>
+		<tr><td>Publisher</td><td><input type="text" size="40"  name="st_pub" value="$prop_title Publisher"></td><td>Name of the website publisher</td></tr>
+		<tr><td>Creator</td><td><input type="text" size="40"  name="st_cre" value="$prop_title Author"></td><td>Name of the website creator</td></tr>
+		<td><td colspan=3><input type="submit" value="Submit"></td></tr></table></form>
+		<p style="margin-left:100px; width:700px;"><b>Note</b>: <br/>
+		Your web server software (eg., Apache) must have read/write permission in the Document Directory and the
+		Data Directory. The Document Directory must be publicly readable, but the Data Directory should <b>not</b> be 
+		publicly readable.</p>  |;
+
+	exit;
+	
+}
+
+
+
+#-----------------------------------------------------------------------------------------------------------------
+#
+#
+#         STEP 2  -  Config Pack
+#
+#
+#
+#	Select a Data Pack to use, or use default
+#
+#	Data Packs are located in cgi-bin/packs/
+#	Each pack consists of a set of SQL files, which will be implemented,
+#	and an assets directory containing JS, images, icons and CSS
+#  
+#       The selected pack, along with other system variables, is fed as input 
+#       to the function config_website()     
+#	This function implements everything, based on the following logic:
+#	    For each item in the default,
+#                if it is in the pack, implement the pack version, 
+#                otherwise, implement the default version
+#	    Then, if there's extra stuff in the pack
+#                implement the pack version
+#
+#-----------------------------------------------------------------------------------------------------------------
+
+
+sub config_pack {
+	
+
+										# Get Basic Site Information
+	
+	$Site = &site_config("initialize");					# Located at the top of grsshopper.pl
+	if ($Site->{multisite} eq "on") { $Site->multisite_db_info(); }		# Get db info if we're on multisite
+	$Site->{script} = $Site->{site_url} . $ENV{'SCRIPT_NAME'};		# Find URL of this script	
+	
+										# If database is not empty, demand the reset_key
+										# Because this will wipe out the previous database
+											
+	my $dbh = DBI->connect("DBI:mysql:$Site->{database_name}:$Site->{database_loc}", 
+	$Site->{database_usr},$Site->{database_pwd}) or die "Database error $DBI::errstr";		
+	die "Reset key total fail" unless (test_reset_key($dbh));
+	
+	print "Content-type: text/html; charset=utf-8\n\n";			# Print header
+	print &iheader("Select Pack");	
+		
+										# 2.1  Save config frrom $vars to database
+										
+		
+	while (my ($cx,$cy) = each %$vars) {
+		next unless ($cy && $cx =~ /(st|co)_/);
+		&add_to_config($dbh,$cx,$cy);
+	}				
+	
+	my $config = &load_config($dbh);					# 2.1.1  Test load_config
+				
+	
+										# 2.2  Select Pack to use
+										
+										# Loops through cgi-bin/packs
+										# Looks for subdirectories, one per pack
+										# and a description.txt file in each subdirectory
+
+	
+	print qq|<p style="margin-left:100px;">gRSShopper can be set up according to a variety of predefined
+	configurations.<br/>These are called 'Packs' and are listed below. Select the pack that most closely 
+	meets your needs.</b></p>|;	
+	
+	print qq|<form  style="margin-left:100px;"  method="post" action="initialize.cgi">
+		<input type="hidden" name="action" value="conweb">
+		<input type="hidden" name="reset_key" value="$vars->{reset_key}">
+		<input type="hidden" name="st_urlf" value="$vars->{st_urlf}">		
+		<input type="hidden" name="st_cgif" value="$vars->{st_cgif}">	
+		|;
+		
+	my $defdesc = &get_file($vars->{st_cgif}."description.txt");	
+	print qq|<table cellpadding="5" cellspacing="0" border="0" width="600">
+			<tr><td valign="top"><input type="radio" name="pack" value="default" checked></td>
+			<td><b>Default</b><br>$defdesc</td></tr>|;
+
+			
+	my $packsdir = $vars->{st_cgif}."packs";
+	opendir(DIR, $packsdir) or die "Packs directory not found: $!";
+	while (my $file = readdir(DIR)) {
+		next if $file =~ /^\./;
+		next unless (-d "$packsdir/$file");
+		my $defdesc = &get_file($vars->{st_cgif}."packs/".$file."/description.txt");	
+		print qq|<tr><td valign="top"><input type="radio" name="pack" value="$file"></td>
+			<td><b>|.ucfirst($file).qq|</b><br>$defdesc</td></tr>|;		
+			
+	}
+	closedir(DIR);	
+	print qq|<tr><td colspan="2"><input type="submit" value="Submit"></td></tr></table></body></html>|;
+	exit;
+
+		
+		
+	
+}
+
+#-----------------------------------------------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------------------------------------------
+
+#      STEP 3  -  CONFIG Website
+#
+#	Create a test cookie
+#	Test and Save site directory information
+#	Create the directories
+#	Write some CSS files
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub config_website {
+	
+	
+										# Get Basic Site Information
+	
+	$Site = &site_config("initialize");					# Located at the top of grsshopper.pl
+	if ($Site->{multisite} eq "on") { $Site->multisite_db_info(); }		# Get db info if we're on multisite
+	$Site->{script} = $Site->{site_url} . $ENV{'SCRIPT_NAME'};		# Find URL of this script	
+	
+										# If database is not empty, demand the reset_key
+										# Because this will wipe out the previous database
+											
+	my $dbh = DBI->connect("DBI:mysql:$Site->{database_name}:$Site->{database_loc}", 
+	$Site->{database_usr},$Site->{database_pwd}) or die "Database error $DBI::errstr";		
+	die "Reset key total fail" unless (test_reset_key($dbh));	
+
+	
+										# Load config info from database
+										# into the global $Site hash
+	my $config = &load_config($dbh);	
+
+								
+	
+	my $sn = "initialize.cgi";
+	my $cgi_url = $ENV{'SCRIPT_URI'}; $cgi_url =~ s/$sn//;
+	my $cgi_file = $ENV{'SCRIPT_FILENAME'}; $cgi_file =~ s/$sn//;
+
+
+	
+										# 3.1 Write a test cookie
+											
+	my $cookie_name = "cookie".$vars->{reset_key};
+	my $cookie1 = $query->cookie(-name=>$cookie_name,-value=>'OK',-expires=>'+1y',-domain=>$vars->{co_host},-secure=>0);
+	print $query->header(-cookie=>[$cookie1]);		
+	print "\n\n";		
+											
+	print &iheader("Configure Website");					# Print header
+	$vars->{pack} ||= "default";
+	print qq|<p style="margin-left:100px;">A test cookie has been written.<br/>
+		Host: $Site->{co_host} Name: $cookie_name  Value: OK <br/>
+		Using database $Site->{database_name}...<br>
+		Using data pack: |.ucfirst($vars->{pack}).qq|<br> |;		
+		
+									
+
+
+										# 3.2 Test and create site directories
+
+	print qq|<p style="margin-left:100px;">Creating Directories</p>|;
+	print qq|<p style="margin-left:200px;">|;	
+	&test_directory($Site->{st_urlf},"website pages");				# Test the document directory
+	&test_directory($Site->{st_data},"data");					# Test the data directory
+	my @subdirs = qw(assets archive css files images js logs stats uploads);	# Create and test the rest of the directories
+	foreach my $subdir (@subdirs) { 
+		&test_directory($Site->{st_urlf}.$subdir."/",$subdir);
+		&add_to_config($dbh,"st_".$subdir,$Site->{st_urlf}.$subdir."/");		
+	}
+	
+	my @asubsubdirs = qw(js css img ico);
+	foreach my $asubsubdir (@asubsubdirs) { 
+		&test_directory($Site->{st_urlf}."assets/".$asubsubdir."/",$asubsubdir);
+		&add_to_config($dbh,"up_".$asubsubdir,$Site->{st_urlf}.$asubsubdir."/");			
+	}	
+	
+	my @subsubdirs = qw(audio images video documents slides);
+	foreach my $subsubdir (@subsubdirs) { 
+		&test_directory($Site->{st_urlf}."files/".$subsubdir."/",$subsubdir);
+		&add_to_config($dbh,"as_".$subsubdir,$Site->{st_urlf}.$subsubdir."/");		
+	}	
+	
+
+	print "</p>";
+	
+										# 3.3 Build Site Database
+	print qq|<p style="margin-left:100px;">Building Site Database</p>|;
+	print qq|<p style="margin-left:200px;">|;										
+										
+										# 3.3.1 Determine Deafult and Pack Directory
+	my $bdir = $Site->{st_cgif}."sql/"; my $pdir = ""; 
+	if ($vars->{pack} eq "default") { $pdir = $bdir; }
+	else { $pdir = $Site->{st_cgif}."packs/".$vars->{pack}."/"; }
+	
+	if (-e $pdir."grsshopper_tables.sql") {					# 3.3.2 Build Table Structure
+		print "Running ".$pdir."grsshopper_tables.sql". "<br>";	
+		&run_sql_file($dbh,$pdir."grsshopper_tables.sql");
+	} else { 
+		print "Warning: ".$pdir."grsshopper_tables.sql". " not found<br>";
+		&run_sql_file($dbh,$bdir."grsshopper_tables.sql");
+	}
+
+										# 3.3.3 Create list of SQL files and run them
+										
+										# All files named in the default directory must be run
+										# but may be run from the packs direcrtory, if it exists there
+										# Any additional files in the packs directory are also run
+	
+	my @default_files = &get_dir_arr($bdir);									
+	my @pack_files = &get_dir_arr($pdir);
+	my %union; 
+	foreach my $e (@default_files, @pack_files) { $union{$e} = 1; } 	
+	my @union = sort keys %union;
+	foreach my $sqlfile (@union) { 
+		next if ($sqlfile =~ /grsshopper_config/);
+		next if ($sqlfile =~ /grsshopper_person/);		
+print "Looking for $pdir $sqlfile <br/>";		
+		if (-e $pdir.$sqlfile) { 
+print "Running print  $pdir $sqlfile <br/>";
+
+			&run_sql_file($dbh,$pdir.$sqlfile);}
+		else { &run_sql_file($dbh,$bdir.$sqlfile); }
+	}
+	print qq|</p>|;
+
+										# 3.4  Copy Assets
+										
+										# Assets include css, js, ico and image files
+										# and are either in cgi-bin/assets/ or in the pack
+										# assets subdirectory - we write the default first and
+										# then simply over-write with the pack versions, if
+										# they exist (can you imagine? Drupal does this on *every*
+										# page load)
+										
+	print qq|<p style="margin-left:100px;">Copying assets</p>|;
+	print qq|<p style="margin-left:200px;">|;										
+
+										# 3.4.1 Copy default assets
+
+	&copy_dir_recursively($vars->{st_cgif}."assets",$vars->{st_urlf}."assets",0);	
+	
+										# 3.4.2 Copy pack assets	
+	if ($vars->{pack} ne "default") {
+		if (-d $vars->{st_cgif}."packs/".$vars->{pack}."/assets") {
+			&copy_dir_recursively($vars->{st_cgif}."packs/".$vars->{pack}."/assets",$vars->{st_urlf}."assets",0);	
+		}
+	}								
+	print "</p>";
+										
+	
+
+		
+	
+	print qq|<p style="margin-left:100px; width:700px;">
+		Now I need to test the cookie I set. 
+		Please click the 'Next' button to continue the installation<br/><br/>
+	
+
+	<form  style="margin-left:100px;" method="post" action="initialize.cgi">
+		<input type="hidden" name="reset_key" value="$vars->{reset_key}">
+		<input type="hidden" name="action" value="confirm_cookie">
+		<input type="submit" name="Next" value="Next"></form><br/><br/>|;
+		
+	
+														
+	exit;
+
+
+											
+
+}
+
+#-----------------------------------------------------------------------------------------------------------------
+
+#      STEP 4  -  Confirm Cookie
+#
+#	Test the created cookie
+#	Create person table
+#	Create anonymous and admin people
+
+#-----------------------------------------------------------------------------------------------------------------
+
+
+
+sub confirm_cookie {
+							
+											
+										# Get Basic Site Information
+	
+	$Site = &site_config("initialize");					# Located at the top of grsshopper.pl
+	if ($Site->{multisite} eq "on") { $Site->multisite_db_info(); }		# Get db info if we're on multisite
+	$Site->{script} = $Site->{site_url} . $ENV{'SCRIPT_NAME'};		# Find URL of this script	
+	
+										# If database is not empty, demand the reset_key
+										# Because this will wipe out the previous database
+											
+	my $dbh = DBI->connect("DBI:mysql:$Site->{database_name}:$Site->{database_loc}", 
+	$Site->{database_usr},$Site->{database_pwd}) or die "Database error $DBI::errstr";		
+	die "Reset key total fail" unless (test_reset_key($dbh));	
+	
+										# Load config info from database
+										# into the global $Site hash
+	my $config = &load_config($dbh);
+		
+										
+
+										# 4.1 Write cookies for admin login
+	my $sessionid = $vars->{reset_key};
+	my $site_base = &get_cookie_base();
+	my $id_cookie_name = $site_base."_person_id";
+	my $title_cookie_name = $site_base ."_person_title";
+	my $session_cookie_name = $site_base ."_session";
+	my $cookie1 = $query->cookie(-name=>$id_cookie_name,-value=>'1',-expires=>'+1y',-domain=>$Site->{co_host},-secure=>0);
+	my $cookie2 = $query->cookie(-name=>$title_cookie_name,-value=>'admin',-expires=>'+1y',-domain=>$Site->{co_host},-secure=>0);
+	my $cookie3 = $query->cookie(-name=>$session_cookie_name,-value=>$sessionid,-expires=>'+1y',-domain=>$Site->{co_host},-secure=>0);			
+	print $query->header(-cookie=>[$cookie1,$cookie3,$cookie2]);
+	print "\n\n";
+	
+	my $cookie_name = "cookie".$vars->{reset_key};				# 4.2 Read test cookie and exit if it fails	
+	my $cookieval = $query->cookie($cookie_name);								
+										
+	print &iheader("Confirm Cookie");
+	print qq|<p style="margin-left:100px;width:700px">Reading test cookie...<br/>|;
+	unless ($cookieval eq "OK") {
+		print qq|Sadly, I could not read the text cookie. Please confirm that your browser
+			can read cookies. Then go back and make sure the cookie host name is correct.<br/>
+			<a href="initialize.cgi?action=create_db">Go Back</a>|;
+		exit;
+	}
+	print qq|It gives me great pleasure to say the cookie has been successfully read.<br/><br/>|;
+	
+
+										# 4.3 Build Person Table
+										
+										# Build the person table
+										# using sql/grsshopper_person.sql
+						
+	&run_sql_file($dbh,"sql/grsshopper_person.sql");	
+	
+	
+
+	
+										# 4.4 Create admin and anon users
+	my $admin_url = 'admin'.'@'.$Site->{st_url};						
+	my $encryptedPsw = &encryptingPsw("admin", 4);														
+	my $admin = gRSShopper::Person->new({person_id=>'1',person_title=>'admin',person_password=>$encryptedPsw,person_email=>$admin_url,person_mode=>$sessionid,person_status=>'admin'});
+	$admin->{person_id} = &db_insert($dbh,$query,"person",$admin);
+	print qq|<p style="margin-left:100px;">Created person number $admin->{person_id} 'admin'<br>|;
+	
+	my $anon_url = 'anymouse'.'@'.$Site->{st_url};															
+	my $anon = gRSShopper::Person->new({person_id=>'2',person_title=>'anymouse',person_password=>'anon',person_email=>$anon_url});
+	$anon->{person_id} = &db_insert($dbh,$query,"person",$anon);
+	print qq|Created person number $anon->{person_id} 'anymouse'</p>|;
+	
+														
+			
+
+
+										# 4.5 Publish the pages
+	$Site->{permission} = "initialize"; 										
+	&publish_page($dbh,$query,"all","initialize");										
+
+
+	print qq|<p style="margin-left:100px;"><b>Initialization has completed successfully</b><br/><br/>
+		You are now ready to visit the admin screen.<br/>
+		You should change your admin password as soon as possible.<br/>
+		Also, if you are satisfied with this installation, we <i>strongly</i> recommend that <br/>
+		you remove $Site->{st_cgif}initialize.cgi from your system, to prevent accidentally deleting your data.<br/><br/>
+		<a href="$Site->{st_cgi}admin.cgi">Click here</a> to enter the admin screen.</p>|;	
+	
+	
+	exit;
+}
+
+
+#-----------------------------------------------------------------------------------------------------------------
+#
+#
+#         Functions for Step 1
+#
+#
+#
+#-----------------------------------------------------------------------------------------------------------------
+
+sub db_create {
+	
+	print qq|<p style="margin-left:100px;">Attempting to create database <i>|.$Site->{database_name}."</i>.... <br>";
+	
+	my $dbh = DBI->connect("DBI:mysql::$Site->{database_loc}", $Site->{database_usr},$Site->{database_pwd})
+	or db_manual_create("Could not sign into the database engine");
+	
+	$dbh->do("create database $Site->{database_name}") or db_manual_create("Could not create the database");
+	$dbh->do( "use $Site->{database_name}" ) or &db_manual_create("Could not select the database");
+			
+	print "Created database <i>$Site->{database_name}</i>.</p>";
+	exit;
+	
+
+
+}
+
+#-----------------------------------------------------------------------------------------------------------------
+
+
+sub db_manual_create {
+	
+	my ($err) = @_;
+	print qq|<p style="margin-left:100px;">$err<br>
+		Either your credentials are incorrect or you must create this database manually.<br>
+		Please check your credentials at the top of the file grsshopper.pl <br>
+		If they are correct, please create the database manually using the database engine.
+		For MySQL help to do this, <a href="http://grsshopper.downes.ca/create_mysql_db.htm">click here</a></p>|;
+	print qq|<p style="margin-left:100px;">When you create a database you need to keep track of four pieces of 
+		information that may be created during this process. They are:<br>
+		- the database name <br>
+		- the database host (usually: localhost)<br/>
+		- the database user<br/>
+		- the database user's password<br/>
+		When the database is created, these values need to be placed into <i>grsshopper.pl</i> - 
+		there is a place to put them right at the top of the file.</p>|;
+	print &try_again_button();	
+		exit;
+		
+
+}
+#-----------------------------------------------------------------------------------------------------------------
+
+
+
+sub db_create_tables_err {
+
+	my ($sqlFile,$err) = @_;
+	print qq|<p style="margin-left:100px;">
+		I tried to create gRSShopper database tables but failed with error: $err <br/><br/>
+		I expected to find the file in the following location:
+		<i>|.$sqlFile.qq|</i> <br/>
+		Either this file was not found, could not be read, or contained SQL errors.|;
+		exit;
+	print &try_again_button();	
+	
+}
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub try_again_button {
+	
+	my ($cgi_file,$err) = @_;
+	
+	my $text = qq|<form  style="margin-left:100px;" method="post" action="initialize.cgi"> |;
+	while (my($vx,$vy) = each %$vars) { $text .= qq|<input type="hidden" name="$vx" value="$vy"></input>\n|; }
+	$text .= qq|<input type="submit" value="Try Again"></form>|;
+	return $text;
+}
+
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub test_reset_key {
+	
+	my ($dbh) = @_;
+	
+	my $query = "SELECT config_noun, config_value FROM config WHERE config_noun = 'reset_key' LIMIT 1";
+	my $sth = $dbh->prepare ($query);
+	$sth->execute ();
+	my ($config_noun, $config_value) = $sth->fetchrow_array ();
+	$sth->finish ();
+
+	if ($config_noun) { unless (($vars->{reset_key}) && ($vars->{reset_key} eq $config_value)) {
+
+		print qq|<p style="margin-left:100px;">Contents have been found in an existing database titled $Site->{database_name}<br><br>
+		This process will wipe out that content. Therefore, you must provide the reset key for this database before you can
+		proceed. This reset key can be found in the <a href="admin.cgi">site administration screen</a>.<br><br>
+		Enter the reset key to continue: <form method="post" action="initialize.cgi"  style="margin-left:100px;">
+		<input type="hidden" name="action" value="create_db">
+		<input type="password" name="reset_key"></input><input type="submit"></form></p>|;
+		exit;
+	} }
+	
+	return 1;
+	
+}
+
+
+
+#-----------------------------------------------------------------------------------------------------------------
+#
+#
+#         Functions for Step 3
+#
+#
+#
+#-----------------------------------------------------------------------------------------------------------------
+
+#
+#    load config
+#
+#    Loads config into $Site
+#    and convemiently returns them as well
+#    
+sub load_config {
+
+	my ($dbh) = @_; my $config;
+	my $sth = $dbh -> prepare("SELECT * FROM config") or die "load_config prepare_query failed";
+	$sth -> execute()  or die "load_config execute_query failed";;
+	while (my $c = $sth -> fetchrow_hashref()) { 
+		next unless ($c->{config_value});
+		
+		$Site->{$c->{config_noun}} = $c->{config_value};		
+		$config->{$c->{config_noun}} = $c->{config_value};
+	}
+	$sth->finish();
+	return $config;
+}
+
+
+
+
+# get_dir_arr
+#
+# returns an array of files in a dir
+
+sub get_dir_arr {
+	
+	my ($dir) = @_; my @files;
+	
+	opendir(DIR, $dir) or die "Directory $dir not found: $!";
+	while (my $file = readdir(DIR)) {
+		next if $file =~ /^\./;
+		next if (-d "$dir$file");
+		next if $file =~ /grsshopper_config/;
+		push @files,$file;
+	}
+	closedir(DIR);	
+	return @files;
+
+}
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub load_file {
+	
+	my ($loadfile,$indir,$destdir,$why) = @_;
+		
+	my $newfile;
+	my $infilename = $indir . $loadfile;
+	open (LOADFILE, "$infilename") or &file_read_error($infilename,$!,$why);
+	while (<LOADFILE>) { $newfile .= $_; }
+	close LOADFILE;
+	
+	if ($loadfile =~ /grsshopper/) {		# Customize gRSShopper.js file (which uses cookies)
+							# from config data, which we load in $why
+							
+		$newfile =~ s/\Q[*st_url*]\E/$Site->{st_url}/sig;		# base url
+		$newfile =~ s/\Q[*st_cgi*]\E/$Site->{st_cgi}/sig;		# cgi url
+		
+		my $site_base = &get_cookie_base();
+		my $title_cookie_name = $site_base ."_person_title";
+		my $admin_cookie_name = $site_base ."_admin";		
+		$newfile =~ s/\Q[*co_title*]\E/$title_cookie_name/sig;		# title cookie name
+		$newfile =~ s/\Q[*co_admin*]\E/$admin_cookie_name/sig;		# admin cookie name		
+	}
+	
+	my $outfilename = $destdir . $loadfile;
+	open (OUTFILE, ">$outfilename") or die "unexpected open error to output file $outfilename in load_file() $!";
+	print OUTFILE $newfile or die "unexpected write error to output file $outfilename in load_file() ?!";
+	close OUTFILE;
+	
+	unless ($why eq "silent") { print qq|Loaded $outfilename<br/>|; }
+	
+}
+
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub dir_error {
+
+	my ($dir,$err,$why) = @_;
+	print qq|Unable to create $dir</p>|;
+	print qq|<p style="margin-left:100px;">Error reported: $err</p>|;
+	print qq|<p style="margin-left:100px;">This directory needs to be created in order to hold
+		$why but gRSShopper could not create the directory.<br>The directory needs to be created
+		manually. Note that the web server will need permission to write in this directory.
+		<br/><br/>On Linux servers, try:  <i>mkdir $dir</i> 
+		<br/> and then try to continue by reloading this page.  </p>|;
+	print &try_again_button();	
+	exit;
+}
+
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub dir_write_error {
+
+	my ($dir,$action,$err,$why) = @_;
+	print qq|Unable to $action $dir</p>|;
+	print qq|<p style="margin-left:100px;">Error reported: $err</p>|;
+	print qq|<p style="margin-left:100px;">The directory $dir exists but the web server is not able
+		to $action it. The web server will need permission to write in this directory.<br/><br/>
+		On Linux servers, try:  <i>chown apache $dir</i><br/>
+		and then try to continue by reloading this page. </p>|;
+	print &try_again_button();
+	exit;
+}
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub file_read_error {
+
+	my ($file,$err,$why) = @_;
+	
+	my $sn = "initialize.cgi";
+	my $cgi_file = $ENV{'SCRIPT_FILENAME'}; $cgi_file =~ s/$sn//;
+	
+	print qq|<br/>Unable to read $file</p>|;
+	print qq|<p style="margin-left:100px;">Error reported: $err</p>|;
+	print qq|<p style="margin-left:100px;">This file is needed to $why.<br/>
+		I expected it to be in the same directory as this script, that is, in $cgi_file
+		<br>Please check to make sure that the file is there and can be read by
+		this script and then try again. </p>|;
+	print &try_again_button();
+	exit;
+}
+
+
+#-----------------------------------------------------------------------------------------------------------------
+
+
+sub test_directory {
+	
+	my ($dir,$why) = @_;
+
+	if (-d $dir) {	
+		print qq|Found: $dir<br/>|; 
+	} else {	
+		mkdir "$dir" or &dir_error($dir,$!,$why);
+		print qq|Created $dir<br/>|;	
+	}
+	
+	my $testfile = $dir . "index.htm"; 	
+	return if (-e $testfile);	
+print qq|File $testfile doesn't exist<br/>|;					
+	open DOCOUT,">$testfile" or dir_write_error($dir,"create a file $testfile in",$!,$why);
+	print DOCOUT "Welcome to gRSShopper" or dir_write_error($dir,"write to $testfile a file in",$!,$why);
+	close DOCOUT;
+	
+}
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub add_to_config {
+	
+	my ($dbh,$noun,$value) = @_;
+	my $sql = "INSERT INTO config (config_noun,config_value) VALUES (?,?)"; 
+	my $sth = $dbh->prepare($sql)  or die "Cannot prepare: " . $dbh->errstr();
+	$sth->execute($noun,$value) or die "Cannot execute: " . $sth->errstr();	
+
+	
+}
+
+
+#-----------------------------------------------------------------------------------------------------------------
+#
+#
+#         Functions for Step 4
+#
+#
+#
+#-----------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+sub copy_dir_recursively($from,$to) {
+	 
+        my ($from,$to,$count) = @_;
+     
+        my (@dirs,@files);
+        $count++;
+        die "Runaway recursion" if ($count > 100);
+       
+        # Make the subdirectories
+        opendir(DIR,$from) || die "cannot open the directory $from: $!\n";
+        @dirs=grep {!(/^\./) && -d "$from/$_"} readdir(DIR);
+        closedir (DIR);
+        foreach my $dir (@dirs)  {
+        	
+        	my $newfrom = $from."/".$dir;
+        	my $newto = $to."/".$dir;
+        	
+        	unless ($count > 0) { 
+        		for (0..$count) { print "&nbsp;&nbsp;"; }
+			print "$dir <br>";
+		}
+                mkdir ($newto) unless -d $newto;
+		&copy_dir_recursively($newfrom,$newto,$count);
+
+        }
+        
+        # Copy the files
+        my $mode; if ($count > 1) { $mode = "silent"; } else { $mode = " as a javascript function"; }
+        opendir(DIR,$from) || die "cannot open the directory $from: $!\n";
+        @files=grep {!(/^\./) && -f "$from/$_"} readdir(DIR);
+        closedir (DIR);
+        foreach my $f (@files) {
+        	my $todir = $to . "/";        	
+        	my $fromdir = $from . "/";
+       	
+		&load_file($f,$fromdir,$todir,$mode);	 	
+        }
+        return 1;
+}
+
+
+
+#
+#       run_sql_file
+#
+#     	Yes, I know I could just do $dbh->do(sqlfile)
+#       but doing it this way sports and reports errors line by line
+#
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub run_sql_file {
+	
+	my ($dbh,$sqlFile) = @_;
+
+
+	# Open the file that contains the various SQL statements
+	# Assuming one SQL statement per line
+
+	unless (-e $sqlFile) {	&db_create_tables_err($sqlFile,"Could not find SQL file"); }	
+
+	open (SQLFILE, "$sqlFile") or &file_read_error($sqlFile,$!,"load SQL tables into the database");
+	
+	# Loop though the SQL file and execute each and every one.
+	my @sqllines;
+	my $sqlline = "";
+	while (<SQLFILE>) {
+		chomp;
+		my $l = $_;
+		$l =~ s/\n//;$l =~ s/\r//;
+		next if ($l =~ /^\/\*/);
+		next if ($l =~ /^--/);	
+		$sqlline .= $l;			
+		if ($sqlline =~ /;(.*?)$/) {
+			push @sqllines,$sqlline;
+			$sqlline = "";
+		}
+	}
+	close SQLFILE;
+
+
+	foreach my $sqlStatement (@sqllines) {
+		my $sth = $dbh->prepare($sqlStatement) or die "Can't prepare $sqlStatement";
+#print $sqlStatement."<br>";		
+		$sth->execute() or print "Can't execute $sqlStatement because $dbh::errstr";
+		die "Database initializaton failed: $dbh::errstr\n" if $dbh::err;
+	}	
+	
+	# print "$sqlFile run successfully.<br/>";
+	
+}
+
+
+
+#
+# Don't Delete these
+# They're actually used by gRSShopper.pl
+#
+
+# -------   Header ------------------------------------------------------------
+
+sub header {
+
+	my ($dbh,$query,$table,$format,$title) = @_;
+	my $template = "admin_header";
+
+	return &template($dbh,$query,$template,$title);
+
+}
+
+# -------   Footer -----------------------------------------------------------
+
+sub footer {
+
+	my ($dbh,$query,$table,$format,$title) = @_;
+	my $template = "admin_footer";
+	return &template($dbh,$query,$template,$title);
+
+}
+
+

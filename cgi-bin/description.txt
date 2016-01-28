@@ -1,0 +1,3 @@
+This is a basic initialization pack. It defines the database tables and some key elements such
+as the admin and anonymous users, views and templates, and some basic pages, along with essential
+system Javascript and CSS files and UI images and icons.
