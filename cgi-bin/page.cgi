@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
-#    gRSShopper 0.3  Page  0.41  -- gRSShopper administration module
-#    29 July 2011 - Stephen Downes
+#    gRSShopper 0.3  Page  0.5  -- gRSShopper administration module
+#    12 January 2016 - Stephen Downes
 
 #    Copyright (C) <2011>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -143,6 +143,7 @@ unless ($table || $action || $api) {				# Default to Home
 
 
 
+
 # Actions ------------------------------------------------------------------------------
 
 
@@ -232,18 +233,26 @@ exit;
 #-------------------------------------------------------------------------------
 
 
-	
-sub counter {
+sub record_hit($table,$id) {
 
+	my ($table,$id) = @_;
+return unless ($table eq "post");
+	my $hits = &db_increment($dbh,$table,$id,"hits");		# Old school
+	my $total = &db_increment($dbh,$table,$id,"total");		# Increment Hit Counter	
+	return ($hits,$total);							# Return new values
+
+}
+
+	
+sub api_counter {
+
+	# Increment Counter
 	my ($dbh,$query,$table,$id) = @_;
-	print "Content-type:text/html\n\n";
-	
-	my $hits = &db_increment($dbh,$table,$id,"hits");		# old school
-	my $total = &db_increment($dbh,$table,$id,"total");		#  Increment Hit Counter	
+	my ($hits,$total) = &record_hit($table,$id);
 
-	
+	# Return New Values
+	print "Content-type:text/html\n\n";
 	print qq|document.write("Page counter $table $id - $hits today, $total total");|;
-	
 
 	exit;
 }
@@ -253,57 +262,22 @@ sub redirect {
 
 	my ($dbh,$query,$table,$id) = @_;
 
-	&db_increment($dbh,$table,$id,"hits");		# old school
-	&db_increment($dbh,$table,$id,"total");		#  Increment Hit Counter	
+	# Increment Counter
+	my ($dbh,$query,$table,$id) = @_;
+	my ($hits,$total) = &record_hit($table,$id);
 
 	my $linkfield = $table."_link";
 	
 	my $target = db_get_single_value($dbh,$table,$linkfield,$id);
 	$target =~ s/&amp;/&/g;	
 	unless ($target) { $target = $Site->{st_url}.$table."/".$id; }
-
- #    $target = qq|https://edfutureqa.desire2learn.com/d2l/home/6611|;
-				 	
-	# Implement D2L REST API
-	
-	if ($Person->{person_id} && $Person->{person_id} ne "2") {
-
-		if ($Site->{st_url} =~ /edfuture/) {		# Site-specific Need a better thing here
-		
-			if ($target =~ /d2l/) {			# URL-specific - Need a better thing here
-	
-				my $sitekey = qq|A48506F1-7AE3-4C90-9891-C4E6F662F0BC|;
-				my $apiurl = "https://edfuture.desire2learn.com";
-				my $apipath = "/d2l/api/custom/1.1/ssowithcreateandenroll/authUser/".$sitekey;
-				
-		
-				my ($first,$last) = &first_last_name();
-				&error($dbh,"","","fatal error, first and last name not found on D2L redirect: $first, $last") 
-					unless ($first && $last);
-				&error($dbh,"","","fatal error, email address not found on D2L redirect") 
-					unless ($Person->{person_email});	
-				my $data = {
-					UserName => $Person->{person_title},
-					FirstName => $first,
-					LastName => $last,
-					Email => $Person->{person_email}
-				};
-		
-
-				my $redirect = &api_send_rest($dbh,$query,$apiurl,$apipath,$data,$target);
-	
-				print "Content-type: text/html\n";
-				print "Location: $redirect\n\n";
-			}
-		}
-
-	}
-	
 	
 	print "Content-type:text/html\n";
 	print "Location: $target\n\n";
 	exit;
 }
+
+
 
 # First-Last Name 
 # 
@@ -834,8 +808,10 @@ sub output_record {
 
 	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id_number});
 	if  ($record->{post_type} =~ /comment/i) { die "No longer printing comments"; }
-	if ($table eq "post") { &db_increment($dbh,$table,$id,"hits");	}	# old school
-	if ($table eq "post") { &db_increment($dbh,$table,$id,"total");	}	#  Increment Hit Counter	
+
+
+	# Increment Counter
+	my ($hits,$total) = &record_hit($table,$id_number);	
 						
 	
 	if ($format eq "viewer") {						# Viewer
@@ -938,6 +914,13 @@ sub output_record {
 
 		my $header_template = "page_header";
 		my $footer_template = "page_footer";
+		
+		if ($table eq "presentation") {
+			$header_template = "presentation_header";
+			$footer_template = "presentation_footer";	
+		}
+		
+
 		
 		unless ($page_format =~ /html/i) { 
 		
@@ -1054,7 +1037,11 @@ sub output_header {
 
 sub output_comment_form {
 	
+	# Comments Disabled
+	return;
+
 	my ($record,$comment) = @_;
+	
 	
 	$createcode = $Person->{person_id} . time;
 	return qq|

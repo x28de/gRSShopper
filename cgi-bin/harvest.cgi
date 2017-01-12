@@ -2,8 +2,8 @@
 use strict;
 
 print "Content-type: text/html; charset=utf-8\n\n";
-
-
+use CGI::Carp qw(warningsToBrowser fatalsToBrowser); 
+our $DEBUG = 1;							# Toggle debug
 
 ## use padre_syntax_check
 
@@ -66,6 +66,9 @@ $vars->{format} ||= "html";			# Determine Output Format
 
 &diag(1,"<hr><center>gRSShopper HARVESTER</center><hr><br/>Action: $action <p>\n\n");
 
+# Don't keep big MP3s, they'll just fill up the hard drive
+&clean_podcast_directory($Site->{st_urlf}."files/podaudio",30); 
+
 for ($action) {					# There is always an action
 
 	/queue/ && do { &harvest_queue(); last; 		};
@@ -83,6 +86,9 @@ for ($action) {					# There is always an action
 	exit;
 
 }
+
+
+	
 
 if ($dbh) { $dbh->disconnect; }		# Close Database and Exit
 
@@ -150,7 +156,9 @@ sub harvest_feed {
 	
 	
 	if ($feedrecord->{feed_type} =~ /twitter/i) {
-		&twitter_harvest($feedrecord);
+		&harvest_twitter($feedrecord);
+	} elsif ($feedrecord->{feed_type} =~ /facebook/i){
+		&harvest_facebook($feedrecord);
 	} else {
 		&get_url($feedrecord,$feedid);
 	}
@@ -158,6 +166,7 @@ sub harvest_feed {
 	&harvest_process_data($feedrecord);	
 	
 }
+
 
 
 # -------   Harvest URL ------------------------------------------------------
@@ -175,9 +184,44 @@ sub harvest_url {
 	
 }
 
+# -------   Harvest Facebook ------------------------------------------------------
+
+sub harvest_facebook {
+	
+	my ($feedrecord) = @_;			# data is stored in $feedrecord->{processed};
+						# and processed in &save_records()	
+	print "Content-type: text/html\n\n";
+	
+	unless ($Site->{fb_app_secret} && $Site->{fb_app_id} && $Site->{fb_postback_url}) { 
+		print "facebook harvest is not supported."; exit; } 
+	use Net::Facebook::Oauth2;
+		
+	my $fbp = &facebook_session(); 
+	
+	my $fbp = Net::Facebook::Oauth2->new(
+		application_secret     	=> $Site->{fb_app_secret} , 
+		application_id          => $Site->{fb_app_id},
+		callback          	=> $Site->{fb_postback_url},
+		access_token		=> $Site->{fb_token}
+	);
+
+	      
+        print "<p>Page: $feedrecord->{feed_link}</p>";
+
+                my $info = $fbp->get($feedrecord->{feed_link} );
+
+  #      print $info->as_json;
+        $feedrecord->{feedstring} = $info->as_json;
+       	&harvest_process_data($feedrecord);
+        exit;
+}
+
+
+
+
 # -------   Harvest Twitter ------------------------------------------------------
 
-sub twitter_harvest {
+sub harvest_twitter {
 	
 	my ($feedrecord) = @_;			# data is stored in $feedrecord->{processed};
 						# and processed in &save_records()
@@ -268,7 +312,7 @@ sub harvest_process_data {
 	
 	my ($feedrecord) = @_;
 
-	if ($feedrecord->{feed_type} =~ /json/i) {
+	if ($feedrecord->{feed_type} =~ /json|facebook/i) {
 		&diag(1,"Feed is JSON<br>\n")
 		&parse_json($feedrecord);
 	} elsif ($feedrecord->{feedstring} =~ /^BEGIN:VCALENDAR/) {
@@ -282,7 +326,6 @@ sub harvest_process_data {
 		&diag(1,"<form><textarea cols=80 rows=20>$feedrecord->{feedstring}</textarea></form> <br>\n");
 		return;
 	}
-	
 	
 
 
@@ -311,46 +354,112 @@ sub parse_json {
 	my ($feedrecord) = @_;
 	
 	# print "FEED RECORD ".$feedrecord->{crdate}."<p>";
-	
+print "Content-type: text/html\n\n";	
+print "Title: $feedrecord->{feed_title}<p>";
 	
 	use JSON qw( decode_json );
 	
-	my $decoded = decode_json($feedrecord->{feedstring});
+	my $decoded = decode_json($feedrecord->{feedstring});		# Decode JSON
 	$feedrecord->{processed}->{type} = "feed";
-	my $parent = $feedrecord->{processed};
-#print $decoded;	
-	my ($printout,$counter) = &json_hash($parent,$decoded,0);
-	# print $printout;
+
+#print "DECODED JSCON<p>";		
+
+#while (my($fx,$fy) = each %$decoded) { print "$fx = $fy <br>"; }
+#print "<hr>";
+	
+	my $parent; my $start;							# Define Starting Point
+	$parent = $feedrecord->{processed};
+	$parent->{feed_type} = $feedrecord->{feed_type};
+	if ($feedrecord->{feed_type} =~ /facebook/i) {
+		$start = $decoded->{data};
+		$feedrecord->{processed}->{type} = "feed";
+	}  else {
+		$start = $decoded;
+		$feedrecord->{processed}->{type} = "feed";
+		
+	}
+	
+	
+	
+	
+	
+	
+# "parent $parent  ---  ".ref($parent)."<p>";	
+
+	my $printout; my $counter;					# Process Data
+	if (ref($start) eq "ARRAY") {
+		($printout,$counter) = &json_array($parent,$start,0,"item");
+	} elsif (ref($start) eq "HASH") {
+		($printout,$counter) = &json_hash($parent,$start,0);
+	}
+	
 	
 
+#	 print $printout;
 	
-	
-#print "Content-type: text/html\n\n";
+
+
+
+
+	print "ITEMS: <br>";
+	foreach my $item (@{$feedrecord->{processed}->{items}}) {
+# print "IteM: $item->{name} <hr>";	
+# while (my($ix,$iy) = each %$item) { 	print "$ix=$iy<br>"; }
+# print "<hr>";
+
+	}
+
+
 #print "Parsong JSON<p>";	
 #print "<form><textarea cols=80 rows=20>$feedrecord->{feedstring}</textarea></form> <br>\n";	
+
+#exit;
 }
 
 
 sub json_array {
-	my ($parent,$arr,$counter,$jo) = @_;
+	my ($parent,$arr,$counter,$ji) = @_;
+
 	$counter++;
+	my $record = ""; my $newparent = $parent;	
 	my $tab = "&nbsp;&nbsp;&nbsp;"x$counter;
 
 	my $arraystring = "";my $separator=";";
 	foreach my $a (@$arr) {
 		
-		if (my $jo = &json_objects($a)) {
-			# print "Found a $jo <br>"
+			
+		if ($ji) { 
+
+			$record = gRSShopper::Record->new(tag => $ji,parent => $parent);
+			$record->{tag} = $ji; 
+			$record->{type} = $ji;
+			$record->{feed_type} = $parent->{feed_type};
+			$newparent = $record;	
+# print "<br>Found a $record->{type} in $parent->{type} and created a new record ";		
+			&json_associate($parent,$record);		
+
 		}
 		
-		if (ref($a) eq "HASH") { $separator="<br>";($a,$counter) = &json_hash($parent,$a,$counter,$jo); }
-		if (ref($a) eq "ARRAY") { $separator="<br>";($a,$counter) = &json_array($parent,$a,$counter,$jo); }
+		my $jo;
+		if ($jo = &json_objects($a)) {
+			 print "Found a $jo <br>"
+		}
+		
+		
+		
+		
+		if (ref($a) eq "HASH") { $separator="<br>";($a,$counter) = &json_hash($newparent,$a,$counter,$jo); }
+		elsif (ref($a) eq "ARRAY") { $separator="<br>";($a,$counter) = &json_array($newparent,$a,$counter,$jo); }
+		else { 
+			print "Hmmm.... $a <p>";
+		}	
 	}
 	$arraystring = join($separator,@$arr);
 	
 	$counter--;
 	return ("<br>".$tab.$arraystring."<br>",$counter);
 }
+
 
 
 sub json_hash {
@@ -362,12 +471,13 @@ sub json_hash {
 	my $hashstr = "";my $separator="=";
 	
 	if ($ji) { 
-		# print "<br>Found a $ji in $parent->{type} ";
+		
 		$record = gRSShopper::Record->new(tag => $ji,parent => $parent);
+		$record->{feed_type} = $parent->{feed_type};		
 		$record->{tag} = $ji; 
 		$record->{type} = $ji;	
 		$newparent = $record;	
-		# print "<br>Found a $record->{type} in $parent->{type} ";		
+# print "<br>Found a $record->{type} in $parent->{type}  and created a new record<br>";		
 		&json_associate($parent,$record);		
 	
 	} 
@@ -378,12 +488,11 @@ sub json_hash {
 		$separator="=";
 		my $jo = &json_objects($j);
 		if (ref($hashin->{$j}) eq "HASH") { $separator="=<br>";($k,$counter) = &json_hash($newparent,$hashin->{$j},$counter,$jo); }
-		if (ref($hashin->{$j}) eq "ARRAY") { $separator="=<br>";($k,$counter) = &json_array($newparent,$hashin->{$j},$counter,$jo); }
+		elsif (ref($hashin->{$j}) eq "ARRAY") { $separator="=<br>";($k,$counter) = &json_array($newparent,$hashin->{$j},$counter,$jo); }
 		else { 
 			my $prefix; if ($newparent->{type} eq "item") { $prefix = "link"; } else { $prefix = $newparent->{type}; }			
-			unless ($j eq "type") {
-				$newparent->{$prefix."_".$j} = $k;
-			}
+			$newparent->{$prefix."_".$j} = $k;
+#print ">> $j = $k <br>";			
 		}		
 		
 
@@ -393,13 +502,37 @@ sub json_hash {
 		
 	}
 
-	if ($newparent->{type} eq "item") {
-		$newparent->{link_link} = $newparent->{link_url};
-		$newparent->{link_description} = $newparent->{link_abstract};	
+	if ($newparent->{type} eq "item") {										# Facebook
+		if ($newparent->{feed_type} =~ /facebook/i) {
+			
+			$parent->{link_title} = $newparent->{link_message};				# Title	
+			my @titarr = split /[,?\.]/,$newparent->{link_title};					
+			$newparent->{link_title} = $titarr[0];			
+			
+			
+			$newparent->{link_description} = $newparent->{link_message};		# Descrioption
+			$newparent->{link_description} = substr( $newparent->{link_description}, 0, 255);
+		
+			$newparent->{link_content} = $newparent->{link_message};			# Content		
+			
+			my ($usr,$postn) = split /_/,$newparent->{link_id};					# Link
+#print "Linkdata $usr $postn <br>";			
+			$newparent->{link_link} = "https://www.facebook.com/$usr/posts/$postn";
+#print "Link: $newparent->{link_link}  <p>";			
+					
+		} else {
+			$newparent->{link_link} = $newparent->{link_url};				# DOAJ
+			$newparent->{link_description} = $newparent->{link_abstract};		# DOAJ
+		}
 	}
+	
+	
+	$newparent->{link_id} = "";												# Don't pass on ID
+																			
 	while (my ($a,$b) = each %$newparent) { 
 		# print "$a = $b <br>"; 
 	}
+			
 			
 	$counter--;
 
@@ -413,20 +546,40 @@ sub json_hash {
 
 sub json_objects {
 	
-	my ($check) = @_;
-	my $translate = {
-		'item' => 'bibjson',
-		'author' => 'author',
-		'feed' => 'journal',
-	};
+	my ($check,$parent) = @_;
+	
+#print "Checking objcets, $check  <br>";	
+	my $translate;
+	if ($parent eq "doaj" ) {
+		$translate = {
+			'item' => 'bibjson',
+			'author' => 'author',
+			'feed' => 'journal',
+
+		};
 		
+	} else {
+	
+		$translate = {
+			'author' => 'from',
+			'action' => 'actions',
+			'application' => 'application',
+			'privacy' => 'privacy',
+			'likes' => 'likes',
+			'shared' => 'shares',
+			'comments' => 'comments',
+		};	
+	}
+	
 	while ( my ($i,$j) = each %$translate) {
+		
 		if ($check eq $j) { return $i; }
 	} 
 	
 	return 0;
 	
 }
+
 
 sub json_associate {
 	
@@ -508,14 +661,14 @@ sub parse_feed {
 		
 		if ($tag =~ s/^\///) {					# If it's a close element tag
 					
-			&element_close($feedrecord,$tag);			#     Close Element
+			&element_close($feedrecord,$tag,$feedrecord);			#     Close Element
 
 		} else {						# Otherwise
 	
 			&element_open($feedrecord,$tag);			#     Open Element	
 	
 			if ($attributes =~ /(.*?)(\/|\?)$/) {		# Single-line element, close here
-				&element_close($feedrecord,$tag);		#     Close Element
+				&element_close($feedrecord,$tag,$feedrecord);		#     Close Element
 			}
 		}		
 		
@@ -662,6 +815,7 @@ sub element_open {
 	if (my $type = &detect_object($tag)) {
 	
 		my $record = gRSShopper::Record->new(tag => $tag,parent=>$feed);
+		print "New record created, type = $type, from element_open($tag) <br>";
 		$record->{attributes} = $feed->{attributes_buffer};
 		unshift @{$feed->{objectstack}},$record;
 	} 
@@ -680,7 +834,7 @@ sub element_open {
 sub element_close {
 	
 	# shouldn't I be getting the feedrecord here?
-	my ($feed,$tag) = @_;
+	my ($feed,$tag,$feedrecord) = @_;
 		
 	my $child = ${$feed->{objectstack}}[0];	
 	my $parent = ${$feed->{objectstack}}[1];
@@ -697,11 +851,21 @@ sub element_close {
 #	&diag(1," $tag - $type - $feed->{content_buffer} <br>\n");
 
 	if ($type eq "link") {
+		
+											
+		
 		push @{$parent->{items}},$child;
 		my $att = process_attributes($child->{attributes});      		# Sometimes 'entry' has attributes
 		if ($att->{'gd:etag'}) { $child->{link_gdetag} = $att->{'gd:etag'}; }	# gd:etag
 		
-		&diag(9," - - Saving $child->{type}, to $parent->{type}<p>\n\n");
+		print " - - Saving $child->{type}, to $parent->{type}<p>\n\n" if ($DEBUG > 0);
+		
+		
+						
+
+		
+		
+											# OK, now close the link :)
 		
 	}
 	
@@ -719,7 +883,28 @@ sub element_close {
 		if ($att->{url}) { $child->{media_url} = $att->{url}; }
 		if ($att->{medium}) { $child->{media_type} = $att->{medium}; }
 			
-		&diag(9," - - Saving $child->{type}, to $parent->{type}<p>\n\n");
+		print " - - Saving $child->{type}, to $parent->{type}<p>\n\n" if $DEBUG > 0;
+		# Capture Podcast from YouTube Videos
+		# We only run the conversion once, when we capture the link for the first time
+
+		if (($parent->{link_link} =~ m|youtube\.com|) && ($feedrecord->{feed_section} eq "podcast")) {
+			print "Content-type: text/html\n\n";
+			print "This is a podcast! Creating audio out of the video: $child->{link_link}<p>";
+
+			my ($purl,$plength) = &youtube_to_podcast($parent->{link_link});
+			if ($purl) {
+				if ($purl =~ /^Error/) { print $purl,"<br>"; }
+				else {
+					$child->{media_medialink} = $att->{url};
+					$child->{media_url} = $purl;
+					$child->{media_length} = $plength;
+					$child->{media_mimetype} = "audio/mpeg";
+					$child->{media_feed} = $feedrecord->{feed_id};
+				}
+			}
+			
+		}			
+		
 	}
 
 	elsif (&detect_content($tag)) {  						# Content Tags
@@ -893,6 +1078,9 @@ sub element_close {
 			/^pingback:server$/i && do  { _pingback_erver($child,$feed->{content_buffer}); last; };
 			/^pingback:target$/i && do  { _pingback_target($child,$feed->{content_buffer}); last; };			
 
+			# ppg
+			/^ppg:canonical$/i && do  { _ppg($child,$feed->{content_buffer}); last; };
+			
 			# pubDate
 			/^pubDate$/i && do  { _pubDate($child,$feed->{content_buffer}); last; };	
 
@@ -1086,10 +1274,12 @@ sub save_records {
 			
 	my ($feedrecord) = @_;
 	
-print "FEED RECORD ".$feedrecord->{crdate}."<p>";
+print "FEED RECORD ".$feedrecord->{feed_crdate}."<p>";
 		
 	
 	my $feed = $feedrecord->{processed};
+
+
 	unless ($feed->{items}) {
 		&diag(0,"Feed has no items<br>\n");
 		return;
@@ -1103,6 +1293,7 @@ print "FEED RECORD ".$feedrecord->{crdate}."<p>";
 	
 	# Fill out feed elements from feed record in DB	
 	while (my ($fx,$fy) = each %$feedrecord) {	
+		next if ($fx =~ /_issued|_updated|lastBuildDate|pubDate/);	# Don't preserve previous update dates
 		$feed->{$fx} ||= $fy;
 	}	
 	
@@ -1133,7 +1324,7 @@ print "FEED RECORD ".$feedrecord->{crdate}."<p>";
 		&find_feed_information($item);				# Find feed info that might be in the item record
 		&find_author_information($feedrecord,$feed,$item);				# Find authors and save as appropriate
 		
-		&find_media_information($feedrecord,$feed,$item);				# Find media and save as appropriate	
+		&find_media_information($feedrecord,$feed,$item,"save_records");				# Find media and save as appropriate	
 		
 		&find_link_information($feedrecord,$feed,$item);				# Find media and save as appropriate	
 		
@@ -1154,6 +1345,15 @@ print "FEED RECORD ".$feedrecord->{crdate}."<p>";
 	
 	}			
 	
+	# Feed was updated on....
+	
+	$feed->{feed_updated} ||= $feed->{feed_issued};
+	$feed->{feed_updated} ||= $feed->{feed_pubDate};
+	$feed->{feed_updated} ||= $feed->{feed_lastBuildDate};	
+	
+print "Feed Data<br/><br/>";	
+while (my($fx,$fy) = each %$feed) { next if ($fx eq "feedstring"); next unless ($fy); print "$fx = $fy <br>"; }
+
 	&save_feed($feedrecord,$feed);							# Save feed
 	
 }
@@ -1222,7 +1422,7 @@ sub save_item {
 	
 	
 									
-	if ($item->{link_id}) {
+	if ($item->{link_id}) { 
 		my $ti = &db_get_record($dbh,"link",{link_id=>$item->{link_id}});
 		unless ($ti->{link_orig} eq "yes") {
 	
@@ -1232,12 +1432,15 @@ sub save_item {
 					<a href="$Site->{st_url}link/$item->{link_id}">$item->{link_title}</a><br/>\n|);	
 			}
 		}
-	} else {
+	} else { 
 		if ($item->{link_link}) {			
 			$item->{link_id} = &db_insert($dbh,$query,"link",$item);
 			&diag(1,qq|Save Item  
 				<a href="$Site->{st_url}link/$item->{link_id}">$item->{link_title}</a><br/>\n|);	
 		}
+		
+		
+		 
 	}
 }	
 
@@ -1286,7 +1489,7 @@ sub save_feed {
 	
 								# Verify and save feed media
 	foreach my $media (@{$feed->{media}}) {
-		&find_media_information($feedrecord,$media);
+		&find_media_information($feedrecord,$media,"","save_feed");
 	}
 	
 	foreach my $author (@{$feed->{authors}}) {		# Author graph
@@ -1344,11 +1547,17 @@ sub save_link {
 
 sub save_media {
 	
-	my ($feedrecord,$media) = @_;
+	my ($feedrecord,$media,$from) = @_;
 
+	# Save audio files
+	print "<br>Saving media record<br>URL: $media->{media_url} from $from<br>" if $DEBUG > 0;
 	&replace_cdata($feedrecord,$media);						# Replace CDATA	
 	if($media->{media_url}) {
-print "Saving media:<br>"; while (my($mx,$my) = each %$media) { print "$mx = $my<br>"; }
+		
+		if ($DEBUG > 1) {
+			print "Media data:<br>"; 
+			while (my($mx,$my) = each %$media) { print "$mx = $my<br>"; }
+		}
 		
 		$media->{media_creator} = $Person->{person_id};
 		$media->{media_crdate} = time;
@@ -1361,7 +1570,7 @@ print "Saving media:<br>"; while (my($mx,$my) = each %$media) { print "$mx = $my
 	
 	# Save audio files
 	if ($Site->{st_audio_dl} eq "yes") {
-		print "Downloading audio<br>";
+		print "<br>Downloading audio files<br>URL: $media->{media_url} <br>" if $DEBUG > 0;
 		
 		my $default_audio_dir = "files/podaudio/";					# Establish audio download directory
 		my $audio_dir = $Site->{audio_download_dir} || $default_audio_dir;
@@ -1373,13 +1582,13 @@ print "Saving media:<br>"; while (my($mx,$my) = each %$media) { print "$mx = $my
 		$filename = $Site->{st_urlf}.$audio_dir. $filename;
 		my $flink = $Site->{st_url}.$Site->{audio_download_dir} . $filename;
 		
-print qq|URL: $media->{media_url} <br>File: <a href="$flink">$filename</a> <p>|;
-		
-		
 		use LWP::Simple;
-		getstore($media->{media_url}, $filename);
+		getstore($media->{media_url}, $filename) or print "Error downloading file. $! <br>";
+		
+		print qq|Saved URL: $media->{media_url} <br>To File: <a href="$flink">$filename</a> <p>|  if $DEBUG > 0;
+
 	}
-	
+	print "<br>Done saving media record<br>URL: $media->{media_url} <br>" if $DEBUG > 0;
 	
 }
 
@@ -1742,7 +1951,7 @@ sub find_link_information {
 
 sub find_media_information {
 	
-	my ($feedrecord,$feed,$item) = @_;
+	my ($feedrecord,$feed,$item,$from) = @_;
 	
 	foreach my $imedia (@{$item->{media}}) {			# Flow item values to item media
 		&diag(2,"Media: ");
@@ -1752,7 +1961,7 @@ sub find_media_information {
 			next; }						# Skip existing media
 
 		$imedia->{media_title} = $feed->{feed_title}.": " . $item->{link_title};		
-		&save_media($feedrecord,$imedia);					# Save new media
+		&save_media($feedrecord,$imedia,$from);					# Save new media
 	}
 	
 }
@@ -1857,9 +2066,7 @@ sub scrape_links {
 	my ($feed,$item,$scrapetext) = @_;
 	
 
-	&diag(5,"Scraping Links for $item->{link_title}<br>\n");
-
-# Can't use string (" href="http://fnoschese.wordpres") as a HASH ref while "strict refs" in use at /var/www/cgi-bin/harvestx.cgi line 715.
+	print "Scraping Links for $item->{link_title}<br>\n" if $DEBUG > 1;
 
 	while($scrapetext =~ m/<a(.*?)>(.*?)</ig) {
 		
@@ -1884,7 +2091,7 @@ sub scrape_links {
 				link_link=>$att->{href},link_title=>$title);   	
 			push @{$item->{links}},$link;	
 
-			&diag(6,qq|-- Found link: <a href="$att->{href}">$link->{link_title}</a> ) <br>\n|);
+			print qq|-- Found link: <a href="$att->{href}">$link->{link_title}</a> ) <br>\n| if $DEBUG > 1;
 			
 		} else {						# save as media
 			
@@ -1892,9 +2099,10 @@ sub scrape_links {
 			my $media = gRSShopper::Record->new(tag=>'scraped',type=>'media',
 				media_url=>$att->{href},media_title=>$title,media_mimetype=>$mimetype,
 				media_height=>$att->{height},media_width=>$att->{width}); 			
-			push @{$item->{media}},$media;		
+			push @{$item->{media}},$media;
+			print "New media record in scrape_links for $att->{href}<br>"  if ($DEBUG > 0);		
 				
-			&diag(6,qq|-- Found media: <a href="$att->{href}">$media->{media_title}</a> ) <br>\n|);				
+			print qq|-- Found media: <a href="$att->{href}">$media->{media_title}</a> ) <br>\n| if $DEBUG > 1;				
 		
 		}
 	}
@@ -1907,7 +2115,7 @@ sub scrape_images {
 	my ($feed,$item,$scrapetext) = @_;
 	
 	
-	&diag(6,"Scraping Images for $item->{link_title}<br>\n");
+	print "Scraping Images for $item->{link_title}<br>\n" if $DEBUG > 1;
 
 	my $type;
 		
@@ -1933,11 +2141,11 @@ sub scrape_images {
 		my $media = gRSShopper::Record->new(tag=>'scraped',type=>'media',media_type=>"image",
 			media_url=>$att->{src},media_title=>$title,media_description=>$description,
 			media_mimetype=>$mimetype,media_height=>$att->{height},media_width=>$att->{width}); 
-			
+		print "New media record in scrape_images for $att->{src}<br>"  if ($DEBUG > 0);			
 					
 		push @{$item->{media}},$media;		
 				
-		&diag(6,qq|-- Found image: <a href="$att->{src}">$media->{media_title}</a> ) <br>\n|);
+		print qq|-- Found image: <a href="$att->{src}">$media->{media_title}</a> ) <br>\n| if $DEBUG > 1;
 		
 		
 	}
@@ -1953,7 +2161,7 @@ sub scrape_embeds {
 	
 	my ($feed,$item,$scrapetext) = @_;
 
-	&diag(6,"Scraping embeds for $item->{link_title}<br>\n");
+	print "Scraping embeds for $item->{link_title}<br>\n" if $DEBUG > 1;
 	
 	while($scrapetext =~ m/<embed(.*?)>/ig) {
 		
@@ -1980,7 +2188,7 @@ sub scrape_embeds {
 				link_link=>$att->{src},link_title=>$title,link_description=>$description);     		 
 			push @{$item->{links}},$link;	
 
-			&diag(6,qq|-- Found link: <a href="$att->{src}">$link->{link_title}</a> ) <br>\n|);
+			print qq|-- Found link: <a href="$att->{src}">$link->{link_title}</a> ) <br>\n|  if $DEBUG > 1;
 
 			
 		} else {						# save as media
@@ -1989,8 +2197,8 @@ sub scrape_embeds {
 				media_url=>$att->{src},media_title=>$title,media_mimetype=>$mimetype,
 				media_height=>$att->{height},media_width=>$att->{width}); 	
 			push @{$item->{media}},$media;		
-				
-			&diag(6,qq|-- Found media: <a href="$att->{src}">$media->{media_title}</a> ) <br>\n|);				
+			print "New media record in scrape_embeds for $att->{src}<br>"  if ($DEBUG > 0);	
+			print qq|-- Found media: <a href="$att->{src}">$media->{media_title}</a> ) <br>\n| if $DEBUG > 1;				
 
 		}
 		
@@ -2007,7 +2215,7 @@ sub scrape_iframes {
 
 	my ($feed,$item,$scrapetext) = @_;
 	
-	&diag(6,"Scraping iframes for $item->{link_title}<br>\n");
+	print "Scraping iframes for $item->{link_title}<br>\n"  if $DEBUG > 1;
 		
 	while($scrapetext =~ m/<iframe(.*?)>/ig) {
 		
@@ -2029,7 +2237,7 @@ sub scrape_iframes {
 				link_link=>$att->{src},link_title=>$title});   		
 			push @{$item->{links}},$link;	
 
-			&diag(6,qq|-- Found link: <a href="$att->{src}">$link->{link_title}</a> ) <br>\n|);
+			print qq|-- Found link: <a href="$att->{src}">$link->{link_title}</a> ) <br>\n| if $DEBUG > 1;
 			
 		} else {						# save as media
 			
@@ -2038,8 +2246,8 @@ sub scrape_iframes {
 				media_url=>$att->{src},media_title=>$title,media_mimetype=>$mimetype,
 				media_height=>$att->{height},media_width=>$att->{width}); 			
 			push @{$item->{media}},$media;		
-				
-			&diag(6,qq|-- Found media: <a href="$att->{src}">$media->{media_title}</a> ) <br>\n|);
+			print "New media record in scrape_iframes for $att->{src}<br>"  if ($DEBUG > 0);				
+			print qq|-- Found media: <a href="$att->{src}">$media->{media_title}</a> ) <br>\n| if $DEBUG > 1;
 		}
 	}
 		
@@ -2096,21 +2304,27 @@ sub is_existing_link {
 
 	$item->{link_link} =~ s/\#(.*?)$//;				# Remove gunk
 	$item->{link_link} =~ s/utm=(.*?)$//;
-print "Searching for: $item->{link_link}  <p>";	
+	print "<br>Searching for: $item->{link_link} -- " if ($DEBUG > 0);	
 									# Search by link
 	$item->{link_id} = &db_locate($dbh,"link",{link_link=>$item->{link_link}});
 	if ($item->{link_id}) { 
 		my $tl = &db_get_record($dbh,"link",{link_id=>$item->{link_id}});
-		if ($tl->{link_orig} eq "yes") { return  1; } 
+		if ($tl->{link_orig} eq "yes") { 
+			print "Found.<br>" if ($DEBUG > 0);	
+			return  1; 
+		} 
 	} 
 	
+	
 									# Search by title
+	print "Not found.<br>Searching for: $item->{link_title} -- " if ($DEBUG > 0);
 	$item->{link_id} = &db_locate($dbh,"link",{link_title=>$item->{link_title}});
 	if ($item->{link_id}) { 
 		my $tl = &db_get_record($dbh,"link",{link_id=>$item->{link_id}});
 		if ($tl->{link_orig} eq "yes") { return  2; } 
 	} 								
-	
+	print "Not found.<br>" if ($DEBUG > 0);
+		
 	return 0;
 }
 
@@ -2123,7 +2337,7 @@ sub is_slides { 		# Would like to make this a loadable list at some point
 	my ($url) = @_;
 		
 
-	my @slide = ('slideshare.net','slieshare.com');	
+	my @slide = ('slideshare.net','slideshare.com');	
 	foreach my $a (@slide) { if ($url =~ /$a/i) { return 1; } }
 	return 0;
 }
@@ -2161,6 +2375,7 @@ sub is_type { 		# Would like to make this a loadable list at some point
 	elsif ($mimetype =~ /pdf|msword|powerpoint/i) {	$type = "document"; }		# document
 	elsif ($mimetype =~ /zip|tar|binhex/i) { $type = "archive"; }			# archive
 	else {	$type = "link";	 }							# link
+	print "is_type() determines type to be $type<br>" if ($DEBUG > 0);
 	return $type;
 }
 
@@ -2193,7 +2408,7 @@ sub is_video { 		# Would like to make this a loadable list at some point
 	my ($url) = @_;
 		
 	my @video = ('youtu.be','video.umwblogs.org','www.openshotvideo.com','blip.tv','www.youtube.com','www.theonion.com/video');	
-	foreach my $a (@video) { if ($url =~ /$a/i) { return 1; } }
+	# foreach my $a (@video) { if ($url =~ /$a/i) { return 1; } }
 	return 0;
 }
 
@@ -2485,15 +2700,27 @@ sub _email {		# Typically applies to  author object
 sub _enclosure {
 
 	my ($element,$content,$attributes) = @_;
-	my $att = process_attributes($attributes);      		# Enclosure always has attributes (except for Feedburner, which is broken)
+	print "Processing _enclosure for $element->{type} ..." if ($DEBUG > 0);
+	my $DEBUG = 2;
+	my $att = &process_attributes($attributes);      		# Enclosure always has attributes (except for Feedburner, which is broken)
 	my $type = $element->{type};
-		
-	my $media = gRSShopper::Record->new(tag => 'enclosure',type=>'media');     			# Set values                          
+
+	if ($DEBUG > 1) {
+		print "<br>Content: $content <br>Attributes: $attributes <br>Parsed attributed:<br>";
+		while (my($ax,$ay) = each %$att) { print "$ax = $ay <br>"; }
+	}
+	 		
+	my $media = gRSShopper::Record->new(tag => 'enclosure',type=>'media');     			# Set values   
+	print "New media record in _enclosure for $att->{url}<br>"  if ($DEBUG > 0);                       
 	$media->{media_url} = $att->{url} || $content;			# $content will capture feedburner url
 	$media->{media_size} = $att->{length};
 	$media->{media_mimetype} = $att->{type};
-	my @mtitlearr = split "/",$att->{url};
-	$media->{media_title} = pop @mtitlearr;
+	if ($content) { $media->{media_title} = $content; }
+	else {
+		my @mtitlearr = split "/",$att->{url};
+		$media->{media_title} = pop @mtitlearr;
+	}
+	print "\nFinished.<br>Media title is $media->{media_title} <br>Media URL is: $media->{media_url} <br>" if ($DEBUG > 0); 
 
 
 	push @{$element->{media}},$media;
@@ -2856,6 +3083,7 @@ sub _link {
 			
 									# Initialize Media Object, as appropriate
 			my $media = gRSShopper::Record->new(tag => 'enclosure',type => 'media');     	# Set values  
+			print "New media record in _link for $att->{href}<br>"  if ($DEBUG > 0);
 			$media->{type} = "media";                        
 			$media->{media_url} = $att->{href};
 			$media->{media_size} = $att->{length};
@@ -3144,7 +3372,15 @@ sub _pingback_target {
 	$element->{$type."_pingtarget"} = $content;		
 }
 	
+sub _ppg {
 	
+	my ($element,$content) = @_;
+	my $type = $element->{type};
+		
+	$element->{$type."_ppg"} = $content;	
+		
+}	
+
 sub _pubDate {
 	
 	my ($element,$content) = @_;
@@ -3401,3 +3637,303 @@ sub _width {				# Typically used with the 'image' media object
 	$element->{$type."_width"} = $content;			
 }
 
+
+
+
+#---------------------------------------------
+#
+#   YouTube to Podcast
+#    August 29, 2016
+#
+##  Calomel.org  ,:,  Download Youtube videos
+##    Script Name : youtube_download.pl
+##    Version     : 0.58
+##    Valid from  : March 2016
+##    URL Page    : https://calomel.org/youtube_wget.html
+##    OS Support  : Linux, Mac OSX, OpenBSD, FreeBSD
+#                `:`
+## Two arguments
+##    $1 Youtube URL from the browser
+##    $2 prefix to the file name of the video (optional)
+#
+#=---------------------------------------------
+
+sub youtube_to_podcast {
+	
+	my ($user_url) = @_;
+	print "YouTube download<p>";
+
+
+	my $videodir = $Site->{st_urlf} . "files/videos/";
+	my $audiodir = $Site->{st_urlf} . "files/podaudio/";			
+	my $audiourl = $Site->{st_url} . "files/podaudio/";
+
+
+############  options  ##########################################
+
+# Option: what file type do you want to download? The string is used to search
+# in the youtube URL so you can choose mp4, webm, avi or flv.  mp4 is the most
+# compatable and plays on android, ipod, ipad, iphones, vlc and mplayer.
+my $fileType = "mp4";
+
+# Option: what visual resolution or quality do you want to download? List
+# multiple values just in case the highest quality video is not available, the
+# script will look for the next resolution. You can choose "itag=22" for 720p,
+# "itag=18" which means standard definition 640x380 and "itag=17" which is
+# mobile resolution 144p (176x144). The script will always prefer to download
+# the first listed resolution video format from the list if available.
+my $resolution = "itag=22,itag=18";
+
+# Option: How many times should the script retry if the download fails?
+my $retryTimes = 2;
+
+# Option: turn on DEBUG mode. Use this to reverse engineering this code if you are
+# making changes or you are building your own youtube download script.
+my $DEBUG=1;
+
+#################################################################
+
+# initialize global variables and sanitize the path
+#$ENV{PATH} = "/bin:/usr/bin:/usr/local/bin:/opt/local/bin";
+my $prefix = "";
+my $retry = 1;
+my $retryCounter = 0;
+my $user_prefix = "";
+
+# collect the URL from the command line argument
+#chomp($user_url = $ARGV[0]);
+
+my $url = "$1" if ($user_url =~ m/^([a-zA-Z0-9\_\-\&\?\=\:\.\/]+)$/ or return "\nError: Illegal characters in YouTube URL\n\n" );
+
+# declare the user defined file name prefix if specified
+if (defined($ARGV[1])) {
+   chomp($user_prefix = $ARGV[1]);
+   $prefix = "$1" if ($user_prefix =~ m/^([a-zA-Z0-9\_\-\.\ ]+)$/ or return "\nError: Illegal characters in filename prefix\n\n" );
+}
+
+# if the url down below does not parse correctly we start over here
+tryagain:
+
+# make sure we are not in a tryagain loop by checking the counter
+if ( $retryTimes < $retryCounter ) {
+   print "\n\n Stopping the loop because the retryCounter has exceeded the retryTimes option.<br>" if ($DEBUG > 0);
+ #  print "\nretryTimes counter = $retryTimes\n\n<p>" if ($DEBUG > 0);
+   print "\nError: The video may not be available at the requested resolution or may be copy protected <br>\n\n"  if ($DEBUG > 0);
+   return;
+}
+
+# download the html from the youtube page containing the page title and video
+# url. The page title will be used for the local video file name and the url
+# will be sanitized to download the video.
+print "Downloading $url <p>";
+my $html = `curl -sS -L --compressed -A "Mozilla/5.0 (compatible)" "$url"`  or return  "\nError: There was a problem downloading the HTML page.\n\n";
+
+# format the title of the page to use as the file name
+my ($title) = $html =~ m/<title>(.+)<\/title>/si;
+$title =~ s/[^\w\d]+/_/g or return "\nError: we could not find the title of the HTML page. Check the URL.\n\n";
+$title = lc ($title);
+$title =~ s/_youtube//ig;
+$title =~ s/^_//ig;
+$title =~ s/_amp//ig;
+$title =~ s/_39_s/s/ig;
+$title =~ s/_quot//ig;
+
+# filter the URL of the video from the HTML page
+my ($download) = $html =~ /"url_encoded_fmt_stream_map"(.*)/ig;
+
+# Print the raw separated strings in the HTML page
+#print "\n$download\n\n<p>" if ($DEBUG > 0);
+
+# This is where we loop through the HTML code and select the file type and
+# video quality. 
+my @urls = split(',', $download);
+OUTERLOOP:
+foreach my $val (@urls) {
+#   print "\n$val\n\n<p>";
+
+    if ( $val =~ /$fileType/ ) {
+       my @res = split(',', $resolution);
+       foreach my $ress (@res) {
+         if ( $val =~ /$ress/ ) {
+         print "\n  html to url separation complete.\n\n<p>" if ($DEBUG > 1);
+         print "$val\n <p>" if ($DEBUG > 1);
+         $download = $val;
+         last OUTERLOOP;
+         }
+       }
+    }
+}
+
+# clean up by translating url encoding and removing unwanted strings
+print "\n  Start regular expression clean up...\n<p>" if ($DEBUG > 1);
+$download =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+$download =~ s/sig=/signature=/g;
+$download =~ s/\\u0026/\&/g;
+$download =~ s/(type=[^&]+)//g;
+$download =~ s/(fallback_host=[^&]+)//g;
+$download =~ s/(quality=[^&]+)//g;
+$download =~ s/&+/&/g;
+$download =~ s/&$//g;
+$download =~ s/%2C/,/g;
+$download =~ s/%252F/\//g;
+$download =~ s/^:"url=//g;
+$download =~ s/\"//g;
+$download =~ s/\?itag=22&/\?/;
+
+# print the URL before adding the page title.
+print "\n  The download url string: <br>\n\n$download\n<p>\n" if ($DEBUG > 1);
+
+# check for &itag instances and either remove extras or add an additional
+my $counter1 = () = $download =~ /&itag=\d{2,3}/g;
+print "<p>\n  number of itag= (counter1): $counter1\n<p>" if ($DEBUG > 1);
+if($counter1 > 1){ $download =~ s/&itag=\d{2,3}//; }
+if($counter1 == 0){ $download .= '&itag=22' }
+
+# save the URL starting with http(s)... 
+my ($youtubeurl) = $download =~ /(https?:.+)/;
+
+# is the URL in youtubeurl the variable? If not, go to tryagain above.
+if (!defined $youtubeurl) {
+    print "\n URL did not parse correctly. Let's try another mirror...\n<p>";
+    $retryCounter++;
+    sleep 2;
+    goto tryagain;
+}
+
+# collect the title of the page
+my ($titleurl) = $html =~ m/<title>(.+)<\/title>/si;
+$titleurl =~ s/ - YouTube//ig;
+
+# combine file variables into the full file name
+my $filename = "unknown";
+$filename = "$prefix$title.$fileType";
+
+# url title to url encoding. all special characters need to be converted
+$titleurl =~ s/([^A-Za-z0-9\+-])/sprintf("%%%02X", ord($1))/seg;
+
+# combine the youtube url and title string
+$download = "$youtubeurl\&title=$titleurl";
+
+# Process check: Are we currently downloading this exact same video? Two of the
+# same download processes will overwrite each other and corrupt the file.
+my $running = `ps auwww | grep [c]url | grep -c "$filename"`;
+print "\n <p> Is the same file name already being downloaded? $running" if ($DEBUG > 0);
+if ($running >= 1)
+  {
+   print "\n  Already $running process, exiting.<p>" if ($DEBUG > 0);
+   return 0;
+  };
+
+# Print the long, sanitized youtube url for testing and debugging
+print "\n <p> The following url will be passed to curl:\n" if ($DEBUG > 0);
+print qq|<p>\n<textarea cols="80">$download</textarea>\n<p>\n| if ($DEBUG > 0);
+
+# print the file name of the video being downloaded for the user 
+print "<p>\n Download:   $filename  \n\n<p>" if ($retryCounter == 0 || $DEBUG > 0);
+
+# print the itag quantity for testing
+my $counter2 = () = $download =~ /&itag=\d{2,3}/g;
+print "<p>\n  Does itag=1 ?  $counter2\n\n<p>" if ($DEBUG > 0);
+if($counter2 < 1){
+ print "<p>\n URL did not parse correctly (itag). <p>";
+ return;
+}
+
+
+# Background the script before the download starts. Use "ps" if you need to
+# look for the process running or use "ls -al" to look at the file size and
+# date.
+fork and exit;
+
+	# Download the video, resume if necessary
+
+	my $videofile = $videodir.$filename;
+	my $outputfilename = $audiodir.$filename;
+	$outputfilename =~ s/\.mp4/\.mp3/i;
+	my $outputfileurl = $audiourl.$filename;
+	$outputfileurl =~ s/\.mp4/\.mp3/i;
+	
+	print "\n<br>Download filename is $videofile ... \n" if ($DEBUG > 0);
+	if (-e $outputfilename) { 
+		print "<br>Audio recording already exists, skipping.<br><br>" if ($DEBUG > 0);
+		return;
+	} else {
+		print "downloading... <br>" if ($DEBUG > 0);
+		system("curl", "-sSRL", "-A 'Mozilla/5.0 (compatible)'", "-o", "$videofile", "--retry", "5", "-C", "-", "$download");
+	}
+
+
+	# Exit Status: Check if the file exists and we received the correct error code
+	# from the curl system call. If the download experienced any problems the
+	# script will run again and try to continue the download until the retryTimes
+	# count limit is reached.
+
+	if( $? == 0 && -e "$videofile" && ! -z "$videofile" ) {
+		print "Finished: $videofile\n\n<br>" if ($DEBUG > 0);
+	} else {
+		print  "FAILED: $videofile\n\n<br>" if ($DEBUG > 0);
+		$retryCounter++;
+		sleep $retryCounter;
+		goto tryagain;
+	}
+
+	# Converty MP4 to MP3 - this required ffmpeg
+	# ffmpeg -i source_video.avi -vn -ar 44100 -ac 2 -ab 192k -f mp3 sound.mp3
+
+	print "Converting from $videofile to $outputfilename<br>" if ($DEBUG > 0);
+	system("ffmpeg", "-i","$videofile","-vn","-ar","44100","-ac","2","-ab","128k","-f","mp3","$outputfilename");
+	print "Conversion exit error code: $? <br>" if ($DEBUG > 0);
+
+	if ( $? == 0 && -e "$outputfilename" && ! -z "$outputfilename" ) {
+		print "\nFinished. Saved as $outputfilename\n\n<br>" if ($DEBUG > 0);   
+		print qq|<a href="$outputfileurl">Click here to listen to MP3</a><br>|;
+		unlink $videofile;						# Delete the video file as soon as we're done with it
+		print "Deleted $videofile<br>" if ($DEBUG > 0);      								
+	} else {
+		print  "<p>\n Conversion FAILED for : $videofile\n\n<p>" if ($DEBUG > 0);
+	}
+
+	
+	
+	# Create enclosure attribute data
+	
+	print "\nCreating media record $outputfileurl\n\n<br>" if ($DEBUG > 0); 			
+	my $filefsize = (stat $outputfilename)[7];
+	return ($outputfileurl,$filefsize)
+	
+}
+
+
+sub clean_podcast_directory {
+	
+	my ($cleandir,$days) = @_;
+	return if ($cleandir =~ /cgi/);
+	
+	
+	use File::Find;
+	print "Cleaning Directory: $cleandir <p>";
+
+	# purge backups older than AGE in days
+	my @file_list;
+	my @find_dirs       = ($cleandir);           # directories to search
+	my $now             = time();                   # get current time
+	my $seconds_per_day = 60*60*24;                 # seconds in a day
+	my $AGE             = $days*$seconds_per_day;   # age in seconds
+	find ( sub {
+		my $file = $File::Find::name;
+		if ( -f $file ) {
+			push (@file_list, $file);
+		}
+	}, @find_dirs);
+
+	for my $file (@file_list) {
+		
+		my @stats = stat($file);
+		if ($now-$stats[9] > $AGE) {
+			unlink $file;
+		}
+	}
+	print "Deleted podcast audio files older than $days days.\n";	
+	
+	
+}

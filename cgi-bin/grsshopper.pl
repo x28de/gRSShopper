@@ -1,4 +1,6 @@
-#    gRSShopper 0.5  Common Functions  0.5  -- 
+#    gRSShopper 0.5  Common Functions  0.6  -- 
+
+12 January 2016
 
 #    Copyright (C) <2013>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -47,6 +49,7 @@ sub site_config { my ($context) = @_;
 
 # 	DO NOT EDIT below this line
 });return $Site; };
+
 
 
 
@@ -1925,6 +1928,12 @@ sub format_content {
 						# Customize Internal Links
 	my $style = qq||;
 	$wp->{page_content} =~ s/<a h/<a $style h/sig;
+	
+
+		
+		
+		
+		
 	&clean_up(\$wp->{page_content},$format);
 	
 						# RSSify
@@ -2027,6 +2036,9 @@ sub format_record {
 
 	if ($record_format =~ /opml/) { $view_text =~ s/&/&amp;/g; }
 	if ($record_format =~ /text|txt/) { &strip_html($text_ptr); }
+
+	
+	
 	
 	&make_escape($dbh,\$view_text);										# Escaped HTML
 
@@ -2038,6 +2050,23 @@ sub format_record {
 	&make_admin_links(\$view_text);	
 	
 	$view_text =~ s/CDATA\((.*?)\)//g;		# Kludge to eliminate hanging CDATA tags
+	
+	# Clean up presentations
+	if ($table eq "presentation") {
+		
+			unless ($filldata->{presentation_slideshare}) {
+				$view_text =~ s|<iframe(.*?)slideshare.net/(.*?)/iframe>||g;
+			}
+
+
+			unless ($filldata->{presentation_youtube}) {
+				$view_text =~ s|<iframe(.*?)youtube(.*?)/iframe>||g;
+			}
+
+	}
+	
+	
+	
 	#$viewtext = " - ";
 	if ($view_text =~ /CampaignToBuildOneBigCampaign/ || $view_text =~ /Blacklock/ ||  $view_text =~ /One Big Campaign/ || $view_text =~ /feed\/408/) {
 		$view_text = " - ";
@@ -2047,12 +2076,184 @@ sub format_record {
 }
 
 
+# -------   Facebook --------------------------------------------------
+
+# Autopost to Facebook
+# Requires: $dbh,$table,$id
+# Optional: $tweet (will print record title if tweet is not given)
+# Requires $Site->{fb_post} set to 'yes' and $record->{post_social_media} not containing 'facebook' (for the post specified)
+# Will include site hastag $Site->{st_tag} if $Site->{fb_use_tag} is set to "yes"
+# Will update the record to set the value 'posted' the value in 'post_twitter'   (or 'event_twitter', etc)
+# to ensure each item is posted only once
+# Returns status update in $vars->{twitter}
+
+
+sub facebook_post {
+	
+	my ($dbh,$table,$id,$message) = @_;
+	
+	return "Facebook turned off." unless ($Site->{fb_post} eq "yes");				# Make sure Facebook is active
+	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id});					# get record
+	my $fbp = &facebook_session(); 
+	
+	my $fbp = Net::Facebook::Oauth2->new(
+		application_secret     => $Site->{fb_app_secret} , 
+		application_id          => $Site->{fb_app_id},
+		callback           => $Site->{fb_postback_url}
+	);
+		
+	my $text = &format_record($dbh,"","post","post_facebook",$record);				# Format content
+	my $link = $Site->{st_url}."post/".$id."/rd";
+	
+	$text =~ s/<br>|<br\/>|<br \/>|<\/p>/\n\n/ig;							# No HTML
+	$text =~ s/\n\n\n/\n\n/g;				
+	$text =~ s/<(.*?)>//g; 
+	$text =~ s/<(.*?)>//g;
+		
+	
+	my $posturl = "https://graph.facebook.com/v2.2/OLDaily/feed";
+        my $args = {											
+            message => $text,
+            link => $link,
+        };
+        $fbp->{access_token} = $Site->{fb_token};        	
+        my $info = $fbp->post( $posturl,$args );							# Post to Facebook
+        my $inforcheck = $info->as_json;
+	
+	if ($inforcheck =~ /error/) {													# catch error, or
+	
+			print "Content-type: text/html\n\n";
+			$vars->{facebook} .= "Facebook: Error <br />";
+			$vars->{facebook} .=  $inforcheck;  
+			print $vars->{facebook};
+			facebook_access_code_url($vars->{facebook});
+			exit;
+		
+	} else {
+		my $smfield = $table."_social_media";								# Update Record	
+		my $smstring = $record->{$smfield}."facebook ";
+		&db_update($dbh,$table,{$smfield => $smstring},$id);
+		$vars->{facebook} .= "$inforcheck <br>Facebook: OK";
+	 }               									
+	 
+	 
+	
+	return $vars->{facebook};
+	
+}
+
+
+sub facebook_session {
+	
+	my ($dbh) = @_;	
+
+	#use Facebook::Graph;
+	use Net::Facebook::Oauth2;
+	
+		
+									# Make sure we have an access token
+	unless ($Site->{fb_token}) { $Site->{fb_token} = &facebook_access_token(); }
+
+									# Authenticate and Encode token
+	unless (my $fb = &facebook_authenticate()) { return $vars->{facebook}; } 
+	$fb->{access_token} = $Site->{fb_token};
+	return $fb;	
+}
+
+
+
+sub facebook_authenticate {
+	
+	
+	my $fbz = Net::Facebook::Oauth2->new(
+		application_secret     => $Site->{fb_app_secret} , 
+		application_id          => $Site->{fb_app_id},
+		callback           => $Site->{fb_postback_url}
+	);
+    
+	unless ($fbz) { $vars->{facebook} .= "Facebook authentication error: $?"; return; } 
+    
+	return $fbz;   	
+	
+}
+
+sub facebook_access_token {
+	
+	return $Site->{fb_token} if ($Site->{fb_token});
+
+	my $access_code = &facebook_access_code_url(); 	
+	
+	my $fb = Net::Facebook::Oauth2->new(
+            application_secret     => $Site->{fb_app_secret}, 
+            application_id          => $Site->{fb_app_id},
+            callback           => $Site->{fb_postback_url}
+        );
+    
+        my $access_token = $fb->get_access_token(code => $access_code);         
+        if ($access_token) { $Site->update_config($dbh,{fb_token => $access_token}); }
+        else { $vars->{facebook} .= "Facebook: Error getting access token."; }
+        	
+	return $access_token;
+}
+
+sub facebook_access_code_url {
+
+	my ($info) = @_;
+	return $Site->{fb_code} if ($Site->{fb_code});
+	if ($vars->{code}) {						# This picks up the code from the redirect
+		$Site->{fb_code} = $vars->{code};			# We'll store it for later use
+		if ($Site->{fb_code}) { $Site->update_config($dbh,{fb_code => $Site->{fb_code}}); }		
+		print "Content-type: text/html\n\n";			# Print a response
+		print "Facebook OK $Site->{fb_code}";
+		exit;							# And quit
+	}
+
+									# This assumes we did not get a code from a redirect
+									# So we have to make the request
+	my $fbb = Net::Facebook::Oauth2->new(
+            application_secret     => $Site->{fb_app_secret}, 
+            application_id          => $Site->{fb_app_id},
+            callback           => $Site->{fb_postback_url}
+        );	
+	
+	
+								        # Get the authorization URL 
+        my $url = $fbb->get_authorization_url(	
+            scope   => [ 'public_profile', 'email'  ],
+            display => 'page'
+        );
+    
+        print "Content-type: text/html\n\n";
+        print "$info <p>";
+        print "Facebook needs to generate an access token. Click on the link or enter the URL:  $url<p>";					# And provide the link to click on
+    
+        print qq|Redirect URL: <a href="$url">Click here</a><p>|;	
+	
+	exit;
+}
+
+sub facebook_access_code_submit {
+	
+	my $code = $vars->{code};					# save the code. Note it's valif only for a couple minutes
+	if ($access_token) { $Site->update_config($dbh,{fb_code => $code}); }
+	
+									# Regenerate the access token, which will persist
+	$Site->{fb_token} = "";
+	my $result = &facebook_access_token();
+	print "Content-type: text/html\n\n";
+	print "Facebook Access Result: $result<br>";
+	unless ($result =~ /error/i) { print "You can now use Facebook services<p>"; }
+	exit;
+	
+	
+}
+
 # -------   Post to Twitter --------------------------------------------------
 
 # Autopost to Twitter
 # Requires: $dbh,$table,$id
 # Optional: $tweet (will print record title if tweet is not given)
-# Requires $Site->{tw_post} set to 'yes' and $record->{post_twitter} ne "posted" (for the post specified)
+# Requires $Site->{tw_post} set to 'yes' and $record->{post_social_media} to not contain "twitter" (for the post specified)
 # Will include site hastag $Site->{st_tag} if $Site->{tw_use_tag} is set to "yes"
 # Will update the record to set the value 'posted' the value in 'post_twitter'   (or 'event_twitter', etc)
 # to ensure each item is posted only once
@@ -2065,7 +2266,7 @@ sub twitter_post {
 
 	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id});
 	
-	unless ($Site->{tw_post} eq "yes") { $vars->{twitter} .= "Twitter turned off."; return; }
+	unless ($Site->{tw_post} eq "yes") { $vars->{twitter} .= "Twitter turned off."; return $vars->{twitter}; }
 
 	
 	
@@ -2130,10 +2331,11 @@ sub twitter_post {
 	
 
 	
-	my $twfield = $table."_twitter";								# Update Record	
-	&db_update($dbh,$table,{$twfield => 'posted'},$id);
+	my $smfield = $table."_social_media";								# Update Record	
+	my $smstring = $record->{$smfield}."twitter ";
+	&db_update($dbh,$table,{$smfield => $smstring},$id);
 			
-	if ($result) { $vars->{twitter} .= $result; } else { $vars->{twitter} .= "Tweet Sent" }
+	if ($result) { $vars->{twitter} .= "Twitter: OK" }
 
 	return $vars->{twitter};
 	
@@ -2227,7 +2429,7 @@ sub clean_up {		# Misc. clean-up for print
 	$format ||= "";
 	$$text_ptr =~ s/BEGDE(.*?)ENDDE//mig;				# Kill unfilled data elements
 	$$text_ptr =~ s/\[<a(.*?)href=""(.*?)>(.*?)<\/a>\]//mig;			# Kill blank Nav	
-	$$text_ptr =~ s/<a(.*?)href=""(.*?)>(.*?)<\/a>/$3/mig;			# Kill blank URLs
+	$$text_ptr =~ s/<a(.*?)href=""(.*?)>(.*?)<\/a>/$1 $2 $3/mig;			# Kill blank URLs
 
 	$$text_ptr =~ s/<img(.*?)src=""(.*?)>//mig;			# Kill blank img
 	$$text_ptr =~ s/1 Replies/1 Reply/mig;				# Depluralize replies
@@ -2260,6 +2462,8 @@ sub clean_up {		# Misc. clean-up for print
 
 	$$text_ptr =~ s/,\s+}/}/g;
 	$$text_ptr =~ s/&amp;nbsp;/ /g;
+	
+
 	
 
 	return;
@@ -2644,13 +2848,14 @@ sub make_hits {
 sub make_next {
 
 	my ($dbh,$input,$table,$id_number,$filldata) = @_;
+
 	return unless (defined $input);
 	
 	my @directions = qw(next previous first last);
 	foreach my $direction (@directions) {
 
 		my $count=0;
-		while ($$input =~ /<$direction (.*?)>/sig) {
+		while ($$input =~ /<$direction(.*?)>/sig) {
 			$count++; last if ($count > 100);			# Prevent infinite loop	
 		
 			my $autocontent = $1;my $nexttext = "";
@@ -2658,20 +2863,20 @@ sub make_next {
 			&parse_keystring($script,$autocontent);
 			my $format = $script->{format} || $vars->{format} || "html";
 			
-			my $typevar; my $typesql;
-			if ($script->{type}) { 
-				$typesql = " ".$table."_type='".$script->{type}."' AND "; 
-				$typevar = "type=".$script->{type};
-			}		
+			my $typesql;
+			if ($script->{type}) { 	$typesql = " ".$table."_type='".$script->{type}."' AND ";  }		
 			
-			my $nextsql;		
-			if ($direction eq "next") { $nextsql = "SELECT post_id FROM post WHERE $typesql post_id>'".$script->{id}."' ORDER BY post_id LIMIT 1";}		
-			elsif ($direction eq "previous") { $nextsql = "SELECT post_id FROM post WHERE $typesql post_id<'".$script->{id}."' ORDER BY post_id DESC LIMIT 1";}	
-			elsif ($direction eq "first") { $nextsql = "SELECT post_id FROM post WHERE $typesql post_id<'".$script->{id}."' ORDER BY post_id LIMIT 1";}	
-			elsif ($direction eq "last") { $nextsql = "SELECT post_id FROM post WHERE $typesql post_id>'".$script->{id}."' ORDER BY post_id DESC LIMIT 1";}	
+			my $nextsql ="SELECT ".$table."_id FROM $table WHERE $typesql ".$table."_id ";		
+			if ($direction eq "next") {  $nextsql .= ">'".$id_number."' ORDER BY ".$table."_id";}		
+			elsif ($direction eq "previous") { $nextsql .= "<'".$id_number."' ORDER BY ".$table."_id DESC";}	
+			elsif ($direction eq "first") { $nextsql .= "<'".$id_number."' ORDER BY ".$table."_id";}	
+			elsif ($direction eq "last") { $nextsql .= "id>'".$id_number."' ORDER BY ".$table."_id DESC";}	
+			$nextsql .= " LIMIT 1";
 								
 			my ($newnextid) = $dbh->selectrow_array($nextsql);
-			if ($newnextid) { $nexttext = qq|<a class="next" href="$Site->{st_cgi}page.cgi?$typevar&post=$newnextid&format=$format">@{[&printlang("$direction")]}</a>|; }
+			if ($newnextid) { $nexttext = qq|[<a class="next" href="|.$Site->{st_cgi}.
+				qq|page.cgi?$table=$newnextid&format=$format">@{[&printlang(ucfirst($direction))]}</a>]|; }
+
 
 			$$input =~ s/$autotext/$nexttext/;
 		}
@@ -2688,11 +2893,22 @@ sub make_counter {
 
 	my @boxlist;
 	while ($$input =~ /<counter(.*?)>/sig) {
-	
-		my $autotext = "<counter".$1.">";
-		if ($1 eq " increment") { $Site->{keyword_counter}++; }
-		my $replace = $Site->{keyword_counter};
 
+		my $autotext = "<counter".$1.">";
+		
+		if ($1 eq " increment") { 
+			#$Site->{keyword_counter}++; 
+		} else { 		
+			my $script = {}; 
+			&parse_keystring($script,$1);
+			if ($script->{start}) {	
+					$Site->{keyword_counter} = "joe";
+					if ($Site->{keyword_counter}==1) { $Site->{keyword_counter} = $script->{start}; } }
+			#if ($script->{increment}) { $Site->{keyword_counter} += $script->{increment}; } else { $Site->{keyword_counter}++; }	
+					
+		}
+		
+		my $replace = $Site->{keyword_counter};
 		$$input =~ s/$autotext/$replace/;
 	}
 
@@ -3360,12 +3576,13 @@ sub make_keywords {
 			$Site->{keyword_counter}++;
 			$results_count++; 
 			
-
+				
 						# Apply nohtml and truncate commands
 						# to description or content fields
 
 			my $descelement = $script->{db}."_description";
 			my $conelement = $script->{db}."_content";
+			my $titelement = $script->{db}."_title";
 
 	
 			if ($script->{truncate} || $script->{nohtml}) {
@@ -3373,6 +3590,13 @@ sub make_keywords {
 				$record->{$descelement} =~ s/\n\n\n/\n\n/g;				
 				$record->{$descelement} =~ s/<(.*?)>//g; 
 				$record->{$conelement} =~ s/<(.*?)>//g;
+			}
+			
+						# Clean if for Javascript
+			if ($script->{format} =~ /js|player/) {
+				$titelement =~ s/"/&quote;/g; 
+				$comelement =~ s/"/&quote;/g;
+				$descelement =~ s/"/&quote;/g;
 			}
 	
 			if ($script->{truncate}) {
@@ -3583,7 +3807,7 @@ sub make_where {
 				push @fid_list, $script->{db}."_".$ml." < '".$tval."'";
 			}	
 		} elsif ($cx =~ '!=') {								# not equal
-			($flds,$tval) = split "!=",$cx;
+			($flds,$tval) = split '!=',$cx;
 			my @matchlist = split ",",$flds;
 			foreach my $ml (@matchlist) {
 				push @fid_list, $script->{db}."_".$ml." <> '".$tval."'";
@@ -4073,7 +4297,9 @@ sub auto_post() {
 
 	
 	$post->{post_id} = &db_insert($dbh,$query,"post",$post);	# save post record
-	$vars->{msg} .= &publish_post($dbh,"post",$post->{post_id});	# Publish to Twitter
+	$vars->{post_twitter}="yes";
+	$vars->{post_facebook}="yes";
+	$vars->{msg} .= &publish_post($dbh,"post",$post->{post_id});	# Publish to Social Media
 	
 									# Create post graph
 		
@@ -4120,11 +4346,12 @@ sub publish_post {
 	my ($dbh,$table,$id,$msg) = @_;
 
 
-	$vars->{twitter} = &twitter_post($dbh,"post",$id);
+	if ($vars->{post_twitter}) { $vars->{twitter} = &twitter_post($dbh,"post",$id); }
+	if ($vars->{post_facebook}) { $vars->{facebook} = &facebook_post($dbh,"post",$id);	}
 	
-	
-	return $vars->{twitter};
+	return $vars->{twitter}.$vars->{facebook};
 }
+
 
 
 
@@ -4308,7 +4535,7 @@ sub form_editor() {
 						# Navigation
 	unless ($vars->{autoblog}) {
 		my $scripturl = $Site->{st_url}.$ENV{'REQUEST_URI'};
-		$form_text .= qq|<p class="nav"> [<a href="$Site->{script}?$table=$id_number">View |.ucfirst($table).qq|</a>] |;
+		$form_text .= qq|<p class="nav"> [<a href="$Site->{st_url}$table/$id_number">View |.ucfirst($table).qq|</a>] |;
 		$form_text .= qq|[<a href="$Site->{script}?db=$table&action=list">List All |.ucfirst($table).qq|s</a>] |;
 		$form_text .= qq|[<a href="$Site->{script}?db=$table&action=edit">Create New |.ucfirst($table).qq|</a>] |;
 		if ($table eq "feed") { $form_text .= qq|[<a href="$Site->{st_cgi}harvest.cgi?feed=$id_number&force=yes">Harvest Feed</a>]</p>|; }
@@ -4480,7 +4707,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 			$form_text .= &form_keylist($table,$id_value,$sc);
 			# $form_text .=  &form_keyinput($col,$record->{$col},2);	
 		}  elsif ($fieldstem eq "twitter") {
-			$form_text .=  &form_twitter($col,$record->{$col},2);		
+			$form_text .=  &form_twitter($record,2);		
 		} elsif (($table eq "media") && ($fieldstem eq "link")) {
 			$form_text .=  &form_keyinput($col,$record->{$col},2);		
 		} elsif ( $table eq "link" && $col =~ /_category/ ) {
@@ -4589,13 +4816,14 @@ sub form_file_select {
 	$content .= &form_graph_list($table,$id,"file","Enclosure");
 	$content .= qq| </td></tr><tr><td colspan="4">|;			
 	
-	
+	# <input type="file" name="file_name" />
 	if ($admin) {
 		my $lunch = qq|
 				<table>
 		<td colspan="4">Upload an image or a file...</td></tr>
 		<tr><td colspan=2>By URL: <input type="text" name="file_url" size="40"><br />
-		Or Select: <input type="file" name="file_name" />
+		<input type="file" accept="image/*;capture=camera" name="file_name" />
+		Or Select: 
 		</td><td colspan="2" style="padding-left:20px;">
 		<input type="radio" name="file_rel" value="icon"> Icon <br/>
 		<input type="radio" name="file_rel" value="display"> Display <br />
@@ -5340,19 +5568,27 @@ sub form_opt_multiple {
 
 sub form_twitter {
 
-	my ($name,$value) = @_;
-
-	if ($value eq "posted") { return qq|<tr><td colspan=4>Published</td></tr>|; }
+	my ($record) = @_;
 	
-	return qq |
-		<tr><td>Publish</td><td colspan="3">
-		<select name="publish_post">
-		<option value="yes">Publish Now</option>
-		<option value="">Later</option>
-		</select>
-		</td>
-		</tr>
-		|;
+	my $return_text = qq|<tr><td>Publish</td><td colspan="3">|;
+	
+	my @socialmedias = qw(twitter facebook);				# List of supported social media sites
+	foreach my $socialmedia (@socialmedias) {
+		$return_text .= ucfirst($socialmedia).": ";
+	
+		if ($record->{post_social_media} =~ /$socialmedia/i) { $return_text .= "Published&nbsp;&nbsp;&nbsp;"; }	
+		else { 
+			$return_text .= qq|<select name="post_|;
+			$return_text .= $socialmedia;
+			$return_text .= qq|"><option value="">Later</option>
+			<option value="yes">Publish Now</option>
+			</select>&nbsp;&nbsp;&nbsp;|;	}		
+	}
+	
+
+	$return_text .= qq|<input type="submit" value="Publish" class="button"></td></tr>|;
+	return $return_text;
+	
 		
 }
 
@@ -6055,6 +6291,9 @@ sub db_update {
 
 
 # -------  Increment---------------------------------------------------------
+#
+# For table type $gtable, record id $id, increment the value of $field by one
+# and return the new value of $field
 
 sub db_increment {
 
@@ -6063,16 +6302,21 @@ sub db_increment {
 	&error($dbh,"","","Table not initialized in db_increment") unless ($table);
 	&error($dbh,"","","Field not initialized in db_increment") unless ($field);
 	&error($dbh,"","","ID number not initialized in db_increment - $from") unless ($id);
+
 	my $idfield = $table."_id";
 	my $prefix = $table."_";
+
 	unless ($field =~ /$prefix/) { $field = $table."_".$field; }
+
 	my $hits = db_get_single_value($dbh,$table,$field,$id);
+
 	my $sql;
 	if ($hits) { $sql = "update $table set $field = $field + 1 where $idfield = $id"; }
 	else { $sql = "update $table set $field = 1 where $idfield = $id"; }
  	my $sth = $dbh->prepare($sql) or &error($dbh,"","","Can't prepare the SQL in db_increment $table");
 	$sth->execute or &error($dbh,"","","Can't execute the query: ".$sth->errstr);
-	return $id;
+	$hits++;
+	return $hits;
 
 }
 
@@ -7476,7 +7720,7 @@ sub get_url {
 			$editfeed."<br>";
     
 		print $message;
-		&send_email('stephen@downes.ca','stephen@downes.ca',"gRSShopper Harvest Failed",$message,"htm");
+		#&send_email('stephen@downes.ca','stephen@downes.ca',"gRSShopper Harvest Failed",$message,"htm");
 		return;
 	}
 
@@ -8402,22 +8646,23 @@ sub record_graph {
 	
 	my ($dbh,$vars,$table,$new_record) = @_;
 	
-	return unless ($vars->{$table."_status"} eq "Final");				# Can be commented out, but really
+	# return unless ($vars->{$table."_status"} eq "Final");				# Can be commented out, but really
 											# graphs entries shouldn't be created
 											# until the user commits
 	$new_record->{type} ||= $table;	# Just in case					
 								
 	while (my ($vkey,$vval) = each %$vars) {	
 		
-		if ($vkey =~ /^keyname_(.*?)$/) {
-			my @keynamelist = split /(,\s*| and )/,$vval;
-			foreach my $keyname (@keynamelist) {
-			
-				my $keytable = $1; 		# This is a record in another table associated with this one
-				my $keyfield = &get_key_namefield($keytable);
-				my $keyrecord = &db_get_record($dbh,$keytable,{$keyfield=>$keyname});
+		if ($vkey =~ /^keyname_(.*?)$/) {				# Eg. 'keyname_author'
+			my $keytable = $1; 					# This is a record in another table associated with this one Eg. 'author'
+			my @keynamelist = parse_csandv($vval);  		# Find eg. authors, split: first, second and third  (but leave values in quotes intact)
+			foreach my $keyname (@keynamelist) {			# For each., eg. author...
+				$keyname =~ s/^ | $//g;	 			# Trim leading, trailing white space
+
+				my $keyfield = &get_key_namefield($keytable);	# Are we looking for _name, _title ...?
+				my $keyrecord = &db_get_record($dbh,$keytable,{$keyfield=>$keyname});	# can we find a record with that name or title?
 				
-				unless ($keyrecord) {		# Record wasn't found, create a new record
+				unless ($keyrecord) {				# Record wasn't found, create a new record, eg., a new 'author'
 					$keyrecord = {
 						$keytable."_creator"=>$Person->{person_id},
 						$keytable."_crdate"=>time,
@@ -9128,7 +9373,50 @@ package gRSShopper::Temp;
  }
  
  
+   #----------------------------------------------------------------------------------------------------------
+   
+   # $Site is loaded with site configuration variables at the beginning of each session
+   # This function updates those variables in the site configuration table
+   # Input in the form { name => value }  which are stored as config_name and config_value in the config table
+ 
+   sub update_config {
+   	
+   	my ($self,$dbh,$data) = @_;
+  print "Content-type: text/html\n\n";
+  print "Updating config:   	";
+  
+	# Update Config Table
+	while (my ($vx,$vy) = each %$data) {
+print "$vx $vy <br>";
+		my $sth; my $sql;
+		if ($self->{$vx}) {	# Existing
+		
+			$sql = qq|UPDATE config SET config_value=? WHERE config_noun='$vx'|;
+			$sth = $dbh->prepare($sql)  or die "Cannot prepare: " . $dbh->errstr();
+			$sth->execute($vy) or die "Cannot execute: " . $sth->errstr();
+		} else {
+				
+			$sql = "INSERT INTO config (config_noun,config_value) VALUES (?,?)"; 
+			$sth = $dbh->prepare($sql)  or die "Cannot prepare: " . $dbh->errstr();
+			$sth->execute($vx,$vy) or die "Cannot execute: " . $sth->errstr();
+		}
+		$sth->finish();
+		
+		# Status Message
+		$self->{msg} .= "$vx has been set to $vy <br/>";
+	}
 
+
+
+
+	# Reload Site Data
+	my $sth = $dbh -> prepare("SELECT * FROM config"); $sth -> execute();
+	while (my $c = $sth -> fetchrow_hashref()) { $self->{$c->{config_noun}} = $c->{config_value}; }
+	$sth->finish();   	
+     	
+   	
+   	
+   }
 #----------------------------------------------------------------------------------------------------------
 #
 #                                             gRSShopper::Page;
@@ -9270,7 +9558,7 @@ package gRSShopper::Temp;
 	
 	if ($self->{parent}->{type}) {
 		
-		#&flow_values($self->{parent},$self->{parent}->{type},$self,$self->{type});	# Inherit values from the parent
+		&flow_values($self->{parent},$self->{parent}->{type},$self,$self->{type});	# Inherit values from the parent
 	}											# Actual values may override
 
 
@@ -9305,12 +9593,18 @@ package gRSShopper::Temp;
 	while (my ($fx,$fy) = each %$from) {	
 		my $fprefix = $from_prefix."_";
 		my $tprefix = $to_prefix."_";
-		next unless ($fx =~ /$fprefix/i);
-		next if ($fx =~ /_id$/i);
-		my $tx = $fx;
-		$tx =~ s/$fprefix/$tprefix/ig;
-		$to->{$tx} ||= $from->{$fx};			
+		next unless ($fx =~ /$fprefix/i);					# Only flow through record values (signified by the presence of the prefix)
+		next if ($to_prefix =~ /feed_/);					# Never flow *to* feed
+		next if ($fx =~ /_id$/i);							# Never flow-through ID
+		next if ($fx =~ /_type$/i);							# Never flow-through type		
+		
+		if ($fx =~ /genre|section|author|publisher|title|descxription/) {		# Limited list of flow-through values
+			my $tx = $fx;												# These are intended to be defaults and
+			$tx =~ s/$fprefix/$tprefix/ig;									# re over-written by actual discovered values
+			$to->{$tx} ||= $from->{$fx}; 
+		}			
 	}
+	
 	
 	
    }
@@ -9540,6 +9834,8 @@ sub get_file {
 	
 }
 1;
+
+
 
 
 #----------------------------------------------------------------------------------------------------------

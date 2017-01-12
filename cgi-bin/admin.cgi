@@ -5,8 +5,8 @@
 
  #    use Image::Thumbnail 0.65;
 
-#    gRSShopper 0.3  Admin  0.41  -- gRSShopper administration module
-#    29 July 2011 - Stephen Downes
+#    gRSShopper 0.3  Admin  0.5  -- gRSShopper administration module
+#    12 January 2016 - Stephen Downes
 
 #    Copyright (C) <2011>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@
 #
 #-------------------------------------------------------------------------------
 
-# print "Content-type: text/html\n\n";
+ print "Content-type: text/html\n\n";
 
  
 # Forbid agents
@@ -73,7 +73,9 @@ if ($vars->{api}) { print "ok"; exit; }
 if ($Site->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }
 
 
-
+if ($vars->{code}) { 						# Capture Facebook code submit
+	facebook_access_code_submit();				# I'll make this a proper API capture at some point
+}
 
 
 # Analyze Request --------------------------------------------------------------------
@@ -198,13 +200,13 @@ unless ($table || $action) {				# Default to Admin Menu
 # $eth->execute();
 
 
-#	my $alterstmt = "ALTER TABLE link MODIFY link_content text";
-#	my $asth = $dbh -> prepare($alterstmt);
-#	$asth -> execute();
+	my $alterstmt = "ALTER TABLE page MODIFY page_code longtext";
+	my $asth = $dbh -> prepare($alterstmt);
+	$asth -> execute();
 
 #type value verb
 
-#	my $alterstmt = "ALTER TABLE page MODIFY page_submday varchar(255)";
+#	my $alterstmt = "ALTER TABLE feed MODIFY feed_lastBuildDate varchar(64)";
 #	my $asth = $dbh -> prepare($alterstmt);
 #	$asth -> execute();
 
@@ -216,10 +218,11 @@ unless ($table || $action) {				# Default to Admin Menu
 # my $sth = $dbh->prepare("TRUNCATE TABLE event");
 # $sth->execute();
 
-#my $eth = $dbh->prepare("DELETE FROM post WHERE post_type='comment'");
-#$eth->execute();
+# my $eth = $dbh->prepare("DELETE FROM post WHERE post_type='Adelaide '");
+# $eth->execute();
 
-
+	
+# fix_graph();
 
 
 if ($action) {					# Perform Action, or
@@ -251,7 +254,7 @@ if ($action) {					# Perform Action, or
 		
 		/multi/i && do { &admin_multi($dbh,$query); last;		};		#	- Multi									
 														
-		/config/ && do { &update_config($dbh,$query); last;			};	# Update config data
+		/config/ && do { &admin_update_config($dbh,$query); last;			};	# Update config data
 		/db_pack/ && do {&admin_db_pack($dbh,$query); last;		};		# Make a new pack
 
 		/update/ && do { $id = &update_record($dbh,$query,$table,$id);
@@ -405,6 +408,7 @@ sub admin_sorter {
 		/Site Information/ 			&& do { &admin_general($dbh,$query); last;		};
 		/Permissions/ 				&& do { &admin_permissions($dbh,$query); last;		};
 		/Twitter/ 				&& do { &admin_accounts($dbh,$query); last;		};		
+		/Facebook/ 				&& do { &admin_accounts($dbh,$query); last;		};				
 		/Base URLs and Directories/ 		&& do { &admin_general($dbh,$query); last;		};
 		/Media Directories/ 			&& do { &admin_general($dbh,$query); last;		};
 		/Upload Directories/ 			&& do { &admin_general($dbh,$query); last;		};
@@ -740,6 +744,10 @@ sub admin_accounts {
 	$content .= &admin_configtable($dbh,$query,"Twitter",
 		("Twitter Account:tw_account","Post to Twitter:tw_post:yesno","Use Site Hashtag:tw_use_tag:yesno","Consumer Key:tw_cckey","Consumer Secret:tw_csecret","Token:tw_token","Token Secret:tw_tsecret"));
 	
+	$content .= &admin_configtable($dbh,$query,"Facebook",
+		("Facebook Account:fb_account","Post to Facebook:fb_post:yesno","Use Site Hashtag:fb_use_tag:yesno","Application ID:fb_app_id","Application Secret:fb_app_secret","Postback URL:fb_postback_url","Access Code:fb_code","Access Token:fb_token","Authorization URL:fb_auth_url"));
+
+	
 	&admin_frame($dbh,$query,"Admin Accounts",$content);					# Print Output
 	exit;
 	
@@ -955,18 +963,23 @@ sub admin_users {
 		</div>
 	|;
 
+		
 	$content  .= qq|
-		<h3>Import User List From File</h3>
+		<br/><h3>Import User List From File</h3>
 		<div class="adminpanel">
-		<ul>The file needs to be preloaded on the server. The system expects a tab delimited file with 
-		field names in the first row. Importer will not new account if an existing account with the same email address exists. Importer will combine 'First Name' and 'Last Name' to create 'Name'. Importer will autogenerate passwords. Importer will ignore field names it does not recognize. Importer will send email with account information to email address.<br/><br/>
-		<form method="post" action="$adminlink">
+		The system expects a file with 
+		field names in the first row. Importer will ignore field names it does not recognize.<br/><br/>
+		<form method="post" action="$adminlink" enctype="multipart/form-data">		
 		<input type="hidden" name="action" value="import">
+		<table cellpadding=2>
 		<input type="hidden" name="table" value="person">
-		$tout
-		File: <input type="text" name="file">
-		<input type="submit" value="Import" class="button">
-		</form></ul></div>|;
+		<tr><td>File URL:</td><td><input type="text" name="file_url" size="40"></td></tr>
+		<tr><td>Or Select:</td><td><input type="file" name="file_name" /></td></tr>
+		<tr><td>Data Format:</td><td><select name="file_format"><option value="">Select a format...</option>
+		<option value="tsv">Tab delimited (TSV)</option>
+		<option value="csv">Comma delimited (CSV)</option></select></td>
+		<tr><td colspan=2><input type="submit" value="Import" class="button"></tr></tr></table>
+		</form></div>|;		
 
 	$content .= qq|	<h3>Export User List</h3>
 		<div class="adminpanel">
@@ -1425,9 +1438,9 @@ sub admin_db_pack {
 #
 # ------------------------------------------------------------------------------------------------------
 
-sub update_config {
+sub admin_update_config {
 
-	my ($dbh,$query) = @_;
+	my ($dbh,$query,$silent) = @_;
 	return unless (&is_allowed("edit","config"));
 
 	# Update Config Table
@@ -1462,7 +1475,7 @@ sub update_config {
 
 
 	# Display Admin Page
-	&admin_sorter($dbh,$query,$vars->{title});
+	unless ($silent) { &admin_sorter($dbh,$query,$vars->{title}); }
 
 }
 
@@ -1665,11 +1678,12 @@ sub import {
 	my $vars = $query->Vars;
 	print "Content-type: text/html\n\n";
 	print "<h1>Importing List</h1>";
-	print "Table: $table <br>";
+	print "Table: $table File: ".$vars->{file_name}."<br>";
 
 	unless (&new_module_load($query,"Text::ParseWords")) {
 		&error($dbh,"","","Text::ParseWords is not available"); 
 	}
+
 
 
 	my $file;
@@ -2560,6 +2574,13 @@ sub output_record {
 
 
 	unless ($table eq "page" || $format eq "viewer") {
+		
+		
+		if ($table eq "presentation") {
+			$header_template = "presentation_header";
+			$footer_template = "presentation_footer";	
+		}
+		
 		my $header_template = $Site->{lc($page_format) . "_header"} || lc($page_format) . "_header";
 		my $footer_template = $Site->{lc($page_format) . "_footer"} || lc($page_format) . "_footer";
 		$wp->{page_content} =
@@ -2670,6 +2691,8 @@ sub update_record {
 			&error($dbh,$query,"","Link must contain 'http'");
 		}
 	}
+
+						# Table-specific functions
 						# Capitalize titles in Post
 	if ($table eq "post") {
 		$vars->{$fields->{title}} = &capitalize($vars->{$fields->{title}});
@@ -2687,6 +2710,18 @@ sub update_record {
 		$vars->{optlist_table} ||= "table";
 		$vars->{optlist_field} ||= "field";
 		$vars->{optlist_title} = $vars->{optlist_table} ."_".$vars->{optlist_field};
+	} elsif ($table eq "feed") {
+		$vars->{msg} .= "YouTube feed detected. ";
+		if (($vars->{feed_link} =~ m|youtube\.com/channel/(.*?)$|i) || 
+			(($vars->{feed_html} =~ m|youtube\.com/channel/(.*?)$|i) && ($vars->{feed_link} eq ""))) {
+			
+			$vars->{feed_link} = qq|http://www.youtube.com/feeds/videos.xml?channel_id=$1|;
+			$vars->{msg} .= "Channel $1 converted to RSS URL<p>";
+			# https://www.youtube.com/channel/UCvInFYiyeAJOGEjhqJnyaMA
+		} elsif ($vars->{feed_link} =~ m|youtube\.com/user/(.*?)$|i) {
+			$vars->{feed_link} = qq|http://www.youtube.com/feeds/videos.xml?user=$1|;			
+			$vars->{msg} .= "User $1 converted to RSS URL <p>";	
+		}
 	}
 
 	
@@ -2721,38 +2756,17 @@ sub update_record {
 	&error($dbh,"","","New $table record not created properly.") unless ($new_record);
 	$new_record->{type} = $table;
 
+	#   Submissions will include info about authors, feeds, etc.
+	#   Values for these other records are submitted in $vars and always have the prefix 'keyname_'
+	#   For example, a field named 'keyname_author' will refer to the name of an author in the 'author' table
+	#   The function produces a record in the graph table  
+	#   It will also create a new record in the other table, if necessary
 
-# $Site->{diag_level} = 9;								# Save Graph Records
+	&record_graph($dbh,$vars,$table,$new_record);					# Save Graph Records
+	
+
 								
-	while (my ($vkey,$vval) = each %$vars) {	
 
-		if ($vkey =~ /^keyname_(.*?)$/) {
-			my $keytable = $1; 		# This is a record in another table associated with this one
-
-			my @keynamelist = parse_csandv($vval);   #  split: first, second and third  (but leave values in quotes intact)
-			foreach my $keyname (@keynamelist) {
-				$keyname =~ s/^ | $//g;	 # Trim leading, trailing white space
-				my $keyfield = &get_key_namefield($keytable);
-				my $keyrecord = &db_get_record($dbh,$keytable,{$keyfield=>$keyname});
-				unless ($keyrecord) {				# New Name
-			
-					$keyrecord = {
-						$keytable."_creator"=>$Person->{person_id},
-						$keytable."_crdate"=>time,
-						$keyfield=>$keyname
-					};
-					
-					$keyrecord->{$keytable."_id"} = &db_insert($dbh,$query,$keytable,$keyrecord);
-					&error($dbh,"","","New $keytable crash and burn") unless ($keyrecord->{$keytable."_id"});
-				}	
-				$keyrecord->{type}=$keytable;	
-				
-				if ($keytable eq "author") { $keytype = "by"; }						# Add Graph
-				else { $keytype = "in"; }
-				&save_graph($keytype,$new_record,$keyrecord);					
-			}
-		}						 
-	}
 
 
 
@@ -2840,9 +2854,11 @@ sub update_record {
 	
 						# If publish selected, publish
 					
-	if ($vars->{publish_post}) {
+	if ($vars->{post_facebook} || $vars->{post_twitter}) {
 		$vars->{msg} .= &publish_post($dbh,$table,$id_number);
 	}
+
+
 
 #	print "Content-type: text/html; charset=utf-8\n\n";
 
@@ -2968,6 +2984,7 @@ sub edit_record {
 						# Define Form Contents
 
 
+
  						
 	my $showcols = {
 		author => ["name","nickname","link","description","image_file","submit"],
@@ -2977,7 +2994,7 @@ sub edit_record {
 		event => ["title","link","start","finish","timezone","location","status","section","description","submit","image_file"],
 		field => ["title","type","size","submit"],
 		file => ["title","dir","dirname","link","mime","type","size","align","width","height","crdate","post","description","submit"],
-		feed => ["title","link","html","type","author","section","genre","language","status","rules","description","image_file","submit"],
+		feed => ["title","link","html","type","author","section","submit","genre","language","status","rules","description","image_file","add_entry","authoremail","authorname","authorurl","autocats","baseurl","blogroll","category","compression","copyright","country","crdate","creatoremail","creatorname","creatorurl","docs","etag","explicit","feedburnerhost","feedburnerid","feedburnerurl","genname",,"genurl","genver","granularity","guid","hub","od","identifier","imgcreator","issued","journal","keywords","lastBuildDate","lastharvest","links","managingEditor","modified","pubDate","publisher","rating","rights","tagline","timezone","topic","updateBase","updated","ipdateFrequency","updatePeriod","version","webMaster","submit"],
 		graph => ["type","typeval","tableone","idone","urlone","tabletwo","idtwo","urltwo","crdate","submit"],
 		journal => ["title","link","description","submit"],
 		link => ["title","link","description","content","author","feed","section","genre","language","status","type","hits","total","post","copyright","crdate","issued","modified","submit","orig","content"],
@@ -2987,9 +3004,9 @@ sub edit_record {
 		optlist => ["title","table","field","data","list","default","type","submit"],
 		page => ["title","header","footer","feed","type","update","submit","code","description"],
 		person => ["name","photo","title","password","openid","status","email","socialnet","description","submit"],
-		post => ["title","link","description","submit","author","feed","pub_date","crdate","section","genre","language","type","comments","icon","image_file","submit","content","twitter"],
+		post => ["title","link","twitter","description","submit","author","feed","pub_date","crdate","section","genre","language","type","comments","icon","image_file","submit","content"],
 		publication => ["title","link","author_name","journal_name","volume","pages","publisher_name","type","category","catdetails","crdate","nrc_number","post","submit","description"],
-		presentation => ["category","catdetails","title","link","author","conference","location","crdate","attendees","cattendees","slides","slideshare","audio","video","org","description","submit","audio_player","slide_player","video_player"],
+		presentation => ["category","catdetails","title","link","author","conference","location","crdate","attendees","cattendees","slides","slideshare","youtube","audio","video","org","description","submit","audio_player","slide_player","video_player"],
 		project => ["title","crdate","completion","description"],		
 		task => ["title","due","length","priority","project","status","completed","description","submit"],		
 		template => ["title","description","submit"],
@@ -3677,18 +3694,10 @@ sub cron_tasks {
 		
 				
 										
-	if ($hour eq "23" && $min eq "50") {					# Rotate Hits
+	if ($hour eq "23" && $min eq "50") {				# Reset Hits to 0
 		
-		
-		
-		&rotate_hit_counters($dbh,$query,"post");			# Rotate post hit counters
-		&rotate_hit_counters($dbh,$query,"page");			# Rotate page hit counters
-				
-		if ($Site->{log_items} eq "yes") {				# Daily items harvested log
-		
-			&admin_report($dbh,$query);
-		
-		}
+		&rotate_hit_counters($dbh,$query,"post");			# Reset post hit counters
+		&rotate_hit_counters($dbh,$query,"page");			# Reset page hit counters
 		
 	}
 	
@@ -3904,39 +3913,27 @@ sub admin_report {
 sub rotate_hit_counters {
 
 	my ($dbh,$query,$table) = @_;
-	print "Content-type:text/html\n\n";
-	print "Rotating hits table<p>";
 
-	# Set default variables
+
+	# Set default variables for current table
 	my $hitsfield = $table."_hits";
-	my $totalfield = $table."_total";
 	my $idfield = $table."_id";
 
-	# Rotate the Counters
+	# For each record with a hit today
 	my $sql = "SELECT $idfield,$hitsfield,$totalfield FROM $table WHERE $hitsfield > 0";
-	#print "$sql <p>";
-	my $em;
+
 	my $sth = $dbh->prepare($sql);
 	$sth->execute();
 	while (my $record = $sth -> fetchrow_hashref()) {
 
-		my $total = $record->{$totalfield} + $record->{$hitsfield};
-		$em .= $Site->{st_url}."post/".$record->{$idfield}." ".$record->{$hitsfield}." / ".$record->{$totalfield}."\n";
-		
-		
-		
+
+		# Reset Daily Hits to 0		
 		my $usql = "UPDATE $table SET $hitsfield = ? WHERE $idfield = ?"; 
 		my $usth = $dbh->prepare($usql);
 		$usth->execute("0",$record->{$idfield});
-		
-		my $usql = "UPDATE $table SET $totalfield = ? WHERE $idfield = ?"; 
-		my $usth = $dbh->prepare($usql);
-		$usth->execute($total,$record->{$idfield});		
-		
+				
 	}
 	
-	&send_email("stephen\@downes.ca","stephen\@downes.ca","Rotate Hits - $Site->{st_url}","$em");			
-
 
 	return;
 }
@@ -4150,3 +4147,40 @@ print "Testing...<p>";
 print "OK";	
 }
 
+sub fix_graph() {
+	
+	#   Submissions will include info about authors, feeds, etc.
+	#   Values for these other records are submitted in $vars and always have the prefix 'keyname_'
+	#   For example, a field named 'keyname_author' will refer to the name of an author in the 'author' table
+	#   The function produces a record in the graph table  
+	#   It will also create a new record in the other table, if necessary
+print "Content-type: text/html\n\n";
+print "Posts.<p>";
+	my $sth = $dbh->prepare("SELECT * FROM post");
+	$sth -> execute();
+	my $ccount=0; my $articles;my $comments; my $links; my $other;
+	while (my $c = $sth -> fetchrow_hashref()) { 
+		$ccount++;
+		if ($c->{post_type} =~ /article/) { $articles++; }
+		elsif ($c->{post_type} =~ /link/) { $links++; }
+		elsif ($c->{post_type} =~ /comment/) { $comments++; }		
+		else { $other++; }
+		next unless ($c->{post_type} =~ /link/);
+		#last if ($ccount > 5);
+		$c->{post_author} =~ s/Reviewed by//i;
+		$c->{post_author} =~ s/, eds\.//i;		
+		print qq|$ccount : |.$c->{post_id}.qq| (|.$c->{post_type}.qq|) |.$c->{post_title}.qq|, |;
+		print qq||.$c->{post_authorname}.qq|, |;
+		print qq||.$c->{post_author}.qq|<br>|;	
+		print qq||.$c->{post_journal}.qq|<br>|;	
+		
+		$c->{keyname_author} = $c->{post_author};
+		$c->{keyname_feed} = $c->{post_journal};		
+	&record_graph($dbh,$c,"post",$c);					# Save Graph Records				
+	}
+	print "<p>Links: $links  Comments:  $comments  Articles: $articles  Other: $other <p>";
+	$sth->finish();
+	
+exit;	
+
+}
