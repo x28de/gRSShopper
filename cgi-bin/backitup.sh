@@ -2,8 +2,8 @@
 # Script to back up a single table from a mysql database
 
 DATETIME=$(date +%Y%m%d-%T)
-PASSWORD="M0ncton2001" #if you have a password, it goes here
-DATABASE="downes" #database name
+PASSWORD="" #if you have a password, it goes here
+DATABASE="" #database name
 
 #array of table names you'd like to back up
 array=(author box event feed field file graph journal link media optlist page person post presentation publication publisher template view)

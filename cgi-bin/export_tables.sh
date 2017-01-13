@@ -2,7 +2,7 @@
 # Script to back up a single table from a mysql database
 
 
-PASSWORD="Vitt&enstein"
+PASSWORD=""
 DATABASE="course"
 
 TBOUTPUT="/var/www/cgi-bin/packs/"$DATABASE"/grsshopper_tables.sql"
