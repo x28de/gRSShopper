@@ -249,9 +249,10 @@ sub get_site {
 	
 	
 										# Open Site Database
-										
+	
+									
 	my $dbh = DBI->connect("DBI:mysql:$Site->{database_name}:$Site->{database_loc}", 
-		$Site->{database_usr},$Site->{database_pwd})
+		$Site->{database_usr},$Site->{database_pwd},"3306")
 		or &initialize_site("db",$DBI::errstr);		
 	$_ = "";								# Prevent accidental (or otherwise) print of config file.		
 	$Site->{db_name} = $Site->{database_name};
