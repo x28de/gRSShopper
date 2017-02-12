@@ -26,7 +26,7 @@ if [ -f /root/.my.cnf ]; then
 	mysql -e "GRANT ALL PRIVILEGES ON ${dbname}.* TO '${username}'@'localhost';"
 	mysql -e "FLUSH PRIVILEGES;"
 	echo "Making database tables..."
-      for sql_file in `ls /var/www/gRSShopper/cgi-bin/sql`; do mysql -uUSER -pPASSWORD DATABASE < $sql_file ; done
+      for sql_file in `ls /var/www/gRSShopper/cgi-bin/sql`; do mysql -uUSER -pPASSWORD DATABASE < /var/www/gRSShopper/cgi-bin/sql/$sql_file ; done
 	echo "Done."
 	exit
 	
@@ -56,7 +56,7 @@ else
 	mysql -uroot -p${rootpasswd} -e "GRANT ALL PRIVILEGES ON ${dbname}.* TO '${username}'@'localhost';"
 	mysql -uroot -p${rootpasswd} -e "FLUSH PRIVILEGES;"
 	echo "Making database tables..."
-      for sql_file in `ls /var/www/gRSShopper/cgi-bin/sql`; do mysql -uUSER -pPASSWORD DATABASE < $sql_file ; done
+      for sql_file in `ls /var/www/gRSShopper/cgi-bin/sql`; do mysql -uUSER -pPASSWORD DATABASE < /var/www/gRSShopper/cgi-bin/sql/$sql_file ; done
 	echo "Done."
 	exit
 fi
