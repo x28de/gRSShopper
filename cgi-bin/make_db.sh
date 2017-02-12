@@ -25,7 +25,9 @@ if [ -f /root/.my.cnf ]; then
 	echo "Granting ALL privileges on ${dbname} to ${username}!"
 	mysql -e "GRANT ALL PRIVILEGES ON ${dbname}.* TO '${username}'@'localhost';"
 	mysql -e "FLUSH PRIVILEGES;"
-	echo "You're good now :)"
+	echo "Making database tables..."
+      for sql_file in `ls /var/www/cgi-bin/sql`; do mysql -uUSER -pPASSWORD DATABASE < $sql_file ; done
+	echo "Done."
 	exit
 	
 # If /root/.my.cnf doesn't exist then it'll ask for root password	
@@ -53,6 +55,8 @@ else
 	echo "Granting ALL privileges on ${dbname} to ${username}!"
 	mysql -uroot -p${rootpasswd} -e "GRANT ALL PRIVILEGES ON ${dbname}.* TO '${username}'@'localhost';"
 	mysql -uroot -p${rootpasswd} -e "FLUSH PRIVILEGES;"
-	echo "You're good now :)"
+	echo "Making database tables..."
+      for sql_file in `ls /var/www/cgi-bin/sql`; do mysql -uUSER -pPASSWORD DATABASE < $sql_file ; done
+	echo "Done."
 	exit
 fi
