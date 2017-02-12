@@ -65,10 +65,6 @@ print "gRSShopper web server environment test.".$newline.$newline;
   }
   
 
-	use CGI::Carp qw(fatalsToBrowser);
-	my $query = new CGI; 
-	my $vars = $query->Vars;
-    while (my ($vx,$vy) = each %$vars) { print "$vx = $vy <br>"; }
     
     
     
@@ -311,9 +307,6 @@ print "gRSShopper web server environment test.".$newline.$newline;
   }
 
 
-    my $facebook_application_secret = "6a6c49e97b44b72de10f719223f601a8";
-    my $facebook_application_id = "5720604012";
-    my $facebook_postback = 'http://www.downes.ca/facebook/postback';
  
   print "Checking for Facebook::Graph. This provides Facebook authentication";
   eval "use Net::Facebook::Oauth2";
@@ -324,44 +317,8 @@ print "gRSShopper web server environment test.".$newline.$newline;
 	print " OK$newline"; 
   }
   
-    my $fb = Net::Facebook::Oauth2->new(
-        application_secret     => $facebook_application_secret, 
-        application_id          => $facebook_application_id,
-        callback           => 'http://www.downes.ca/cgi-bin/server_test.cgi'
-    );
-
-    # get the authorization URL for your application
-    my $url = $fb->get_authorization_url(
-        scope   => [ 'public_profile', 'email', 'offline_access', 'publish_stream' ],
-        display => 'page'
-    );
-    
-    
-    print qq|Redirect URL: <a href="$url">Click here</a><p>|;
-    
-    
- 
-# print "Facebooking<p>"; 
-# my $fb = Facebook::Graph->new(
-#    secret      => $facebook_application_secret,
-#    app_id      => $facebook_application_id,
-#    postback    => $facebook_postback,
-# ) || print "Error";
 
  
-
-#print $perl_page;
-    
-
-    
- #print "Requesting access token<p>";
- #my $code_from_authorize_postback = "test";
-# my $token_response_object = $fb->request_access_token($code_from_authorize_postback) || print "Error";;
-
-# my $token_string = $token_response_object->token;
- #my $token_expires_epoch = $token_response_object->expires;
- 
- #print "Token: $token_string<p>"; print "Token expires: $token_expires_epock<p>";
  
  
    # -------------
