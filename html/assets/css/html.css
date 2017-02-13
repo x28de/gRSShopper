@@ -203,3 +203,12 @@ p.nav {
         text-align: right;
         color: #000000;
 }
+
+
+/* JQuery time add-in tweak */
+
+/* .ui-timepicker-div { font-size: 10pt; line-height: 10pt; }  */
+/* .ui-timepicker-div dt,dl { height: 40pt; } */
+.ui-timepicker-div select { width: 60pt; } 
+
+/* ui_tpicker_timezone */

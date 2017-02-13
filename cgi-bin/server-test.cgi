@@ -80,6 +80,17 @@ print "gRSShopper web server environment test.".$newline.$newline;
   }
 
 # -------------
+# Check for CGI::Session
+  print "Checking for CGI::Session. This module manages sessions.";
+  eval "use CGI::Carp";
+  if ($@) {
+    print "$newline"."The CGI::Session module could not be located.$newline";
+    $missing=1;
+  } else { 
+	print " OK$newline"; 
+  }
+
+# -------------
 # Check for DBI
   print "Checking for DBI. This module handles database functions.";
   eval "use DBI";

@@ -28,7 +28,8 @@
 #
 #-------------------------------------------------------------------------------
 
- print "Content-type: text/html\n\n";
+use CGI::Carp qw(fatalsToBrowser);
+
 
  
 # Forbid agents
