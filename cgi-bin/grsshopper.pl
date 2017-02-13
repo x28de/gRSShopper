@@ -249,11 +249,9 @@ sub get_site {
 	
 	
 										# Open Site Database
-	
-									
-	my $dbh = DBI->connect("DBI:mysql:$Site->{database_name}:$Site->{database_loc}", 
-		$Site->{database_usr},$Site->{database_pwd},"3306")
-		or &initialize_site("db",$DBI::errstr);		
+	my $dbh = DBI->connect("DBI:mysql:database=$Site->{database_name};host=$Site->{database_loc};port=3306",$Site->{database_usr},$Site->{database_pwd},{'RaiseError' => 1});
+
+										
 	$_ = "";								# Prevent accidental (or otherwise) print of config file.		
 	$Site->{db_name} = $Site->{database_name};
 
@@ -262,8 +260,8 @@ sub get_site {
 
 
 										# Initialize if site name not found
-	&initialize_site("db",&printlang("Database not initialized"))
-		unless ($Site->{st_name});									
+#	&initialize_site("db",&printlang("Database not initialized"))
+#		unless ($Site->{st_name});									
 
 										# Normalize URLs and Filenames
 	
