@@ -1,6 +1,6 @@
-#    gRSShopper 0.5  Common Functions  0.6  -- 
+#    gRSShopper 0.5  Common Functions  0.7  -- 
 
-12 January 2016
+#    12 February 2017
 
 #    Copyright (C) <2013>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
