@@ -26,11 +26,11 @@ sub site_config { my ($context) = @_;
 	
 
 	
-	site_url 	=>	'http://rel2014.mooc.ca',		# Site URL
-	co_host 	=>	'http://rel2014.mooc.ca',		# Site Cookie Host	
-	document_dir 	=>	'/var/www/moocrel',			# Document Directory
-	cgi_url		=>	'http://rel2014.mooc.ca/cgi-bin',	# CGI Scripts URL
-	cgi_dir		=>	'/srv/www/clients/client1/web1/cgi-bin/',			# CGI script directory
+	site_url 	=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com',		# Site URL
+	co_host 	=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com',		# Site Cookie Host	
+	document_dir 	=>	'/var/www/html',			# Document Directory
+	cgi_url		=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com/cgi-bin',	# CGI Scripts URL
+	cgi_dir		=>	'/srv/www/cgi-bin/',			# CGI script directory
 	database_name	=>	'moocrel',				# Database Name
 	database_loc	=>	'localhost',				# Database Location
 	database_usr	=>	'moocrel',				# Database User
