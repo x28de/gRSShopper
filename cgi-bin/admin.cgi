@@ -1450,7 +1450,7 @@ sub admin_update_config {
 		next if ($vx =~ /^(action|mode|cronsite|format|button|force|comment|id|title|mod_load|msg|test)$/);	
 	
 		my $sth; my $sql;
-		if ($Site->{$vx}) {	# Existing
+		if (&db_locate($dbh,"config",{"config_noun" => $vx})) {	# Existing
 		
 			$sql = qq|UPDATE config SET config_value=? WHERE config_noun='$vx'|;
 			$sth = $dbh->prepare($sql)  or die "Cannot prepare: " . $dbh->errstr();
