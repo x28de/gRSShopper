@@ -27,7 +27,7 @@ sub site_config { my ($context) = @_;
 
 	
 	site_url 	=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com',		# Site URL
-	co_host 	=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com',		# Site Cookie Host	
+	coookie_host 	=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com',		# Site Cookie Host	
 	document_dir 	=>	'/var/www/html',			# Document Directory
 	cgi_url		=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com/cgi-bin',	# CGI Scripts URL
 	cgi_dir		=>	'/srv/www/cgi-bin/',			# CGI script directory
