@@ -59,7 +59,27 @@ CREATE TABLE `author_list` (
   `author_list_table` varchar(15) DEFAULT NULL,
   `author_list_author` int(15) DEFAULT NULL,
   PRIMARY KEY (`author_list_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=10807 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `badge`
+--
+
+DROP TABLE IF EXISTS `badge`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `badge` (
+  `badge_id` int(15) NOT NULL AUTO_INCREMENT,
+  `badge_name` varchar(255) NOT NULL,
+  `badge_description` text NOT NULL,
+  `badge_image` varchar(255) NOT NULL,
+  `badge_criteria` varchar(255) NOT NULL,
+  `badge_issuer` varchar(255) NOT NULL,
+  `badge_crdate` int(15) NOT NULL,
+  `badge_location` varchar(255) NOT NULL,
+  PRIMARY KEY (`badge_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -73,7 +93,7 @@ CREATE TABLE `banned_sites` (
   `banned_sites_id` int(15) NOT NULL AUTO_INCREMENT,
   `banned_sites_ip` varchar(30) DEFAULT NULL,
   PRIMARY KEY (`banned_sites_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=3026 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -97,7 +117,7 @@ CREATE TABLE `box` (
   `box_rss_version` int(15) DEFAULT NULL,
   `box_order` int(3) DEFAULT NULL,
   PRIMARY KEY (`box_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=47 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=31 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -113,11 +133,9 @@ CREATE TABLE `cache` (
   `cache_update` int(15) DEFAULT '0',
   `cache_text` longtext CHARACTER SET utf8 COLLATE utf8_unicode_ci,
   `cache_table` varchar(250) DEFAULT NULL,
-  `cache_format` varchar(250) DEFAULT NULL,
-  `cache_record` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`cache_id`),
   KEY `cache_title` (`cache_title`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -136,9 +154,8 @@ CREATE TABLE `chat` (
   `chat_crip` varchar(24) DEFAULT NULL,
   `chat_crdate` int(15) DEFAULT NULL,
   `chat_thread` varchar(250) DEFAULT NULL,
-  `chat_link` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`chat_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=3701 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -156,7 +173,7 @@ CREATE TABLE `cite` (
   `cite_crdate` int(15) DEFAULT NULL,
   `cite_creator` int(15) DEFAULT NULL,
   PRIMARY KEY (`cite_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=10389 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -171,9 +188,9 @@ CREATE TABLE `config` (
   `config_type` varchar(255) DEFAULT NULL,
   `config_noun` varchar(255) DEFAULT NULL,
   `config_verb` varchar(255) DEFAULT NULL,
-  `config_value` varchar(511) DEFAULT NULL,
+  `config_value` varchar(255) DEFAULT NULL,
   KEY `config_id` (`config_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=410 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=236 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -191,7 +208,7 @@ CREATE TABLE `custom` (
   `custom_creator` int(15) DEFAULT NULL,
   `custom_content` text,
   PRIMARY KEY (`custom_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -208,7 +225,7 @@ CREATE TABLE `event` (
   `event_group` varchar(15) DEFAULT NULL,
   `event_description` text,
   `event_location` varchar(255) DEFAULT NULL,
-  `event_start` varchar(255) DEFAULT NULL,
+  `event_start` varchar(124) DEFAULT NULL,
   `event_end` varchar(124) DEFAULT NULL,
   `event_link` varchar(255) DEFAULT NULL,
   `event_crdate` int(15) DEFAULT NULL,
@@ -216,7 +233,7 @@ CREATE TABLE `event` (
   `test_date` datetime DEFAULT NULL,
   `environment` varchar(250) DEFAULT NULL,
   `event_environment` varchar(250) DEFAULT NULL,
-  `event_finish` varchar(255) DEFAULT NULL,
+  `event_finish` varchar(250) DEFAULT NULL,
   `event_star` varchar(250) DEFAULT NULL,
   `event_host` varchar(250) DEFAULT NULL,
   `owner_url` varchar(250) DEFAULT NULL,
@@ -238,7 +255,7 @@ CREATE TABLE `event` (
   `event_section` varchar(250) DEFAULT NULL,
   `event_total` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`event_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=74 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=47 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -253,7 +270,7 @@ CREATE TABLE `event_post` (
   `event_post_event` int(15) NOT NULL DEFAULT '0',
   `event_post_post` int(15) NOT NULL DEFAULT '0',
   PRIMARY KEY (`event_post_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=7 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=7 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -275,7 +292,7 @@ CREATE TABLE `feed` (
   `feed_author` int(15) DEFAULT NULL,
   `feed_post` varchar(255) DEFAULT NULL,
   `feed_guid` varchar(255) DEFAULT NULL,
-  `feed_lastBuildDate` varchar(64) DEFAULT NULL,
+  `feed_lastBuildDate` varchar(25) DEFAULT NULL,
   `feed_pubDate` varchar(25) DEFAULT NULL,
   `feed_genname` varchar(24) DEFAULT NULL,
   `feed_genver` varchar(10) DEFAULT NULL,
@@ -389,7 +406,7 @@ CREATE TABLE `file` (
   `file_link` varchar(250) DEFAULT NULL,
   `file_dir` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`file_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=9122 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=1075 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -404,15 +421,15 @@ CREATE TABLE `graph` (
   `graph_type` varchar(64) DEFAULT NULL,
   `graph_typeval` varchar(40) DEFAULT NULL,
   `graph_tableone` varchar(40) DEFAULT NULL,
-  `graph_urlone` varchar(256) DEFAULT NULL,
   `graph_idone` varchar(40) DEFAULT NULL,
   `graph_tabletwo` varchar(40) DEFAULT NULL,
-  `graph_urltwo` varchar(256) DEFAULT NULL,
   `graph_idtwo` varchar(40) DEFAULT NULL,
   `graph_crdate` varchar(15) DEFAULT NULL,
   `graph_creator` varchar(15) DEFAULT NULL,
+  `graph_urlone` varchar(250) DEFAULT NULL,
+  `graph_urltwo` varchar(250) DEFAULT NULL,
   KEY `graph_id` (`graph_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=95591 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=131108 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -428,7 +445,7 @@ CREATE TABLE `identifier` (
   `identifier_entry` varchar(255) DEFAULT NULL,
   `identifier_linkid` int(15) DEFAULT NULL,
   PRIMARY KEY (`identifier_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -446,7 +463,7 @@ CREATE TABLE `journal` (
   `journal_crdate` int(15) DEFAULT NULL,
   `journal_creator` int(15) DEFAULT NULL,
   PRIMARY KEY (`journal_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=14336 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=41 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -491,7 +508,7 @@ CREATE TABLE `learning` (
   `learning_extra` varchar(255) DEFAULT NULL,
   `learning_crdate` int(15) DEFAULT NULL,
   PRIMARY KEY (`learning_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=8 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=8 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -547,7 +564,7 @@ CREATE TABLE `link` (
   `link_genre` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`link_id`),
   UNIQUE KEY `link_link` (`link_link`)
-) ENGINE=MyISAM AUTO_INCREMENT=10181 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=27359 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -566,7 +583,7 @@ CREATE TABLE `link_author` (
   PRIMARY KEY (`link_author_id`),
   KEY `link_author_link` (`link_author_link`,`link_author_author`),
   KEY `link_author_journal` (`link_author_journal`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -584,7 +601,7 @@ CREATE TABLE `linktoread` (
   `lr_localcat` varchar(15) DEFAULT NULL,
   `lr_feed` int(15) DEFAULT NULL,
   PRIMARY KEY (`lr_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=1237451 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -604,7 +621,7 @@ CREATE TABLE `list` (
   `list_project` int(15) DEFAULT NULL,
   `list_crdate` varchar(15) DEFAULT NULL,
   PRIMARY KEY (`list_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -621,7 +638,7 @@ CREATE TABLE `log` (
   `log_creator` int(15) DEFAULT NULL,
   `log_crdate` int(15) DEFAULT NULL,
   PRIMARY KEY (`log_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=492 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=156 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -649,7 +666,7 @@ CREATE TABLE `mapping` (
   `mapping_prefix` varchar(32) DEFAULT NULL,
   `mapping_priority` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`mapping_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=21 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=24 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -661,86 +678,31 @@ DROP TABLE IF EXISTS `media`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `media` (
   `media_id` int(10) NOT NULL AUTO_INCREMENT,
-  `media_type` varchar(40) DEFAULT NULL,
-  `media_mimetype` varchar(40) DEFAULT NULL,
-  `media_title` varchar(256) DEFAULT NULL,
-  `media_url` varchar(256) DEFAULT NULL,
+  `media_block` varchar(250) DEFAULT NULL,
+  `media_crdate` int(15) DEFAULT '0',
+  `media_creator` int(15) DEFAULT '0',
   `media_description` text,
-  `media_size` varchar(32) DEFAULT NULL,
+  `media_duration` varchar(250) DEFAULT NULL,
+  `media_explicit` varchar(250) DEFAULT NULL,
+  `media_feed` varchar(250) DEFAULT NULL,
+  `media_height` varchar(250) DEFAULT NULL,
+  `media_identifier` varchar(250) DEFAULT NULL,
+  `media_keywords` varchar(250) DEFAULT NULL,
+  `media_language` varchar(250) DEFAULT NULL,
   `media_link` varchar(256) DEFAULT NULL,
+  `media_mimetype` varchar(250) DEFAULT NULL,
   `media_post` varchar(256) DEFAULT NULL,
-  `media_feed` varchar(256) DEFAULT NULL,
-  `media_crdate` int(15) DEFAULT NULL,
-  `media_creator` int(15) DEFAULT NULL,
+  `media_size` varchar(32) DEFAULT NULL,
+  `media_subtitle` varchar(250) DEFAULT NULL,
+  `media_thheight` varchar(250) DEFAULT NULL,
   `media_thurl` varchar(250) DEFAULT NULL,
   `media_thwidth` varchar(250) DEFAULT NULL,
-  `media_thheight` varchar(250) DEFAULT NULL,
-  `media_duration` varchar(250) DEFAULT NULL,
-  `media_block` varchar(250) DEFAULT NULL,
-  `media_explicit` varchar(250) DEFAULT NULL,
-  `media_keywords` varchar(250) DEFAULT NULL,
-  `media_subtitle` varchar(250) DEFAULT NULL,
-  `media_height` varchar(250) DEFAULT NULL,
+  `media_title` varchar(256) DEFAULT NULL,
+  `media_type` varchar(40) DEFAULT NULL,
+  `media_url` varchar(256) DEFAULT NULL,
   `media_width` varchar(250) DEFAULT NULL,
-  `media_language` varchar(250) DEFAULT NULL,
-  `media_identifier` varchar(250) DEFAULT NULL,
-  `media_medialink` varchar(250) DEFAULT NULL,
-  `media_feedname` varchar(250) DEFAULT NULL,
   KEY `media_id` (`media_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=8438 DEFAULT CHARSET=latin1;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `old_link_archives`
---
-
-DROP TABLE IF EXISTS `old_link_archives`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `old_link_archives` (
-  `link_id` int(15) NOT NULL AUTO_INCREMENT,
-  `link_identifier` varchar(255) DEFAULT NULL,
-  `link_crdate` int(15) NOT NULL DEFAULT '0',
-  `link_pubdate` varchar(64) NOT NULL DEFAULT '',
-  `link_feedid` int(15) NOT NULL DEFAULT '0',
-  `link_title` varchar(255) NOT NULL DEFAULT '',
-  `link_language` varchar(10) DEFAULT NULL,
-  `link_description` text,
-  `link_link` varchar(255) DEFAULT NULL,
-  `link_edit` varchar(255) DEFAULT NULL,
-  `link_guid` varchar(255) DEFAULT NULL,
-  `link_category` varchar(128) DEFAULT NULL,
-  `link_created` varchar(25) DEFAULT NULL,
-  `link_modified` varchar(25) DEFAULT NULL,
-  `link_issued` varchar(25) DEFAULT NULL,
-  `link_creatorname` text,
-  `link_creatorurl` text,
-  `link_creatoremail` varchar(255) DEFAULT NULL,
-  `link_contributor` text,
-  `link_subject` varchar(255) DEFAULT NULL,
-  `link_coverage` text,
-  `link_aggregationLevel` varchar(5) DEFAULT NULL,
-  `link_journal` varchar(255) DEFAULT NULL,
-  `link_format` varchar(255) DEFAULT NULL,
-  `link_version` varchar(255) DEFAULT NULL,
-  `link_size` int(15) DEFAULT NULL,
-  `link_status` varchar(255) DEFAULT NULL,
-  `link_type` varchar(255) DEFAULT NULL,
-  `link_platform` text,
-  `link_duration` varchar(64) DEFAULT NULL,
-  `link_source` varchar(255) DEFAULT NULL,
-  `link_cost` varchar(8) DEFAULT NULL,
-  `link_restrictions` varchar(8) DEFAULT NULL,
-  `link_rights` varchar(255) DEFAULT NULL,
-  `link_lcflag` char(1) NOT NULL DEFAULT 'C',
-  `link_rating_v` float DEFAULT '0',
-  `link_rating_n` int(15) DEFAULT '0',
-  `link_hits` int(15) DEFAULT '0',
-  `link_cites` int(15) DEFAULT '0',
-  `pub` int(15) DEFAULT '0',
-  PRIMARY KEY (`link_id`),
-  KEY `link_link` (`link_link`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=9321 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -756,7 +718,7 @@ CREATE TABLE `option` (
   `option_list` text,
   `option_default` varchar(59) DEFAULT NULL,
   PRIMARY KEY (`option_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -778,7 +740,7 @@ CREATE TABLE `optlist` (
   `optlist_table` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
   `optlist_field` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`optlist_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=29 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=61 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -796,9 +758,9 @@ CREATE TABLE `page` (
   `page_format` varchar(15) CHARACTER SET latin1 DEFAULT 'htm',
   `page_description` text CHARACTER SET latin1,
   `page_file` varchar(123) CHARACTER SET latin1 DEFAULT NULL,
-  `page_code` longtext COLLATE utf8_unicode_ci,
+  `page_code` text CHARACTER SET latin1,
   `page_days` varchar(255) CHARACTER SET latin1 DEFAULT 'Friday',
-  `page_content` longtext COLLATE utf8_unicode_ci,
+  `page_content` text CHARACTER SET latin1,
   `page_topics` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
   `page_type` varchar(15) CHARACTER SET latin1 DEFAULT NULL,
   `page_header` varchar(36) CHARACTER SET latin1 DEFAULT NULL,
@@ -819,16 +781,15 @@ CREATE TABLE `page` (
   `page_location` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
   `page_latest` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
   `page_autosub` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `page_subhour` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `page_submin` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `page_subwday` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `page_submday` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `page_subsend` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `page_allow_empty` varchar(5) COLLATE utf8_unicode_ci DEFAULT 'no',
+  `page_subhour` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `page_submin` varchar(20) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `page_subwday` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `page_submday` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL,
   `page_autowhen` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `page_hits` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
-  `page_total` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
+  `page_subsend` varchar(250) COLLATE utf8_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`page_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=184 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+) ENGINE=MyISAM AUTO_INCREMENT=350 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -877,11 +838,10 @@ CREATE TABLE `person` (
   `show_photo` varchar(4) DEFAULT 'show',
   `show_email` varchar(4) DEFAULT 'hide',
   `person_lastread` int(15) DEFAULT '0',
-  `person_firstname` varchar(250) DEFAULT NULL,
-  `person_lastname` varchar(250) DEFAULT NULL,
   `person_socialnet` varchar(250) DEFAULT NULL,
-  PRIMARY KEY (`person_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=58315 DEFAULT CHARSET=latin1;
+  PRIMARY KEY (`person_id`),
+  UNIQUE KEY `person_id` (`person_id`,`person_title`,`person_email`)
+) ENGINE=MyISAM AUTO_INCREMENT=1528 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -898,7 +858,7 @@ CREATE TABLE `post` (
   `post_title` varchar(255) DEFAULT NULL,
   `post_link` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
   `post_linkid` int(15) DEFAULT NULL,
-  `post_author` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
+  `post_author` varchar(255) DEFAULT NULL,
   `post_authorids` varchar(255) DEFAULT NULL,
   `post_authorstr` text,
   `post_journal` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
@@ -925,6 +885,7 @@ CREATE TABLE `post` (
   `post_cache` longtext,
   `post_offset` int(6) DEFAULT NULL,
   `post_pub_date` varchar(250) DEFAULT NULL,
+  `image_file` varchar(250) DEFAULT NULL,
   `post_image_url` varchar(250) DEFAULT NULL,
   `post_image_file` varchar(250) DEFAULT NULL,
   `post_total` int(11) DEFAULT NULL,
@@ -944,8 +905,9 @@ CREATE TABLE `post` (
   `post_icon` varchar(250) DEFAULT NULL,
   `post_language` varchar(250) DEFAULT NULL,
   `post_social_media` varchar(250) DEFAULT NULL,
+  `post_comments` int(5) DEFAULT NULL,
   PRIMARY KEY (`post_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=66376 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=8416 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -960,7 +922,7 @@ CREATE TABLE `post_file` (
   `post_file_post` int(11) NOT NULL DEFAULT '0',
   `post_file_file` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`post_file_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=1237 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -975,7 +937,7 @@ CREATE TABLE `post_link` (
   `post_link_post` int(15) DEFAULT NULL,
   `post_link_link` int(15) DEFAULT NULL,
   PRIMARY KEY (`post_link_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -989,8 +951,9 @@ CREATE TABLE `post_presentation` (
   `post_presentation_id` int(15) NOT NULL AUTO_INCREMENT,
   `post_presentation_post` int(15) DEFAULT NULL,
   `post_presentation_presentation` int(15) DEFAULT NULL,
+  `person_socialnet` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`post_presentation_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=32 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=32 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1005,7 +968,7 @@ CREATE TABLE `post_topic` (
   `post_topic_post` int(15) DEFAULT NULL,
   `post_topic_topic` int(15) DEFAULT NULL,
   PRIMARY KEY (`post_topic_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=87964 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1022,7 +985,7 @@ CREATE TABLE `posttoread` (
   `pr_thread` int(15) DEFAULT NULL,
   `pr_person` int(15) DEFAULT NULL,
   PRIMARY KEY (`pr_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1054,11 +1017,8 @@ CREATE TABLE `presentation` (
   `presentation_slide_player` text,
   `presentation_video_player` text,
   `presentation_topics` varchar(255) DEFAULT NULL,
-  `presentation_hits` varchar(250) DEFAULT NULL,
-  `presentation_total` varchar(250) DEFAULT NULL,
-  `presentation_youtube` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`presentation_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=468 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=4 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1119,9 +1079,9 @@ CREATE TABLE `publication` (
   `publication_publisher_name` varchar(59) DEFAULT NULL,
   `publication_publisher_id` int(15) DEFAULT NULL,
   `publication_place` varchar(255) DEFAULT NULL,
-  `publication_description` varchar(250) DEFAULT NULL,
+  `publication_description` text,
   PRIMARY KEY (`publication_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=190 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=5 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1137,7 +1097,7 @@ CREATE TABLE `publisher` (
   `publisher_link` varchar(64) DEFAULT NULL,
   `publisher_x` varchar(64) DEFAULT NULL,
   PRIMARY KEY (`publisher_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1152,7 +1112,7 @@ CREATE TABLE `queue` (
   `queue_feed` int(15) NOT NULL DEFAULT '0',
   `queue_crdate` int(15) DEFAULT NULL,
   PRIMARY KEY (`queue_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=10630 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1170,7 +1130,7 @@ CREATE TABLE `rating` (
   `rating_scheme` varchar(255) DEFAULT NULL,
   `rating_crdate` int(15) DEFAULT NULL,
   PRIMARY KEY (`rating_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1187,7 +1147,7 @@ CREATE TABLE `reference` (
   `reference_type` varchar(15) DEFAULT NULL,
   PRIMARY KEY (`reference_id`),
   KEY `reference_post` (`reference_post`,`reference_link`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1208,7 +1168,7 @@ CREATE TABLE `referral` (
   `referral_description` text,
   `referral_crdate` int(15) DEFAULT '0',
   PRIMARY KEY (`referral_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1226,7 +1186,7 @@ CREATE TABLE `relation` (
   `relation_description` text,
   `relation_identity` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`relation_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1241,7 +1201,7 @@ CREATE TABLE `replyto` (
   `replyto_post` int(15) DEFAULT NULL,
   `replyto_reply` int(15) DEFAULT NULL,
   PRIMARY KEY (`replyto_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=202 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=202 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1261,7 +1221,7 @@ CREATE TABLE `subscription` (
   `subscription_misc` varchar(16) DEFAULT NULL,
   `subscription_crdate` varchar(24) DEFAULT NULL,
   PRIMARY KEY (`subscription_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=20325 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=6662 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1304,7 +1264,7 @@ CREATE TABLE `taxon` (
   `taxon_description` text,
   `taxon_crdate` int(15) DEFAULT NULL,
   PRIMARY KEY (`taxon_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1321,7 +1281,7 @@ CREATE TABLE `template` (
   `template_creator` varchar(64) DEFAULT NULL,
   `template_crdate` int(15) DEFAULT NULL,
   PRIMARY KEY (`template_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=41 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=48 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1349,7 +1309,7 @@ CREATE TABLE `theme` (
   `theme_creator` varchar(255) DEFAULT NULL,
   `theme_hits` int(15) DEFAULT '0',
   PRIMARY KEY (`theme_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=84 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=84 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1377,10 +1337,9 @@ CREATE TABLE `thread` (
   `thread_supdated` varchar(250) DEFAULT NULL,
   `thread_srefresh` varchar(250) DEFAULT NULL,
   `thread_tag` varchar(250) DEFAULT NULL,
-  `thread_twitterstatus` varchar(250) DEFAULT NULL,
   `thread_identifier` varchar(250) DEFAULT NULL,
   PRIMARY KEY (`thread_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=754 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=3 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1402,7 +1361,7 @@ CREATE TABLE `topic` (
   `topic_updated` int(15) DEFAULT '0',
   `topic_cache` longtext CHARACTER SET utf8 COLLATE utf8_unicode_ci,
   PRIMARY KEY (`topic_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=2542 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1418,7 +1377,7 @@ CREATE TABLE `topic_list` (
   `topic_list_table` varchar(15) DEFAULT NULL,
   `topic_list_topic` int(15) DEFAULT NULL,
   PRIMARY KEY (`topic_list_id`)
-) ENGINE=MyISAM AUTO_INCREMENT=5983 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --

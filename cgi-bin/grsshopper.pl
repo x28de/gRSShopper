@@ -5741,7 +5741,7 @@ sub db_get_record {
 	my @value_list; my @value_vals;
 	while (my($kx,$ky) = each %$value_arr) { push @value_list,"$kx=?"; push @value_vals,$ky; }
 	my $value_str = join " AND ",@value_list;
-	return unless ($value_str);
+	unless ($value_vals[0]) { warn "No value input to db_get_record"; return; }
 	my $stmt = "SELECT * FROM $table WHERE $value_str LIMIT 1";	
 	my $sth = $dbh -> prepare($stmt);
 	$sth -> execute(@value_vals);
@@ -7057,6 +7057,7 @@ sub nice_date {
 	# Get date from input
 	my ($time,$h,$tz) = @_; my $date;
 	unless (defined $h) { $h = "day"; }
+	unless (defined $time) { $time = time; }
 
 	my $dt = &set_dt($time,$tz);
 	
@@ -7212,7 +7213,11 @@ sub set_dt {
 sub dt_to_array {
 	
 	my ($dt) = @_;
-		
+	unless (defined $dt) {
+		$Site->{warn} .= "dt_to_array received no input <br>\n";
+      	return;
+	}		
+
 	my $year   = $dt->year;
 	
 	my $month  = $dt->month;       # 1-12
