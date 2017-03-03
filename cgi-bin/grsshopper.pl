@@ -9359,6 +9359,16 @@ package gRSShopper::Temp;
 	
 		my @spl = split '/',$home;				# This gets us the base URL
 		$home = shift @spl;
+		$self->{co_host} = $home;						# Set cookie host
+		$self->{st_url} = "http://".$home."/";				# Set base URL
+		$self->{st_cgi} = $self->{st_url}."cgi-bin/";			# Set base URL
+
+print "Content-type: text/html\n\n";
+print qq|
+		$self->{co_host} # Set cookie host<br>
+		$self->{st_url} # Set base URL<br>
+		$self->{st_cgi}  # Set base URL
+|;
 		
 		my $subdir = shift @spl;					# gets a subdir, for sites which are subdirs
 		
