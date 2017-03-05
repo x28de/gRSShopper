@@ -9277,7 +9277,7 @@ package gRSShopper::Temp;
   sub db_info {
   
   	
-  	my($self, $args) = @_;
+  	my($self,$args) = @_;
 
 	
   	my $data_file = $self->{data_dir} . "multisite.txt";
@@ -9306,7 +9306,7 @@ package gRSShopper::Temp;
 
 	$self->{st_lang} ||= $self->{site_language};		# Assign or override defaults
 	$self->{st_url}  ||= $self->{document_dir};
-	$self->{st_cgi}  ||= $seld->{cgi-dir};	
+	$self->{st_cgi}  ||= $self->{cgi-dir};	
 	return;
   }
 
