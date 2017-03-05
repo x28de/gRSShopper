@@ -9304,7 +9304,7 @@ package gRSShopper::Temp;
 
 	$self->{st_lang} ||= $self->{site_language};		# Assign or override defaults
 	$self->{st_url}  ||= $self->{document_dir};
-	$self->{st_cgi}  ||= $self->{cgi-dir};	
+	$self->{st_cgi}  ||= $self->{cgi_dir};	
 	return;
   }
 
