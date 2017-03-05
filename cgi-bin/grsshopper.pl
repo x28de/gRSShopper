@@ -9286,18 +9286,18 @@ package gRSShopper::Temp;
 	open IN,"$data_file" or die "Could not open $data_file : $!";
   	while (<IN>) {
 		my $line = $_; $line =~ s/(\s|\r|\n)$//g;
-		if ($_ =~ /^$self->{site_url}/) {(
-					$self->{st_url},
-					$self->{database}->{name},
-					$self->{database}->{loc},
-					$self->{database}->{usr},
-					$self->{database}->{pwd}),
-					$self->{st_lang},
-					$self->{st_url},
-					$self->{st_cgi}) = 
-				split "\t",$line;
+		if ($line =~ /^$self->{site_url}/) {
+			( $self->{st_url},
+			  $self->{database}->{name},
+			  $self->{database}->{loc},
+			  $self->{database}->{usr},
+			  $self->{database}->{pwd}),
+			  $self->{st_lang},
+			  $self->{st_url},
+			  $self->{st_cgi} ) = split "\t",$line;
+			last;
 		}
-		last;
+
 	}
 	close IN;
 	unless ($self->{database}->{name}) { die "Database information not found for site $self->{site_url}"; }
