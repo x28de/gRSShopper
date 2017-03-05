@@ -9277,9 +9277,8 @@ package gRSShopper::Temp;
   sub db_info {
   
   	
-  	my($self,$args) = @_;
+  	my ($self,$args) = @_;
 
-	
   	my $data_file = $self->{data_dir} . "multisite.txt";
 	
   	unless (-e $data_file) { die "Looking for site configuration file at $data_file but it was not found." }
@@ -9295,8 +9294,7 @@ package gRSShopper::Temp;
 					$self->{database}->{pwd}),
 					$self->{st_lang},
 					$self->{st_url},
-					$self->{st_cgi},
-					 =
+					$self->{st_cgi}) = 
 				split "\t",$line;
 		}
 		last;
