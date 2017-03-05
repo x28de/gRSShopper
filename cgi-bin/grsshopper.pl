@@ -176,9 +176,9 @@ sub get_site {
 
 	my $Site = gRSShopper::Site->new({						# Create new Site object
 		context		=>	$context,
-		data_dir		=>	'/var/www/data/',					# Location of site configuration files
+		data_dir		=>	'/var/www/cgi-bin/data/',			# Location of site configuration files
 		document_dir 	=>	'/var/www/html',					# Document Directory
-		cgi_dir		=>	'/srv/www/cgi-bin/',				# CGI script directory
+		cgi_dir		=>	'/var/www/cgi-bin/',				# CGI script directory
 		database_name	=>	'grsshopper',					# Default Database Name
 		database_loc	=>	'localhost',					# Default Database Location
 		database_usr	=>	'grsshopper',					# Default Database User
