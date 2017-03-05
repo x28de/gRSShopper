@@ -175,7 +175,7 @@ sub get_site {
 	}			
 
 	my $Site = gRSShopper::Site->new({						# Create new Site object
-		context		=>	$context
+		context		=>	$context,
 		data_dir		=>	'/var/www/data/',					# Location of site configuration files
 		document_dir 	=>	'/var/www/html',					# Document Directory
 		cgi_dir		=>	'/srv/www/cgi-bin/',				# CGI script directory
@@ -193,6 +193,7 @@ sub get_site {
 	$Site->{scriptfile} = $0;						# Find script filename 
 	$Site->{scriptdir} = dirname($0);					# and directory
 	
+
 
 	
 										# Language, as defined in site_config()	
