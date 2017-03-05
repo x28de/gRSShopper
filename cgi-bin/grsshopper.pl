@@ -194,12 +194,6 @@ sub get_site {
 	$Site->{scriptdir} = dirname($0);					# and directory
 	
 
-
-	
-										# Language, as defined in site_config()	
-	
-	
-										# (Very top of grsshopper.pl file)
 						
 	my @languages = split /,/,$Site->{site_language};
 	foreach my $lang (@languages) {
@@ -220,13 +214,18 @@ sub get_site {
 
 
 	
-	
+				  $self->{database}->{name},
+			  $self->{database}->{loc},
+			  $self->{database}->{usr},
+			  $self->{database}->{pwd},
 										# Open Site Database
-	my $dbh = DBI->connect("DBI:mysql:database=$Site->{database_name};host=$Site->{database_loc};port=3306",$Site->{database_usr},$Site->{database_pwd},{'RaiseError' => 1});
+	
+	my $dbh = DBI->connect("DBI:mysql:database=$Site->{database}->{name};host=$Site->{database}->{loc};port=3306",
+		$Site->{database}->{usr},$Site->{database}->{pwd},{'RaiseError' => 1});
 
-										
+	$Site->{database}="";						# Clear site database info so it's not available later				
 	$_ = "";								# Prevent accidental (or otherwise) print of config file.		
-	$Site->{db_name} = $Site->{database_name};
+
 
 										# Get Site Info From Database	
 	&get_config($dbh);
