@@ -14,41 +14,7 @@
 #    GNU General Public License for more details.
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-sub site_config { my ($context) = @_; 	
 
-	my $Site = gRSShopper::Site->new($context,{	
-	
-	
-#    EDIT THESE LINES to tell the system where to find database information
-#    and other directories - NOTE for multisite installation, see documentation
-#    (Don't change the punctuation and be sure to use the quotation marks)
-	
-	
-
-	
-	site_url 	=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com',		# Site URL
-	coookie_host 	=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com',		# Site Cookie Host	
-	document_dir 	=>	'/var/www/html',			# Document Directory
-	cgi_url		=>	'http://ec2-52-60-110-97.ca-central-1.compute.amazonaws.com/cgi-bin',	# CGI Scripts URL
-	cgi_dir		=>	'/srv/www/cgi-bin/',			# CGI script directory
-	database_name	=>	'moocrel',				# Database Name
-	database_loc	=>	'localhost',				# Database Location
-	database_usr	=>	'moocrel',				# Database User
-	database_pwd	=>	'',					# Database user password j85g83J1319YYPn
-	data_dir	=>	'/var/www/data/',				# Location of site configuration files
-	multisite	=>	'on',					# Toggle multisite configuration
-									# Turn 'off' if you are running just one site
-# 	EDIT THIS LINE to define the languages that will be used by the system
-#       Language packages are stored in files next to grsshopper.pl and are loaded on compile
-#       Separate language names with a comma (don't forget single quotes around the whole list)
-#       Each file is names languagename.pl   (eg. en-us.pl )
-#	Site default language will be the first language in the list (and will be used for anonymous, etc)
-
-#	site_language 	=> 	'en',
-	site_language 	=> 	'en,fr',
-
-# 	DO NOT EDIT below this line
-});return $Site; };
 
 
 
@@ -199,22 +165,28 @@ sub filter_input {
 
 sub get_site {
 
-
-
-
 	my ($context) = @_;
 	
-
-	
-	my $numArgs = $#ARGV + 1;						# Command Line Args (For Cron)
+	my $numArgs = $#ARGV + 1;							# Command Line Args (For Cron)
 	if ($#ARGV > 1) { $context = "cron"; }					# Set cron context, as appropriate
-	if ($vars->{action} eq "cron") { 
-		$context = "cron"; 
+	if ($vars->{action} eq "cron") { 						# Note that a cron key is required to execute 
+		$context = "cron"; 							# from the command line
 		$vars->{cronuser} = "web";
-	}			# We can call it from command line too, that's why we use a cron key
+	}			
 
-	
-	our $Site = &site_config($context);					# Located at the top of this file;
+	my $Site = gRSShopper::Site->new({						# Create new Site object
+		context		=>	$context
+		data_dir		=>	'/var/www/data/',					# Location of site configuration files
+		document_dir 	=>	'/var/www/html',					# Document Directory
+		cgi_dir		=>	'/srv/www/cgi-bin/',				# CGI script directory
+		database_name	=>	'grsshopper',					# Default Database Name
+		database_loc	=>	'localhost',					# Default Database Location
+		database_usr	=>	'grsshopper',					# Default Database User
+		database_pwd	=>	'grsshopper',					# Database user password 
+		site_language 	=> 	'en,fr',
+	});
+
+
 	if ($Site->{multisite} eq "on") { $Site->multisite_db_info(); }		# Get db info if we're on multisite
 	$Site->{script} = $Site->{site_url} . $ENV{'SCRIPT_NAME'};		# Find URL of this script
 	
@@ -9275,19 +9247,25 @@ package gRSShopper::Temp;
 
   sub new {
   	
-  	my($class, $context, $args) = @_;
+  	my($class, $args) = @_;
    	my $self = bless({}, $class);
 	
-   	$self->{context} = $context;
-   	while (my ($ax,$ay) = each %$args) {
+   	while (my ($ax,$ay) = each %$args) {			# Assign default values when Site created
 		$self->{$ax} = $ay;
    	}
    	
   	$self->{process} = time;					# Make process name
-  	$self->{site_url} = $self->home();
+  	$self->{st_url} = $self->home();				# Define Site home URL from $ENV data
+										# (Used to find database info in multisite.txt)
+
+	$self->db_info();							# Find db info from multisite.txt
  	
  	return $self;
   }
+
+
+
+
 
 #  db_info - gets the database info for the site in multisite mode
 #          - requires as input the 'base url' as determiend by $self->home()
@@ -9295,7 +9273,7 @@ package gRSShopper::Temp;
 #          - format:   site_url\tdatabase name\tdatabase host\tdatabase user\tdatabase user password\n
 #
  
-  sub multisite_db_info {
+  sub db_info {
   
   	
   	my($self, $args) = @_;
@@ -9303,31 +9281,37 @@ package gRSShopper::Temp;
 	
   	my $data_file = $self->{data_dir} . "multisite.txt";
 	
-  	unless (-e $data_file) { 					# default data dir, in case it's not found
-		my @fnamearr = split /\//,$ENV{'SCRIPT_FILENAME'};	# basically, it's:  cgi-bin/data/data_file.txt
-		pop @fnamearr;
-		my $scrdir = join "/",@fnamearr;
-		$data_file = $scrdir."/data/multisite.txt"; 	
-	}
+  	unless (-e $data_file) { die "Looking for site configuration file at $data_file but it was not found." }
 
-  	unless ($self->{site_url}) { $self->{site_url} = $self->home(); }		# should never be needed as home() loads in new()
-  	die "No site url found for db_info()" unless ($self->{site_url});
-	
-  	open IN,"$data_file" or die "Multisite database information file not found at $data_file";
+	open IN,"$data_file" or die "Could not open $data_file : $!";
   	while (<IN>) {
 		my $line = $_; $line =~ s/(\s|\r|\n)$//g;
-		if ($_ =~ /^$self->{site_url}/) {
-			($self->{site_url},$self->{database_name},$self->{database_loc},$self->{database_usr},$self->{database_pwd}) =
+		if ($_ =~ /^$self->{site_url}/) {(
+					$self->{st_url},
+					$self->{database}->{name},
+					$self->{database}->{loc},
+					$self->{database}->{usr},
+					$self->{database}->{pwd}),
+					$self->{st_lang},
+					$self->{st_url},
+					$self->{st_cgi},
+					 =
 				split "\t",$line;
-			$self->{db_name} = $self->{database_name};			
-			close IN;
-			return;
 		}
+		last;
 	}
-	
- 	die "Database information not found for site $self->{site_url}";
+	close IN;
+	unless ($self->{database}->{name}) { die "Database information not found for site $self->{site_url}"; }
+
+	$self->{st_lang} ||= $self->{site_language};		# Assign or override defaults
+	$self->{st_url}  ||= $self->{document_dir};
+	$self->{st_cgi}  ||= $seld->{cgi-dir};	
+	return;
   }
+
+
   
+
 #  home()  - determines a 'site url' given a script request
 #          - used to determine which database to use for multisite requests
 #  Deduces the home URL of the website the script is managing
@@ -9349,9 +9333,9 @@ package gRSShopper::Temp;
   	my $numArgs = $#ARGV + 1;
   	if ($ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'}) {
 
-		$home = $ENV{'SCRIPT_URI'};						# Home from Script URL
+		$home = $ENV{'SCRIPT_URI'};								# Home from Script URL
 		unless ($home) { $home = $ENV{'HTTP_HOST'}.$ENV{'REQUEST_URI'}; } 	# Trying again
-		unless ($home) { $home = $self->{cgi_dir}; }  				# allows you to force it, but it's a last resort		
+		unless ($home) { $home = $self->{cgi_dir}; }  					# allows you to force it, but it's a last resort		
 		unless ($home) { die "Cannot determine website home."; }
 		
 		$home =~ s'http(s|)://'';				# Extract http from request URL '
