@@ -9291,7 +9291,7 @@ package gRSShopper::Temp;
 			  $self->{database}->{name},
 			  $self->{database}->{loc},
 			  $self->{database}->{usr},
-			  $self->{database}->{pwd}),
+			  $self->{database}->{pwd},
 			  $self->{st_lang},
 			  $self->{st_url},
 			  $self->{st_cgi} ) = split "\t",$line;
