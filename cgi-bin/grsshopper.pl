@@ -9042,7 +9042,7 @@ package gRSShopper::Temp;
 
 											# Initialize if line beginning with site URL can't be found
 
-	unless ($url_located) { self->__initialize("url"); }
+	unless ($url_located) { self->__initialize_site("url"); }
 
 	$self->{st_lang}  ||= 'en';						# Assign or override defaults
 	$self->{st_urlf}  ||= '/var/www/html';
