@@ -32,7 +32,7 @@
 die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if
 	($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						# Forbid bots
 
-use File::Basename;											# Load gRSShopper
+use File::Basename;												# Load gRSShopper
 use CGI::Carp qw(fatalsToBrowser);
 my $dirname = dirname(__FILE__);								
 require $dirname . "/grsshopper.pl";								

@@ -19,36 +19,24 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if
+	($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						# Forbid bots
+
+use File::Basename;												# Load gRSShopper
+use CGI::Carp qw(fatalsToBrowser);
+my $dirname = dirname(__FILE__);								
+require $dirname . "/grsshopper.pl";								
+
+our ($query,$vars) = &load_modules("login");								# Load modules
+
+our ($Site,$dbh) = &get_site("admin");									# Load Site
 
 
-# Forbid agents
 
-if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/) { 
-  	print "Content-type: text/html; charset=utf-8\n";
-	print "HTTP/1.1 403 Forbidden\n\n";
-	print "403 Forbidden\n"; 
-	exit; 
-}
-
-
-# Initialize gRSShopper Library
-
-# FindBin doesn't work on ModCGI
-#use FindBin qw($Bin);
-#require "$Bin/grsshopper.pl";
-
-# Need these two modules for Google ID logins
-use CGI;
-use CGI::Session;
-
-use File::Basename;
-my $basepath = dirname(__FILE__);
-require $basepath . "/grsshopper.pl";
-
-
-our ($query,$vars) = &load_modules("login");
-if ($vars->{refer}) { $vars->{refer} = encode_entities($vars->{refer} );} 	# Encode refer to prevent XSS
+if ($vars->{refer}) { $vars->{refer} = encode_entities($vars->{refer} );} 			# Encode refer to prevent XSS
 our $target; if ($vars->{target}) { $target = $vars->{target}; }
+
+
 # Initialize OpenID
 
 if (&new_module_load($query,"Net::OpenID::Consumer")) { $vars->{openid_enabled} = 1; }
