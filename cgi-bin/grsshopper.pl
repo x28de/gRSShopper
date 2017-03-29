@@ -180,7 +180,8 @@ sub get_site {
 	}			
 
 	our $Site = gRSShopper::Site->new({						# Create new Site object
-		context		=>	$context,
+		vars		=>	$vars,
+		context	=>	$context,
 		data_dir	=>	'/var/www/cgi-bin/data/',		# Location of site configuration files
 	});
 
@@ -8985,6 +8986,9 @@ package gRSShopper::Temp;
 		$self->{$ax} = $ay;
    	}
    	
+print "Content-type: text/html\n\n";
+print $self->{vars}->{action};
+
   	$self->{process} = time;								# Make process name
 
 
@@ -9127,7 +9131,7 @@ package gRSShopper::Temp;
 			Please enter database information for $self->{st_home} 
 			<br>
 			Please provide database information in the form below:
-			<form action="initialize.cgi" method="post">
+			<form action="admin.cgi" method="post">
 			<input type="hidden" name="st_home" value="$self->{st_home}">
 			<input type="hidden" name="cause" value="$cause">
 			<br><table cellspacing=1 cellpadding=2>
