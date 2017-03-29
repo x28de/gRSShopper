@@ -8981,15 +8981,15 @@ package gRSShopper::Temp;
 
    	
 
-   	while (my ($ax,$ay) = each %$args) {						# Assign default values when Site created
+   	while (my ($ax,$ay) = each %$args) {					# Assign default values when Site created
 		$self->{$ax} = $ay;
    	}
    	
   	$self->{process} = time;							# Make process name
 
 
-  	$self->__home();								# Define Site home URL from $ENV data
-											# (Used to find database info in multisite.txt)
+  	$self->__home();									# Define Site home URL from $ENV data
+												# (Used to find database info in multisite.txt)
 
 	$self->__dbinfo(); 								# Find db info from multisite.txt
 
@@ -9020,7 +9020,7 @@ package gRSShopper::Temp;
 											# Open the multisite configuration file,
 											# Initialize if file can't be found or opened
   	my $data_file = $self->{data_dir} . "multisite.txt";							
-	open IN,"$data_file" or self->__initialize("file");
+	open IN,"$data_file" or self->__initialize_site("file");
 
 	my $url_located = 0;							
   	while (<IN>) {
