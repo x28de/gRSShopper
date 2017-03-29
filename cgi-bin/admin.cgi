@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
 
- print "Content-type: text/html\n\n";
+# print "Content-type: text/html\n\n";
 
 
  #    use Image::Thumbnail 0.65;
