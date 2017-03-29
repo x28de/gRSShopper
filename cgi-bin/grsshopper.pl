@@ -8991,11 +8991,11 @@ package gRSShopper::Temp;
   	$self->__home();								# Define Site home URL from $ENV data
 											# (Used to find database info in multisite.txt)
 
-	$self->__dbinfo(); 								# Find db info from multisite.txt
+
 
 	unless ($self->{no_db}) { 
 		
-		# Load database
+		$self->__dbinfo(); 								# Find db info from multisite.txt
 
 	}				
  	
