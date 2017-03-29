@@ -8981,15 +8981,15 @@ package gRSShopper::Temp;
 
    	
 
-   	while (my ($ax,$ay) = each %$args) {					# Assign default values when Site created
+   	while (my ($ax,$ay) = each %$args) {						# Assign default values when Site created
 		$self->{$ax} = $ay;
    	}
    	
   	$self->{process} = time;							# Make process name
 
 
-  	$self->__home();									# Define Site home URL from $ENV data
-												# (Used to find database info in multisite.txt)
+  	$self->__home();								# Define Site home URL from $ENV data
+											# (Used to find database info in multisite.txt)
 
 	$self->__dbinfo(); 								# Find db info from multisite.txt
 
@@ -9042,7 +9042,7 @@ package gRSShopper::Temp;
 
 											# Initialize if line beginning with site URL can't be found
 
-	unless ($url_located) { self->__initialize_site("url"); }
+	unless ($url_located) { $self->__initialize_site("url"); }
 
 	$self->{st_lang}  ||= 'en';						# Assign or override defaults
 	$self->{st_urlf}  ||= '/var/www/html';
