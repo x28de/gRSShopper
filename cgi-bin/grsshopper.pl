@@ -9020,7 +9020,7 @@ package gRSShopper::Temp;
 											# Open the multisite configuration file,
 											# Initialize if file can't be found or opened
   	my $data_file = $self->{data_dir} . "multisite.txt";							
-	open IN,"$data_file" or self->__initialize_site("file");
+	open IN,"$data_file" or $self->__initialize_site("file");
 
 	my $url_located = 0;							
   	while (<IN>) {
