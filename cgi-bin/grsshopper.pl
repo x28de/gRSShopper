@@ -9128,9 +9128,9 @@ package gRSShopper::Temp;
 			<br>
 			Please provide database information in the form below:
 			<form action="initialize.cgi" method="post">
-			<br><table cellspacing=1 cellpadding=2>
 			<input type="hidden" name="st_home" value="$self->{st_home}">
 			<input type="hidden" name="cause" value="$cause">
+			<br><table cellspacing=1 cellpadding=2>
 			<tr><td align="right">Database Name</td><td><input type="text" name="db_name" value="$self->{database}->{name}"></td></tr>
 			<tr><td align="right">Database Location</td><td><input type="text" name="db_loc" value="$self->{database}->{loc}"></td></tr>
 			<tr><td align="right">Database Username</td><td><input type="text" name="db_usr" value="$self->{database}->{usr}"></td></tr>
