@@ -8976,7 +8976,7 @@ package gRSShopper::Temp;
 
   sub new {
   	
-  	my($class, $args) = @_;								# Load Site object
+  	my($class, $args) = @_;									# Load Site object
    	my $self = bless({}, $class);
 
    	
@@ -8985,13 +8985,13 @@ package gRSShopper::Temp;
 		$self->{$ax} = $ay;
    	}
    	
-  	$self->{process} = time;							# Make process name
+  	$self->{process} = time;								# Make process name
 
 
-  	$self->__home();								# Define Site home URL from $ENV data
-											# (Used to find database info in multisite.txt)
+  	$self->__home();										# Define Site home URL from $ENV data
+													# (Used to find database info in multisite.txt)
 
-	$self->__dbinfo(); 								# Find db info from multisite.txt
+	$self->__dbinfo(); 									# Find db info from multisite.txt
 
 	unless ($self->{no_db}) { 
 		
@@ -9020,7 +9020,7 @@ package gRSShopper::Temp;
 											# Open the multisite configuration file,
 											# Initialize if file can't be found or opened
   	my $data_file = $self->{data_dir} . "multisite.txt";							
-	open IN,"$data_file" or $self->__initialize_site("file");
+	open IN,"$data_file" or $self->__initialize("file");
 
 	my $url_located = 0;							
   	while (<IN>) {
@@ -9042,7 +9042,7 @@ package gRSShopper::Temp;
 
 											# Initialize if line beginning with site URL can't be found
 
-	unless ($url_located) { $self->__initialize_site("url"); }
+	unless ($url_located) { $self->__initialize("url"); }
 
 	$self->{st_lang}  ||= 'en';						# Assign or override defaults
 	$self->{st_urlf}  ||= '/var/www/html';
@@ -9106,11 +9106,7 @@ package gRSShopper::Temp;
   	my ($self,$cmd) = @_;
 
 	unless ($ENV{'SCRIPT_NAME'} =~ /admin/) { $self->__site_maintenance($self->{st_home}); }
-	if ($cmd) {
-		print "Content-type: text/html\n";
-		print "Location:initialize.cgi?action=".$cmd."\n\n";
-		exit;
-	}
+	$self->__multisite_form($cmd);
 	die "Unexplained failure to initialize.";
 
   }
@@ -9141,34 +9137,34 @@ package gRSShopper::Temp;
 			<tr><td align="right">Database Password</td><td><input type="password" name="db_pwd" value="$self->{database}->{pwd}"></td></tr>
 			<tr><td></td><td><input type="submit" name="action" value="Initialize Site"></td></tr></table><br/><br/>Context: $cause<p>
 			<a href="admin.cgi">Return to Admin</a>|;
- 
+ 	exit;
  
   }
 
 
-    sub __initialize_site {
+  sub __initialize_site {
     	
     	my ($self,$vars) = @_;	
     	
-											# Open the multisite configuration file,
-											# Initialize if file can't be found or opened
+														# Open the multisite configuration file,
+														# Initialize if file can't be found or opened
   	my $data_file = $self->{data_dir} . "multisite.txt";			
   	my $output = "";
   					
-	if (-e $data_file) {								# If the multisite configuration file exists
+	if (-e $data_file) {										# If the multisite configuration file exists
 		open IN,"$data_file" or die "Can't open $data_file to read";		#    open it
 
 		my $url_located = 0;							
-		while (<IN>) {								#    read each line
+		while (<IN>) {										#    read each line
 			my $line = $_; 
-			next if ($line =~ /^$self->{st_home}/);				#    if it's the current site, skip
-			$output .= $line."\n";						#    otherwise write data to output
+			next if ($line =~ /^$self->{st_home}/);					#    if it's the current site, skip
+			$output .= $line."\n";								#    otherwise write data to output
 		}
 		close IN;
 		
     	}	
     	
-											#    write current site data to output
+														#    write current site data to output
 	my $new_line = qq|$self->{st_home}\t$vars->{db_name}\t$vars->{db_loc}\t$vars->{db_usr}\t$vars->{db_pwd}| or die "Cannot write to $data_file";
 	$output .= $new_line;
     				
@@ -9177,33 +9173,14 @@ package gRSShopper::Temp;
 	close OUT;
 	
 	$self->__dbinfo();
-	$self->__multisite_form("Updated");						# Show the form again
+	$self->__multisite_form("Updated");								# Show the form again
     	
     
   	
     }
     
     
-  # Create database information  
-  
-  sub __append_site {
-  	
-  	my ($self,$vars) = @_;								
 
-  											# Open the multisite configuration file,
-											# Initialize if file can't be found or opened
-											
-
-
- 
- 
-  }
-  
-  sub __update_site {
-    	
-    	
-    	
-  }
   
   
   sub __site_maintenance {
