@@ -68,8 +68,6 @@ our $cache = {}; bless $cache;
 						
 our ($Site,$dbh) = &get_site("page");		# Get Site Information
 
-# co_host is defined in site_config() at the top of grsshopper.pl
-#$Site->{co_host} = "139.103.17.53";
 
 unless (defined $Site) { die "Site not defined."; }
 unless (defined $dbh) { die "Database Handler not defined."; }
@@ -1411,9 +1409,6 @@ sub user_are_go {
 	my $session_cookie_name = $site_base."_session";
 	my $admin_cookie_name = $site_base."_admin";	
 
-
-	
-#	$Site->{co_host} = "www.downes.ca";
 
 #	print "Content-type: text/html; charset=utf-8\n\n";	# Print HTTP header
 #	print "User are go<p>";

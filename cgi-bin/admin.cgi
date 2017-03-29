@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
 
+# print "Content-type: text/html\n\n";
 
 
  #    use Image::Thumbnail 0.65;
@@ -28,40 +29,31 @@
 #
 #-------------------------------------------------------------------------------
 
+die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if
+	($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						# Forbid bots
+
+use File::Basename;											# Load gRSShopper
 use CGI::Carp qw(fatalsToBrowser);
+my $dirname = dirname(__FILE__);								
+require $dirname . "/grsshopper.pl";								
 
+our ($query,$vars) = &load_modules("admin");								# Load modules
 
- 
-# Forbid agents
-
-if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/) { 
-  	print "Content-type: text/html; charset=utf-8\n";
-	print "HTTP/1.1 403 Forbidden\n\n";
-	print "403 Forbidden\n"; 
-	exit; 
-}
-
-
-# Initialize gRSShopper Library
-
-# FindBin doesn't work on ModCGI
-#use FindBin qw($Bin);
-#require "$Bin/grsshopper.pl";
-
-use File::Basename;
-my $basepath = dirname(__FILE__);
-require $basepath . "/grsshopper.pl";
-
-our ($query,$vars) = &load_modules("admin");			# Request Variables
-
-our ($Site,$dbh) = &get_site("admin");				# Site
+our ($Site,$dbh) = &get_site("admin");									# Load Site
 if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
+
 
 
 our $Person = {}; bless $Person;				# Person  (still need to make this an object)
 &get_person($dbh,$query,$Person);		
 my $person_id = $Person->{person_id};
 
+
+													
+if ($Site->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }		# Restrict to Admin
+
+
+if ($vars->{action} eq "initialize") {  $Site->__initialize("command"); }				# Option to call initialize functions
 
 
 my $options = {}; bless $options;		# Initialize system variables
@@ -70,8 +62,7 @@ our $cache = {}; bless $cache;
 
 if ($vars->{api}) { print "ok"; exit; }
 
-						# Restrict to Admin
-if ($Site->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }
+
 
 
 if ($vars->{code}) { 						# Capture Facebook code submit
@@ -253,7 +244,10 @@ if ($action) {					# Perform Action, or
 		/approve/i && do { &record_approve($dbh,$query,$table,$id); last; };		#	- Approve
 		/retire|reject/i && do { &record_retire($dbh,$query,$table,$id); last; };	#	- Reject / Retire	
 		
-		/multi/i && do { &admin_multi($dbh,$query); last;		};		#	- Multi									
+		/multi/i && do { &admin_multi($dbh,$query); last;		};		#	- Multi	
+		
+		/initialize/i && do {  $Site->__initialize("command"); last; };			# 	Initialize gRSShopper 								
+					
 														
 		/config/ && do { &admin_update_config($dbh,$query); last;			};	# Update config data
 		/db_pack/ && do {&admin_db_pack($dbh,$query); last;		};		# Make a new pack
@@ -531,14 +525,14 @@ sub admin_general {
 	$content .= &admin_configtable($dbh,$query,"Site Information",
 		("Site Name:st_name","Site Tag:st_tag","Publisher:st_pub","Creator:st_crea","License:st_license","Time Zone:st_timezone","Reset Key:reset_key","Cron Key:cronkey"));
 
-	$content .= &admin_configtable($dbh,$query,"Base URLs and Directories",
-		("Base URL:st_url","Base Directory:st_urlf","CGI URL:st_cgi","CGI Directory:st_cgif","Login URL:st_login"));
+#	$content .= &admin_configtable($dbh,$query,"Base URLs and Directories",
+#		("Base URL:st_url","Base Directory:st_urlf","CGI URL:st_cgi","CGI Directory:st_cgif","Login URL:st_login"));
 
-	$content .= &admin_configtable($dbh,$query,"Media Directories",
-		("Images:st_img","Photos:st_photo","Files:st_file","Icons:st_icon"));
+#	$content .= &admin_configtable($dbh,$query,"Media Directories",
+#		("Images:st_img","Photos:st_photo","Files:st_file","Icons:st_icon"));
 
-	$content .= &admin_configtable($dbh,$query,"Upload Directories",
-		("Uploads:st_upload","Images:up_image","Documents:up_docs","Slides:up_slides","Audio:up_audio","Videos:up_video"));
+#	$content .= &admin_configtable($dbh,$query,"Upload Directories",
+#		("Uploads:st_upload","Images:up_image","Documents:up_docs","Slides:up_slides","Audio:up_audio","Videos:up_video"));
 	
 	&admin_frame($dbh,$query,"Admin General",$content);					# Print Output
 	exit;
@@ -2562,9 +2556,9 @@ sub output_record {
 
 						# Create Edit Links
 						
-	my $edit_links = qq|<p class="notice">
-		Admin Options: [<a href="?$table=$id_number&action=edit">Edit</a>]
-						</p>|;
+#	my $edit_links = qq|<p class="notice">
+#		Admin Options: [<a href="?$table=$id_number&action=edit">Edit</a>]
+#						</p>|;
 
 						# Put Record Data Into Template 
 

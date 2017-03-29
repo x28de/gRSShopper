@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
-#    gRSShopper 0.3  Page  0.5  -- gRSShopper administration module
-#    12 January 2016 - Stephen Downes
+#    gRSShopper 0.3  Page  0.6  -- gRSShopper administration module
+#    27 March 2017 - Stephen Downes
 
 #    Copyright (C) <2011>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -22,25 +22,23 @@
 #           Public Page Script 
 #
 #-------------------------------------------------------------------------------
-#print "Content-type: text/html\n\n";
-#print "Content-type: text/html\n\n";
-# print "Down for repairs<br>";
-# exit;				
 
-# Initialize gRSShopper Library
 
-# FindBin doesn't work on ModCGI
-#use FindBin qw($Bin);
-#require "$Bin/grsshopper.pl";
+die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if
+	($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						# Forbid bots
 
-use File::Basename;
-my $basepath = dirname(__FILE__);
-require $basepath . "/grsshopper.pl";
+use File::Basename;											# Load gRSShopper
+use CGI::Carp qw(fatalsToBrowser);
+my $dirname = dirname(__FILE__);								
+require $dirname . "/grsshopper.pl";								
 
-our ($query,$vars) = &load_modules("admin");			# Request Variables
+our ($query,$vars) = &load_modules("login");								# Load modules
 
-our ($Site,$dbh) = &get_site("admin");				# Site
+our ($Site,$dbh) = &get_site("admin");									# Load Site
 if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
+
+
+
 
 
 our $Person = {}; bless $Person;				# Person  (still need to make this an object)
@@ -70,16 +68,6 @@ my $table; my $id; my $format; my $action;
 
 
 $action = $vars->{action};			# Determine Action
-
-if ($vars->{button} eq "Submit") { 
-	$action = "update"; 
-	$vars->{post_type} = "comment";
-	$vars->{force} = "yes";
-} elsif ($vars->{button} eq "Preview") { 
-	$action = "update";
-	$vars->{post_type} = "comment";
-	$vars->{force} = "yes";
-}
 
 
 
@@ -119,11 +107,12 @@ if ($vars->{db} || $vars->{table}) {
 	}
 }
 
-if ($vars->{format}) {				# Determine Output Format
-	$format = $vars->{format};
-} else {
-	$format = "html";
-}
+				
+
+
+$format ||= $vars->{format} || "html";			# Determine Output Format
+
+
 
 
 # API
@@ -208,15 +197,7 @@ if ($api) {
 						
 
 
-# TEMPORARY
-#
-# Logging requests for diagnostics
-#
 
-#open POUT,">>/var/www/cgi-bin/logs/page_access_log.txt" || print "Error opening log: $! <p>";
-#print POUT "$ENV{'REMOTE_ADDR'}\t$table\t$id\t$format\t$action\t$ENV{'HTTP_USER_AGENT'}\n" 
-#	 || print "Error printing to log: $! <p>";
-#close POUT;
 
 
 &db_cache_write($dbh);				# Write cache records to database after page is printed
@@ -308,8 +289,9 @@ sub first_last_name {
 sub header {
 
 	my ($dbh,$query,$table,$format,$title) = @_;
+	$format ||= "html";
 	my $template = $Site->{lc($format) . "_header"} || lc($format) . "_header";
-
+	
 	return &get_template($dbh,$query,$template,$title);
 
 }
@@ -319,6 +301,7 @@ sub header {
 sub footer {
 
 	my ($dbh,$query,$table,$format,$title) = @_;
+	$format ||= "html";
 	my $template = $Site->{lc($format) . "_footer"} || lc($format) . "_footer";
 	return &get_template($dbh,$query,$template,$title);
 
@@ -790,197 +773,119 @@ sub post_search {
 sub output_record {
 
 	my ($dbh,$query,$table,$id_number,$format) = @_;
-
-
-	$table ||= $vars->{table};
-	$id_number ||= $vars->{id_number};
-	$format ||= $vars->{format};
+	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
+	my $output = "";
+	
+														# Check Request
+	$table ||= $vars->{table}; die "Table not specified in output record" unless ($table);			#   - table
+	$id_number ||= $vars->{id_number};  
+	unless ($table) { my $err = ucfirst($table)." ID not specified in output record" ; die "$err"; } 	#   - ID number
+	unless ($id_number =~ /^[+-]?\d+$/) { $id_number = &find_by_title($dbh,$table,$id_number); } 		#     (Try to find ID number by title)
+	$format ||= $vars->{format} || "html";									#   - format
+	
+	
 	
 
-	&error($dbh,"","","Output Table is not defined.") unless (defined $table && $table);
+	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id_number});					# Get Record
+	unless ($record) { die "Looking for $table number $id_number, but it was not found, sorry."; }		#     - catch get record error
+	my ($hits,$total) = &record_hit($table,$id_number);							#     - Increment record hits counter
+
+
+
 	
- if ($table eq "topic") {
-	print "Content-type: text/html; charset=utf-8\n\n";
-	print "Access to topics is disabled for the moment while I fix the code.";
+	$record->{page_content} = &format_record($dbh,$query,$table,$format,$record);				# Format Record content
+
+	$header_template = $record->{page_header} || lc($format) . "_header";					# Add headers and footers
+	$footer_template = $record->{page_footer} || lc($format) . "_footer";					#     - pages can override default templates
+	$record->{page_content} =
+		&db_get_template($dbh,$header_template) .
+		$record->{page_content} .
+		&db_get_template($dbh,$footer_template);
+		
+
+	&format_content($dbh,$query,$options,$record);								# Format Page content
+	
+	&make_pagedata($query,\$record->{page_content});								# Fill special Admin links and post-cache content
+	&make_admin_links(\$record->{page_content});
+	&make_login_info($dbh,$query,\$record->{page_content},$table,$id_number);
+						
+	$record->{page_content} =~ s/\Q]]]\E/] ]]/g;  								# Fixes a Firefox XML CDATA bug			
+
+	
+	$output .= $record->{page_content};
+
+	my $mime_type = set_mime_type($format);
+	print "Content-type: ".$mime_type."\n\n";								# Print output
+	print $output;
 	exit;
+	
 }
 
-
-	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id_number});
-	if  ($record->{post_type} =~ /comment/i) { die "No longer printing comments"; }
-
-
-	# Increment Counter
-	my ($hits,$total) = &record_hit($table,$id_number);	
-						
-	
-	if ($format eq "viewer") {						# Viewer
-		
-
-		my $record_text = &format_record($dbh,$query,$table,$table."_viewer",$record);
-		my $admin_option = &output_admin($dbh,$query,$table,$record);
-			
-		print "Content-type:text/html\n\n";
-		print qq|<html><head><title>$record->{$table."_title"}</title>|.
-			&output_header.
-			qq|<body>$admin_option $record_text|.
-			&output_comment_form($record).
-			qq|</body><html>|;
-			
-		return;	
-			
-	} elsif ($format eq "comment") {
-	
-		my $record_text = &format_record($dbh,$query,$table,$table."_comment",$record);
-			
-		print "Content-type:text/html\n\n";
-		print qq|<html><head><title>$record->{$table."_title"}</title>|.
-			qq|<body>$vars->{cr_msg}$record_text</body><html>|;
-			
-		return;		
-		
-	}
+sub __format_record {
 	
 	
-	my $vars = $query->Vars;
-	$vars->{comment} = "yes";
-
-											# If ID is specified as text
-	unless ($id_number =~ /^[+-]?\d+$/) {					# Try to find by title
-		$id_number = &find_by_title($dbh,$table,$id_number);
-		if ($vars->{table} eq "feed") { $table = "feed"; }
-	}
+	my ($dbh,$query,$table,$record_format,$filldata,$keyflag) = @_;
 	
-
-	my $fields = &set_fields($table);
-	my $cformat = $table."_".$vars->{format};					# Set cache format
-
-
-
-						# Get and Print Record Cache
-
-										
-#	if (my $cached = &db_cache_check($dbh,$table,$id_number,$cformat)) {	
+	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
+	my $id_number = $filldata->{$table."_id"};	
+	
 									
-#		&make_admin_links(\$cached);						# Fill special Admin links	
-#		&make_login_info($dbh,$query,\$cached,$table,$id_number);
-#		if ($cached) { print "Content-type: text/html\n\n";print $cached; return; }	# print cached version			
-		
-#	}	
-
-	
-						# Not in the Cache? Then...
-						# Get Record from DB
-
-
-	my $wp = &db_get_record($dbh,$table,{$fields->{id}=>$id_number});
-
-	unless ($wp) { &error($dbh,$query,"","404",
-			qq|Looking for $table number $id_number, but it was not found, sorry.|); }
-
-
-
-						# Title and Feed
-	$wp->{page_title} = $wp->{$fields->{title}} || $wp->{$fields->{name}};
-	unless ($table =~ /post|link/i) {
-		$wp->{page_feed} = $Site->{st_cgi}."page.cgi?".$table."=".
-			$id_number."&format=rss";
-	}
-	$Site->{header} =~ s/\Q[*page_title*]\E/$wp->{page_title}/g;
-	$Site->{header} =~ s/\Q<page_title>\E/$wp->{page_title}/g;
-
-						# Set Formats
-
-	my ($page_format,$record_format,$mime_type) =
-		&set_formats($dbh,$query,$wp,$table);
-
-
-						# Put Record Data Into Template 
-	if ($record->{post_type} eq "link") {
-			$wp->{post_description}  =~ s/\n/<br >\n/g;
-	}					
-						
-	$wp->{page_content} = &format_record($dbh,$query,$table,$record_format,$wp);
-	
-
-#print "Content: $wp->{page_content} <p>";
-						# For non-Page Records, Add Header and Footer
-
-
-	if ($page_format =~ /thread/i) { $page_format = "html"; }
-	$page_format ||= "HTML";
-
-	unless ($table eq "page" || $format eq "viewer") {
-
-		my $header_template = "page_header";
-		my $footer_template = "page_footer";
-		
-		if ($table eq "presentation") {
-			$header_template = "presentation_header";
-			$footer_template = "presentation_footer";	
-		}
-		
-
-		
-		unless ($page_format =~ /html/i) { 
-		
-			$header_template = $Site->{lc($page_format) . "_header"} || lc($page_format) . "_header";
-			$footer_template = $Site->{lc($page_format) . "_footer"} || lc($page_format) . "_footer";
-		}
-
-
-		if (defined $wp->{page_content}) {
-			$wp->{page_content} =
-				&db_get_template($dbh,$header_template) .
-				$wp->{page_content} . &db_get_template($dbh,$footer_template);	
-		} else {
-			$wp->{page_content} =
-				&db_get_template($dbh,$header_template) .
-				"This page has no content." . &db_get_template($dbh,$footer_template);	
-		}
-
-
-	}
-
-
-
-
-						# Format Record Content
-
-	$wp->{table} = $table;
-	
-	&format_content($dbh,$query,$options,$wp);
-	
-	$wp->{page_content} =~ s/\Q[*page_title*]\E/$wp->{page_title}/g;
-	$wp->{page_content} =~ s/\Q<page_title>\E/$wp->{page_title}/g;	
-	
-						# Fill timezone dates
-	&autotimezones($query,\$wp->{page_content});	
-		
-						# Save To Cache
-				 
 				
-	# &db_cache_save($dbh,$table,$id_number,$cformat,$wp->{page_content});			# Save To Cache
+	return &printlang("Permission denied to view",$table) unless (&is_viewable("view",$table,$filldata)); 	# Permissions
+	
+	
+	my $view_text = "";											# Get the Template (aka View)
+	my $view_title = $record_format;									#	- view title is "$table_$format"
+	unless ($view_title =~ /$table/) { $view_title = $table."_".$view_title; }				#    	- ensure full view format name		
+	$view_text = &db_get_text($dbh,"view",$view_title);							#	- get the view 
+	$view_text ||= "<p>[*".$table."_title*]<br>[*".$table."_description*]</p>";				#	- create default view if necessary
 
 	
-	&make_pagedata($query,\$wp->{page_content});						# Fill special Admin links and post-cache content
-	&make_admin_links(\$wp->{page_content});
-	&make_login_info($dbh,$query,\$wp->{page_content},$table,$id_number);
-	
+
 
 	
-						# Print Record
+	&make_boxes($dbh,\$view_text);							# Make Boxes - insert box text into element
+	&make_counter($dbh,\$view_text);							# Make Counter
+	
+	&make_data_elements(\$view_text,$filldata,$record_format);			# Fill page content elements				
 
-	$wp->{page_content} =~ s/\Q]]]\E/] ]]/g;   # Fixes a Firefox XML CDATA bug
+	my $results_count = &make_keywords($dbh,$query,\$view_text);						# Keywords
 
-	#print "Content-type: text/html\n\n";
-	print "Content-type: ".$mime_type."\n\n";
+	my $kresults_count = &make_keylist($dbh,$query,\$view_text);						# Keylist
+						
+	&make_next($dbh,\$view_text,$table,$id_number,$filldata);							# Prev / Next Link
+						
+	&autodates(\$view_text);										# Dates
 
 
 
-	print $wp->{page_content};
+	&make_images(\$view_text,$table,$id_number,$filldata);							# Images
+
+	&make_enclosures(\$view_text,$table,$id_number,$filldata);						# Enclosures	
+	
+	&make_author(\$view_text,$table,$id_number,$filldata);							# Author	
+	
+	&make_hits($text_ptr,$table,$id,$filldata);								# Hits
 
 
+	if ($record_format =~ /opml/) { $view_text =~ s/&/&amp;/g; }
+	if ($record_format =~ /text|txt/) { &strip_html($text_ptr); }
+
+	
+	
+	
+	&make_escape($dbh,\$view_text);										# Escaped HTML
+
+	&clean_up(\$view_text,$record_format);
+										
+#	&db_cache_save($dbh,$table,$id_number,$record_format,$view_text);					# Save To Cache
+	
+
+	&make_admin_links(\$view_text);	
+	
+	$view_text =~ s/CDATA\((.*?)\)//g;		# Kludge to eliminate hanging CDATA tags	
+	
+	
 }
 
 sub output_admin {
