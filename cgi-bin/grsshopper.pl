@@ -7927,50 +7927,37 @@ sub show_status_message {
 
 sub send_email {
 
-	my $Mailprog = "/usr/sbin/sendmail";
-
-
-	my ($to,$from,$subj,$page,$ext) = @_;
+   my ($to,$from,$subj,$page,$ext) = @_;
 	
-					
+   use Email::Stuffer;
+   use Email::Sender::Transport::SMTP;
 
-	$page =~ s/<object(.*?)object>//g;		# Don't send objects
-	$page =~ s/<script(.*?)script>//g;		# Don't send scripts
-	$page =~ s/<embed(.*?)embed>//g;		# Don't send embeds
+											# Create a text version out of HTML code
+   my $page_text = "TEXT VERSION \n".$page;
+   $page_text =~ s/<head(.*?)head>//sig;
+   $page_text =~ s/<style(.*?)style>//sig;
+   $page_text =~ s/\[(.*?)\]//sig;
+   $page_text =~ s/<a(.*?)href="(.*?)"(.*?)>(.*?)<\/a>/$4 $2/sig;
+   $page_text =~ s/<br\/>/\n/sig;
+   $page_text =~ s/<\/p>/\n/sig;
+   $page_text =~ s/<(.*?)>//sig;
+   $page_text =~ s/  //sig;
+   $page_text =~ s/\r//sig;
+   $page_text =~ s/\n\n/\n/sig;
 
-	$subj =~ s/(&apos;|&#39;)/'/g;
+											# Format and send email message
+Email::Stuffer
+    ->text_body($page_text)
+    ->html_body($page)
+    ->subject($subj)
+    ->from($from)
+    ->transport(Email::Sender::Transport::SMTP->new({
+        host => 'www.downes.ca',
+    }))
+    ->to($to)
+ 
+    ->send;
 
-    open (MAIL,"|$Mailprog -t") or die "Can't find email program $Mailprog";
-
-	my $htmlstr = "MIME-Version: 1.0\nContent-Type: text/html; charset=utf-8; charset=UTF-8";
-
-	if ($ext eq "htm") {
-						# Set Line Lengths 
-		$page = &line_lengths($page); 
-		print MAIL "To: $to\nFrom: $from\nSubject: $subj\n$htmlstr\n\n$page"
-			or print "Email format error: $!";
-	} else {
-		$page =~ s/<a(.*?)href="(.*?)">(.*?)<\/a>/$3 $2/mig;
-		$page =~ s/<br\/>/\n/sig;
-		$page =~ s/<(.*?)>//mig;
-		$page =~ s/\r//mig;	# Remove form textarea artifacts
-
-
-					# Set Line Lengths 
-		$page = &line_lengths($page); 
-
-					# Spacing so Outlook doesn't destroy formatting
-		$page =~ s/\n /\n/mig;
-		$page =~ s/ \n/\n/mig;
-		$page =~ s/\n/  \n  /mig;
-
-
-		print MAIL "To: $to\nFrom: $from\nSubject: $subj\n\n$page"
-			or print "Email format error: $!";
-
-	}
-
-	close MAIL;
 
 }
 

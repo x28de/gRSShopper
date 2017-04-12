@@ -346,17 +346,29 @@ print "gRSShopper web server environment test.".$newline.$newline;
 									
 
    # -------------
-   
-# Test Email
 
-    my $to = 'Stephen.Downes@nrc-cnrc.gc.ca';
-    my $from = 'stephen@downes.ca';
-    my $subject = "Test email";
-    my $body = "test email";
-    my $Mailprog = "/usr/sbin/sendmail";
-	
-	print "<P>Testing Email</p>";
-	&send_email($to,$from, $subject,$body,$Mailprog);
+# Check for Email::Stuffer
+  print "Checking for Email::Stuffer. This formats email messages";
+  eval "use Email::Stuffer";
+  if ($@) {
+    print "$newline"."The Email::Stuffer module could not be located. Email will not send properly.$newline";
+    $missing=1;
+  } else { 
+	print " OK$newline"; 
+  }
+
+   # -------------
+   
+
+# Check for Email::Sender::Transport::SMTP
+  print "Checking for Email::Sender::Transport::SMTP. This sends email messages";
+  eval "use Email::Sender::Transport::SMTP";
+  if ($@) {
+    print "$newline"."The Email::Sender::Transport::SMTP module could not be located. Email will not send properly.$newline";
+    $missing=1;
+  } else { 
+	print " OK$newline"; 
+  }
 
 
 
