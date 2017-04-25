@@ -78,6 +78,7 @@ sub load_modules {
 	use HTML::Entities;
 							# Admin Modules
 	if ($context eq "admin") {
+		use File::Basename;
 		use File::stat;
 		use Scalar::Util 'blessed';
 		use Text::ParseWords;
@@ -185,7 +186,6 @@ sub get_site {
 	});
 
 
-	$Site->{script} = $Site->{site_url} . $ENV{'SCRIPT_NAME'};		# Find URL of this script
 	
 	$Site->{scriptfile} = $0;						# Find script filename 
 	$Site->{scriptdir} = dirname($0);					# and directory
@@ -224,6 +224,7 @@ sub get_site {
 										# Get Site Info From Database	
 	&get_config($dbh);
 
+
 	
 	my $upload_limit = $Site->{file_limit} || 10000;		# File Upload Limit
 	$CGI::POST_MAX = 1024 * $upload_limit;			
@@ -239,6 +240,7 @@ sub get_config {
 	my $sth = $dbh->prepare("SELECT * FROM config");
 	$sth -> execute();
 	while (my $c = $sth -> fetchrow_hashref()) { 
+		next if ($c->{config_noun} =~ /script|st_home|st_url|st_cgi|co_host/ig);	# Can't change basic site data
 		next unless ($c->{config_value});
 		$Site->{$c->{config_noun}} = $c->{config_value};
 	}
@@ -1064,7 +1066,6 @@ sub publish_page {
 		$count++;
 		
 		$wp->{page_content} = $wp->{page_code};
-
 		
 		next unless (&is_allowed("publish","page",$wp)); 
 		unless ($opt eq "silent" || $opt eq "initialize") { print "Publishing Page: ",$wp->{page_title},$LF; }
@@ -1086,8 +1087,6 @@ sub publish_page {
 		my $header = &get_template($dbh,$query,$wp->{page_header},$wp->{page_title});
 		my $footer = &get_template($dbh,$query,$wp->{page_footer},$wp->{page_title});
 		$wp->{page_content} = $header . $wp->{page_content} . $footer;
-
-
 
 								# Update 'update' value
 		$wp->{page_update} = time;
@@ -1722,6 +1721,7 @@ sub format_record {
 									# Or Get the Template (aka View)
 
 		my $view_title = $record_format;
+		if ($table eq "post") { $view_title = $filldata->{post_type}."_".$view_title; }	# Special for post
 		unless ($view_title =~ /$table/) { $view_title = $table."_".$view_title; }	# ensure full view format name			
 		$view_text = &db_get_text($dbh,"view",$view_title);		
 	}
@@ -6929,6 +6929,9 @@ sub set_dt {
 	
 	my ($time,$tz) = @_;
 	
+	unless ($time > 0) { $time = 0; }						# Fail silently if text sent instead of epoch
+	
+	
 	unless (&new_module_load($query,"DateTime")) {				
 		return "DateTime module not available in sub set_dt"; 
 	}
@@ -7927,12 +7930,21 @@ sub show_status_message {
 
 sub send_email {
 
-   my ($to,$from,$subj,$page,$ext) = @_;
-	
-   use Email::Stuffer;
-   use Email::Sender::Transport::SMTP;
 
-											# Create a text version out of HTML code
+
+
+	my ($to,$from,$subj,$page,$ext) = @_;
+	
+
+
+
+
+
+
+use Email::Stuffer;
+use Email::Sender::Transport::SMTP;
+
+
    my $page_text = "TEXT VERSION \n".$page;
    $page_text =~ s/<head(.*?)head>//sig;
    $page_text =~ s/<style(.*?)style>//sig;
@@ -7945,7 +7957,7 @@ sub send_email {
    $page_text =~ s/\r//sig;
    $page_text =~ s/\n\n/\n/sig;
 
-											# Format and send email message
+
 Email::Stuffer
     ->text_body($page_text)
     ->html_body($page)
@@ -7957,6 +7969,10 @@ Email::Stuffer
     ->to($to)
  
     ->send;
+
+
+
+
 
 
 }
@@ -9056,30 +9072,30 @@ package gRSShopper::Temp;
   sub __home {
   	
   	my($self, $args) = @_;
- 	
+  	
+  	
+  	
+	
   	my $home;
   	my $numArgs = $#ARGV + 1;
   	if ($ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'}) {
-
-		$self->{st_home} = $ENV{'SCRIPT_URI'};									# Home from Script URL
-		unless ($self->{st_home}) { $self->{st_home} = $ENV{'HTTP_HOST'}.$ENV{'REQUEST_URI'}; } 	# Trying again
-		unless ($self->{st_home}) { die "Cannot determine website home."; }
-		$self->{st_home} =~ s'http(s|)://'';									# Extract http from request URL '
-
-		my $secure = $1; my $ht;											# Secure?
-		if ($secure) { $ht = "https://"; } else { $ht = "http://"; }
-	
-	
-		my @spl = split '/',$self->{st_home};									# This gets us the base URL
-		$self->{st_home} = shift @spl;
-		$self->{co_host} = $self->{st_home};									# Set cookie host
-		$self->{st_url} = $ht.$self->{st_home}."/";								# Set base URL
-		$self->{st_cgi} = $self->{st_url}."cgi-bin/";								# Set base URL
-
-		$self->{script} = $ht.$ENV{'SERVER_NAME'}.$ENV{'SCRIPT_NAME'};					# Set script URL
-
+  				
+											# Script 
+    		$self->{script} = $ENV{'SCRIPT_URI'}; 					#    - eg. http://www.downes.ca/cgi-bin/admin.cgi
+    		unless ($self->{script}) { die "Cannot determine website script."; }	#    - Failure?
+  		my $ht;if ($self->{script} =~ /https:/) {				#    - Set protocol
+			$ht = "https://"; } else { $ht = "http://"; }
 		
-	} elsif ($numArgs > 1) {												# Home from Cron request
+											# Home
+  		$self->{st_home} = $ENV{'HTTP_HOST'} || $ENV{'SERVER_NAME'};		#    - eg. www.downes.ca
+  		unless ($self->{st_home}) { die "Cannot determine website home."; }	#    - Failure?
+  		
+ 		$self->{co_host} = $self->{st_home};					# Set cookie host 		
+ 		$self->{st_url} = $ht.$self->{st_home}."/";				# Set base URL
+		$self->{st_cgi} = $self->{st_url}."cgi-bin/";				# Set base URL 		
+  
+		
+	} elsif ($numArgs > 1) {							# Home from Cron request
 		$self->{st_home} = $ARGV[0];   
 		unless ($home) { die "Cannot determine website home."; }        			
 

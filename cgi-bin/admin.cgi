@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 
 
-# print "Content-type: text/html\n\n";
 
 
  #    use Image::Thumbnail 0.65;
@@ -217,6 +216,20 @@ unless ($table || $action) {				# Default to Admin Menu
 # fix_graph();
 
 
+
+#	open IN,"/var/www/downes/files/bounceout.txt" or die "Cannot open filtemails.txt";		#
+#	while (<IN>) {
+#		chomp;
+#		my $e = $_;
+
+# my $eth = $dbh->prepare("DELETE FROM person WHERE person_email='$e'");
+# $eth->execute();
+
+#		print "$e deleted <br>";
+#	}
+#	close IN;
+
+
 if ($action) {					# Perform Action, or
 	my $tt = ucfirst($action)." ".ucfirst($table);
 	$Site->{header} =~ s/\Q[*page_title*]\E/$tt/g;
@@ -244,10 +257,7 @@ if ($action) {					# Perform Action, or
 		/approve/i && do { &record_approve($dbh,$query,$table,$id); last; };		#	- Approve
 		/retire|reject/i && do { &record_retire($dbh,$query,$table,$id); last; };	#	- Reject / Retire	
 		
-		/multi/i && do { &admin_multi($dbh,$query); last;		};		#	- Multi	
-		
-		/initialize/i && do {  $Site->__initialize("command"); last; };			# 	Initialize gRSShopper 								
-					
+		/multi/i && do { &admin_multi($dbh,$query); last;		};		#	- Multi									
 														
 		/config/ && do { &admin_update_config($dbh,$query); last;			};	# Update config data
 		/db_pack/ && do {&admin_db_pack($dbh,$query); last;		};		# Make a new pack
@@ -3913,22 +3923,28 @@ sub rotate_hit_counters {
 	# Set default variables for current table
 	my $hitsfield = $table."_hits";
 	my $idfield = $table."_id";
+	my $message_text = "Hits record for today for $Site->{st_name}.<p><p>\n";
 
 	# For each record with a hit today
-	my $sql = "SELECT $idfield,$hitsfield,$totalfield FROM $table WHERE $hitsfield > 0";
-
+	my $sql = "SELECT $idfield,$hitsfield FROM $table WHERE $hitsfield > 0";
+	$message_text .= $sql;
+	
 	my $sth = $dbh->prepare($sql);
 	$sth->execute();
 	while (my $record = $sth -> fetchrow_hashref()) {
 
 
-		# Reset Daily Hits to 0		
+		# Reset Daily Hits to 0	
+		$message_text .= "Record $record->{$idfield} found $record->{$hitsfield} and reset $hitsfield to 0  <br>\n";
 		my $usql = "UPDATE $table SET $hitsfield = ? WHERE $idfield = ?"; 
 		my $usth = $dbh->prepare($usql);
 		$usth->execute("0",$record->{$idfield});
 				
 	}
 	
+	$message_text .= "<br>Done";
+	&send_email("stephen\@downes.ca","stephen\@downes.ca","Rotating Hits Counter",
+		$message_text);
 
 	return;
 }
