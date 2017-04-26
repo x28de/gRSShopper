@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
-#    gRSShopper 0.3  Page  0.6  -- gRSShopper administration module
-#    27 March 2017 - Stephen Downes
+#    gRSShopper 0.7  Page  0.7  -- gRSShopper administration module
+#    26 April 2017 - Stephen Downes
 
 #    Copyright (C) <2011>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -22,34 +22,34 @@
 #           Public Page Script 
 #
 #-------------------------------------------------------------------------------
+		
 
+# Load gRSShopper
 
-die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if
-	($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						# Forbid bots
+	use File::Basename;												
+	use CGI::Carp qw(fatalsToBrowser);
+	my $dirname = dirname(__FILE__);								
+	require $dirname . "/grsshopper.pl";								
 
-use File::Basename;											# Load gRSShopper
-use CGI::Carp qw(fatalsToBrowser);
-my $dirname = dirname(__FILE__);								
-require $dirname . "/grsshopper.pl";								
+# Load modules
 
-our ($query,$vars) = &load_modules("login");								# Load modules
+	our ($query,$vars) = &load_modules("page");								
 
-our ($Site,$dbh) = &get_site("admin");									# Load Site
-if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
+# Load Site
 
+	our ($Site,$dbh) = &get_site("page");									
+	if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
 
+# Get Person  (still need to make this an object)
 
+	our $Person = {}; bless $Person;				
+	&get_person($dbh,$query,$Person);		
+	my $person_id = $Person->{person_id};
 
+# Initialize system variables
 
-our $Person = {}; bless $Person;				# Person  (still need to make this an object)
-&get_person($dbh,$query,$Person);		
-my $person_id = $Person->{person_id};
-
-
-
-my $options = {}; bless $options;		# Initialize system variables
-our $cache = {}; bless $cache;	
-
+	my $options = {}; bless $options;		
+	our $cache = {}; bless $cache;
 
 
 						# Search 
@@ -256,56 +256,6 @@ sub redirect {
 	print "Content-type:text/html\n";
 	print "Location: $target\n\n";
 	exit;
-}
-
-
-
-# First-Last Name 
-# 
-# Generates first and last name
-
-sub first_last_name {
-	
-	
-	if ($Person->{person_name} && !$Person->{person_lastname}) {
-		($Person->{person_firstname},$Person->{person_lastname}) = split " ",$Person->{person_name};
-	}
-	
-	if ($Person->{person_firstname} && $Person->{person_lastname}) {
-		return ($Person->{person_firstname},$Person->{person_lastname}); 
-	}
-	
-	if ($Person->{person_firstname} || $Person->{person_lastname} ||  $Person->{person_title}) {
-		$Person->{person_firstname} = $Person->{person_firstname} || $Person->{person_lastname} ||  $Person->{person_title};
-		$Person->{person_lastname} = $Person->{person_lastname} || $Person->{person_firstname} ||  $Person->{person_title};
-		return ($Person->{person_firstname},$Person->{person_lastname});
-	}
-	
-	
-}
-
-# -------   Header ------------------------------------------------------------
-
-sub header {
-
-	my ($dbh,$query,$table,$format,$title) = @_;
-	$format ||= "html";
-	my $template = $Site->{lc($format) . "_header"} || lc($format) . "_header";
-	
-	return &get_template($dbh,$query,$template,$title);
-
-}
-
-# -------   Footer -----------------------------------------------------------
-
-sub footer {
-
-	my ($dbh,$query,$table,$format,$title) = @_;
-	$format ||= "html";
-	my $template = $Site->{lc($format) . "_footer"} || lc($format) . "_footer";
-	return &get_template($dbh,$query,$template,$title);
-
-
 }
 
 
@@ -772,31 +722,33 @@ sub post_search {
 
 sub output_record {
 
-	my ($dbh,$query,$table,$id_number,$format) = @_;
+    my ($dbh,$query,$table,$id_number,$format) = @_;
 	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
 	my $output = "";
+
 	
-														# Check Request
-	$table ||= $vars->{table}; die "Table not specified in output record" unless ($table);			#   - table
+																										# Check Request
+	$table ||= $vars->{table}; die "Table not specified in output record" unless ($table);				#   - table
 	$id_number ||= $vars->{id_number};  
 	unless ($table) { my $err = ucfirst($table)." ID not specified in output record" ; die "$err"; } 	#   - ID number
 	unless ($id_number =~ /^[+-]?\d+$/) { $id_number = &find_by_title($dbh,$table,$id_number); } 		#     (Try to find ID number by title)
-	$format ||= $vars->{format} || "html";									#   - format
+	$format ||= $vars->{format} || "html";																#   - format
 	
 	
 	
 
-	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id_number});					# Get Record
+	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id_number});								# Get Record
 	unless ($record) { die "Looking for $table number $id_number, but it was not found, sorry."; }		#     - catch get record error
-	my ($hits,$total) = &record_hit($table,$id_number);							#     - Increment record hits counter
+	my ($hits,$total) = &record_hit($table,$id_number);													#     - Increment record hits counter
 
 
 
 	
-	$record->{page_content} = &format_record($dbh,$query,$table,$format,$record);				# Format Record content
+	$record->{page_content} = &format_record($dbh,$query,$table,$format,$record);						# Format Record content
 
-	$header_template = $record->{page_header} || lc($format) . "_header";					# Add headers and footers
-	$footer_template = $record->{page_footer} || lc($format) . "_footer";					#     - pages can override default templates
+
+	$header_template = $record->{page_header} || lc($format) . "_header";								# Add headers and footers
+	$footer_template = $record->{page_footer} || lc($format) . "_footer";								#     - pages can override default templates
 	$record->{page_content} =
 		&db_get_template($dbh,$header_template) .
 		$record->{page_content} .
@@ -821,150 +773,6 @@ sub output_record {
 	
 }
 
-sub __format_record {
-	
-	
-	my ($dbh,$query,$table,$record_format,$filldata,$keyflag) = @_;
-	
-	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
-	my $id_number = $filldata->{$table."_id"};	
-	
-									
-				
-	return &printlang("Permission denied to view",$table) unless (&is_viewable("view",$table,$filldata)); 	# Permissions
-	
-	
-	my $view_text = "";											# Get the Template (aka View)
-	my $view_title = $record_format;									#	- view title is "$table_$format"
-	unless ($view_title =~ /$table/) { $view_title = $table."_".$view_title; }				#    	- ensure full view format name		
-	$view_text = &db_get_text($dbh,"view",$view_title);							#	- get the view 
-	$view_text ||= "<p>[*".$table."_title*]<br>[*".$table."_description*]</p>";				#	- create default view if necessary
-
-	
-
-
-	
-	&make_boxes($dbh,\$view_text);							# Make Boxes - insert box text into element
-	&make_counter($dbh,\$view_text);							# Make Counter
-	
-	&make_data_elements(\$view_text,$filldata,$record_format);			# Fill page content elements				
-
-	my $results_count = &make_keywords($dbh,$query,\$view_text);						# Keywords
-
-	my $kresults_count = &make_keylist($dbh,$query,\$view_text);						# Keylist
-						
-	&make_next($dbh,\$view_text,$table,$id_number,$filldata);							# Prev / Next Link
-						
-	&autodates(\$view_text);										# Dates
-
-
-
-	&make_images(\$view_text,$table,$id_number,$filldata);							# Images
-
-	&make_enclosures(\$view_text,$table,$id_number,$filldata);						# Enclosures	
-	
-	&make_author(\$view_text,$table,$id_number,$filldata);							# Author	
-	
-	&make_hits($text_ptr,$table,$id,$filldata);								# Hits
-
-
-	if ($record_format =~ /opml/) { $view_text =~ s/&/&amp;/g; }
-	if ($record_format =~ /text|txt/) { &strip_html($text_ptr); }
-
-	
-	
-	
-	&make_escape($dbh,\$view_text);										# Escaped HTML
-
-	&clean_up(\$view_text,$record_format);
-										
-#	&db_cache_save($dbh,$table,$id_number,$record_format,$view_text);					# Save To Cache
-	
-
-	&make_admin_links(\$view_text);	
-	
-	$view_text =~ s/CDATA\((.*?)\)//g;		# Kludge to eliminate hanging CDATA tags	
-	
-	
-}
-
-sub output_admin {
-	
-	my ($dbh,$query,$table,$record) = @_;
-	return unless ($Person->{person_status} eq "admin"); 
-	$record->{link_status} ||= "Fresh";
-	
-	return qq|
-		<style>
-		     #status { color:blue;float:left;text-align:center;height:2.5em;line-height:2.5em;width:10em;border: 1 px solid black; }
-		     .control { color:red;float:left;text-align:center;height:2.5em;line-height:2.5em;border: 1 px solid black; }
-		     #adminmenu { width:100%;height:3em;margin-top:0.5em; }
-		     .adminbutton { height:2em; width:5em; };
-		</style>
-		<div id="adminmenu">
-		<div id="status">
-		<span>@{[&printlang("Status")]}: @{[&printlang($record->{link_status})]}</span>
-		</div>
-		<div class="control">
-		<form id="autopost" method="post" action="$Site->{st_cgi}admin.cgi">
-		<input type="submit" class="adminbutton" value="@{[&printlang("POST")]}"/>
-		<input type="hidden" name="action" value="autopost">
-		<input type="hidden" name="id" value="$record->{link_id}">
-		</form>
-		</div>
-		<div class="control">
-		<form id="postedit" method="post" action="$Site->{st_cgi}admin.cgi">
-		<input type="submit" class="adminbutton" value="@{[&printlang("EDIT")]}"/>
-		<input type="hidden" name="action" value="postedit">
-		<input type="hidden" name="id" value="$record->{link_id}">
-		</form>
-		</div>
-		</div>
-		<div id="adminedit"><div>
-	|;
-	
-}
-
-sub output_header {
-	
-	return qq|
-	<head>
-		<link href="http://open.mooc.ca/assets/css/bootstrap.css" rel="stylesheet">
-		<link href="http://open.mooc.ca/assets/css/bootstrap-responsive.css" rel="stylesheet">	
-		<link rel="stylesheet" type="text/css" href="http://open.mooc.ca/assets/css/html.css" media="screen, projection, tv " />
-		<link rel="stylesheet" type="text/css" href="http://open.mooc.ca/assets/css/layout.css" media="screen, projection, tv" />	
-		<script src="http://open.mooc.ca/assets/js/jquery.js"></script>
-		<script type="text/javascript" src="http://open.mooc.ca/assets/js/grsshopper.js"></script>		
-		<script src="http://open.mooc.ca/assets/js/grsshopper_viewer.js"></script>
-	</head>
-	|;
-}
-
-sub output_comment_form {
-	
-	# Comments Disabled
-	return;
-
-	my ($record,$comment) = @_;
-	
-	
-	$createcode = $Person->{person_id} . time;
-	return qq|
-	<div id="commented"></div>
-	<h5>@{[&printlang("Comments")]}</h5>
-	<form  class="ajax_form" id="comment" method="POST" action="$Site->{script}">
-		<input name="action" value="comment" type="hidden">
-		<input name="post_createcode" value="$createcode" type="hidden">
-		<input name="link_id" value="$record->{link_id}" type="hidden">
-		<input name="rec_title" value="$record->{link_title}" type="hidden">		
-		<input name="post_thread" value="$record->{link_post}" type="hidden">
-		<input name="code" value="85QwMollLxZZc" type="hidden">
-		<textarea name="post_description" cols="60" rows="10" style="width:auto;"></textarea><br/>
-		<input class="ajax_button" type="submit" value="@{[&printlang("Post Comment")]}" /> 
-	</form>
-	|;
-
-}
 
 
 #-------------------------------------------------------------------------------

@@ -1,6 +1,6 @@
-#    gRSShopper 0.5  Common Functions  0.7  -- 
+#    gRSShopper 0.7  Common Functions  0.8  -- 
 
-#    12 February 2017
+#    26 April 2017
 
 #    Copyright (C) <2013>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -1677,7 +1677,6 @@ sub format_record {
 	my ($dbh,$query,$table,$record_format,$filldata,$keyflag) = @_;
 	
 
-	
 	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
 	my $id_number = $filldata->{$table."_id"};
 	
@@ -1721,10 +1720,16 @@ sub format_record {
 									# Or Get the Template (aka View)
 
 		my $view_title = $record_format;
+
 		if ($table eq "post") { $view_title = $filldata->{post_type}."_".$view_title; }	# Special for post
-		unless ($view_title =~ /$table/) { $view_title = $table."_".$view_title; }	# ensure full view format name			
+
+		unless ($view_title =~ /$table/) { $view_title = $table."_".$view_title; }	# ensure full view format name		
+	
 		$view_text = &db_get_text($dbh,"view",$view_title);		
+
 	}
+
+
 
 
 											
@@ -2119,22 +2124,14 @@ sub set_formats {
 		}	
 	} 
 	
-						# Mime Types
-	my $mime_type = "text/html; charset=utf-8";					# default mime					
-	if ($page_format =~ /RSS|OPML|XML|DC|ATOM/i) { 
-		$mime_type = "text/xml";
-	} elsif ($page_format =~ /TEXT|TXT/i) {
-		$mime_type = "text/plain"; 
-	} elsif ($page_format =~ /JSON/i) {
-		$mime_type = "application/json";
-	} elsif ($page_format =~ /JS/i) {
-		$mime_type = "text/Javascript";
-	}
+						
+	my $mime_type = &set_mime_type($page_format);					# Mime Types
+					
 
 	return ($page_format,$record_format,$mime_type);
 }
 
-
+# -------  Mime Types ------------------------------------------------------
 
 sub set_mime_type {
 	
@@ -2151,7 +2148,7 @@ sub set_mime_type {
 		$mime_type = "text/html";
 	}
 	return $mime_type;	
-	
+	#	my $mime_type = "text/html; charset=utf-8";					# default mime
 }
 
 
@@ -2567,8 +2564,8 @@ sub make_hits {
 		my $replace = "";
 		my $parse = $autotext;
 		
-		my $today = $filldata->{$table."_hits"};
-		my $today = $filldata->{$table."_total"};		
+		my $hits = $filldata->{$table."_hits"};
+		my $total = $filldata->{$table."_total"};		
 		
 		$$text_ptr =~ s/<hits>/$hits\/$total/;
 	}
@@ -4280,17 +4277,17 @@ sub form_editor() {
 
 if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary - posts for now
 	if ($id_number && $id_number ne "new") { 
-		my $pformat;
-		if ($table eq "post") { $pformat = "post_".$record->{$fields->{type}}."_summary"; }
-		else { $pformat = $table ."_summary"; }
+
 		my $wp = {}; 
 		$vars->{comments} = "no";
 		$wp->{table} = $table;
 		$wp->{page_content} = &format_record($dbh,
 				$query,
 				$table,
-				$pformat,
+				"summary",
 				$record);
+
+
 		&format_content($dbh,$query,$options,$wp);
 		$form_text .= qq|	 
 		 	<br><i>&nbsp;&nbsp;Preview:</i><br/><table border=1 cellpadding=10 cellspacing=0 width="600">
@@ -5757,11 +5754,14 @@ my ($dbh,$table,$field,$id) = @_;
 &error($dbh,"","","Field not initialized in get_single_value") unless ($field);
 #&error($dbh,"","","ID number not initialized in get_single_value") unless ($id);
 return unless ($id);
-my $idfield = $table."_id";
 
-my $stmt = qq|SELECT $field FROM $table WHERE $idfield='$id' LIMIT 1|; 
+my $idfield = $table."_id";								# define id field name
+my $t = $table."_";unless ($field =~ /$t/) { $field = $t.$field; }	# Normalize field field name
+
+my $stmt = qq|SELECT $field FROM $table WHERE $idfield='$id' LIMIT 1|; 	# Perform SQL
 my $ary_ref = $dbh->selectcol_arrayref($stmt);
 my $ret = $ary_ref->[0];
+
 return $ret;
 
 }
@@ -6032,7 +6032,8 @@ sub db_update {
 sub db_increment {
 
 	my ($dbh,$table,$id,$field,$from) = @_;
-	&error($dbh,"","","Database not initialized in db_increment") unless ($dbh);
+	
+	&error($dbh,"","","Database not initialized in db_increment") unless ($dbh);				# Check Input
 	&error($dbh,"","","Table not initialized in db_increment") unless ($table);
 	&error($dbh,"","","Field not initialized in db_increment") unless ($field);
 	&error($dbh,"","","ID number not initialized in db_increment - $from") unless ($id);

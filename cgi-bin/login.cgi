@@ -1,9 +1,7 @@
 #!/usr/bin/perl
-# print "Content-type: text/html\n\n";
-#print "Start";
 
-#    gRSShopper 0.3  Login  0.5  -- gRSShopper administration module
-#    29 January 2012 - Stephen Downes
+#    gRSShopper 0.7  Login  0.6  -- gRSShopper login module
+#    26 April 2017 - Stephen Downes
 
 #    Copyright (C) <2012>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -19,17 +17,38 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if
-	($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						# Forbid bots
+# Forbid bots
 
-use File::Basename;												# Load gRSShopper
-use CGI::Carp qw(fatalsToBrowser);
-my $dirname = dirname(__FILE__);								
-require $dirname . "/grsshopper.pl";								
+	die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						
 
-our ($query,$vars) = &load_modules("login");								# Load modules
+# Load gRSShopper
 
-our ($Site,$dbh) = &get_site("admin");									# Load Site
+	use File::Basename;												
+	use CGI::Carp qw(fatalsToBrowser);
+	my $dirname = dirname(__FILE__);								
+	require $dirname . "/grsshopper.pl";								
+
+# Load modules
+
+	our ($query,$vars) = &load_modules("login");								
+
+# Load Site
+
+	our ($Site,$dbh) = &get_site("login");									
+	if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
+
+# Get Person  (still need to make this an object)
+
+	our $Person = {}; bless $Person;				
+	&get_person($dbh,$query,$Person);		
+	my $person_id = $Person->{person_id};
+
+# Initialize system variables
+
+	my $options = {}; bless $options;		
+	our $cache = {}; bless $cache;
+
+
 
 
 
@@ -42,29 +61,6 @@ our $target; if ($vars->{target}) { $target = $vars->{target}; }
 if (&new_module_load($query,"Net::OpenID::Consumer")) { $vars->{openid_enabled} = 1; }
 
 
-
-
-
-
-# Initialize Session --------------------------------------------------------------
-
-
-	
-
-my $options = {}; bless $options;		# Initialize system variables
-our $cache = {}; bless $cache;	
-						
-our ($Site,$dbh) = &get_site("page");		# Get Site Information
-
-
-unless (defined $Site) { die "Site not defined."; }
-unless (defined $dbh) { die "Database Handler not defined."; }
-
-
-
-our $Person = {}; bless $Person;		# Get User Information
-&get_person($dbh,$query,$Person);		
-my $person_id = $Person->{person_id};
 
 	
 

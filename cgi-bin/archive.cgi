@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
-#    gRSShopper 0.3  Archive  0.3  -- gRSShopper archive module
-#    Stephen Downes, July 29, 2011
+#    gRSShopper 0.7  Archive  0.4  -- gRSShopper archive module
+#    Stephen Downes, April 26, 2017
 #    Updated 2013 03 04 to use File::Basename
 
 #    Copyright (C) <2011>  <Stephen Downes, National Research Council Canada>
@@ -28,36 +28,32 @@
 #
 #-------------------------------------------------------------------------------
 
-# Initialize gRSShopper Library
+# Load gRSShopper
 
-use File::Basename;
-my $basepath = dirname(__FILE__);
-require $basepath . "/grsshopper.pl";
+	use File::Basename;												
+	use CGI::Carp qw(fatalsToBrowser);
+	my $dirname = dirname(__FILE__);								
+	require $dirname . "/grsshopper.pl";								
 
-our ($query,$vars) = &load_modules();
+# Load modules
 
+	our ($query,$vars) = &load_modules("page");								
 
-# Initialize Session --------------------------------------------------------------
+# Load Site
 
-				
+	our ($Site,$dbh) = &get_site("page");									
+	if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
 
-my $options = {}; bless $options;		# Initialize system variables
-our $cache = {}; bless $cache;	
-						
-our ($Site,$dbh) = &get_site($query);		# Get Site Information
-unless (defined $Site) { die "Site not defined."; }
+# Get Person  (still need to make this an object)
 
-our $Person = {}; bless $Person;		# Get User Information
-$Site->{context} = "page";
-&get_person($dbh,$query,$Person);	
-	
-my $person_id = $Person->{person_id};
+	our $Person = {}; bless $Person;				
+	&get_person($dbh,$query,$Person);		
+	my $person_id = $Person->{person_id};
 
-						# Redirect old-style Requests 
+# Initialize system variables
 
-
-
-
+	my $options = {}; bless $options;		
+	our $cache = {}; bless $cache;
 
 
 

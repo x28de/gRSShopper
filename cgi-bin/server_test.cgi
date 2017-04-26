@@ -1,6 +1,9 @@
 #!/usr/bin/perl
 
-#    gRSShopper 0.1  Server Test  0.1  -- gRSShopper server test module
+#    gRSShopper 0.7  Server Test  0.2  -- gRSShopper server test module
+#    26 April 2017 - Stephen Downes
+
+
 #    Copyright (C) <2008>  <Stephen Downes, National Research Council Canada>
 
 #    This program is free software: you can redistribute it and/or modify

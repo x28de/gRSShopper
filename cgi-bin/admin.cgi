@@ -1,12 +1,7 @@
 #!/usr/bin/env perl
 
-
-
-
- #    use Image::Thumbnail 0.65;
-
-#    gRSShopper 0.3  Admin  0.5  -- gRSShopper administration module
-#    12 January 2016 - Stephen Downes
+#    gRSShopper 0.7  Admin  0.6  -- gRSShopper administration module
+#    26 April 2017 - Stephen Downes
 
 #    Copyright (C) <2011>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -28,45 +23,63 @@
 #
 #-------------------------------------------------------------------------------
 
-die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if
-	($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						# Forbid bots
+# Forbid bots
 
-use File::Basename;												# Load gRSShopper
-use CGI::Carp qw(fatalsToBrowser);
-my $dirname = dirname(__FILE__);								
-require $dirname . "/grsshopper.pl";								
+	die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						
 
-our ($query,$vars) = &load_modules("admin");								# Load modules
+# Load gRSShopper
 
-our ($Site,$dbh) = &get_site("admin");									# Load Site
-if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
+	use File::Basename;												
+	use CGI::Carp qw(fatalsToBrowser);
+	my $dirname = dirname(__FILE__);								
+	require $dirname . "/grsshopper.pl";								
+
+# Load modules
+
+	our ($query,$vars) = &load_modules("admin");								
+
+# Load Site
+
+	our ($Site,$dbh) = &get_site("admin");									
+	if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
+
+# Get Person  (still need to make this an object)
+
+	our $Person = {}; bless $Person;				
+	&get_person($dbh,$query,$Person);		
+	my $person_id = $Person->{person_id};
+
+# Initialize system variables
+
+	my $options = {}; bless $options;		
+	our $cache = {}; bless $cache;	
 
 
 
-our $Person = {}; bless $Person;				# Person  (still need to make this an object)
-&get_person($dbh,$query,$Person);		
-my $person_id = $Person->{person_id};
+# Option to call initialize functions
+
+	if ($vars->{action} eq "initialize") {  $Site->__initialize("command"); }
 
 
+# Restrict to Admin
 													
-if ($Site->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }		# Restrict to Admin
-
-
-if ($vars->{action} eq "initialize") {  $Site->__initialize("command"); }				# Option to call initialize functions
-
-
-my $options = {}; bless $options;		# Initialize system variables
-our $cache = {}; bless $cache;	
-
-
-if ($vars->{api}) { print "ok"; exit; }
+	if ($Site->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }		
+		
 
 
 
 
-if ($vars->{code}) { 						# Capture Facebook code submit
-	facebook_access_code_submit();				# I'll make this a proper API capture at some point
-}
+# To fix
+
+	if ($vars->{api}) { print "ok"; exit; }
+
+	if ($vars->{code}) { 						# Capture Facebook code submit
+		facebook_access_code_submit();				# I'll make this a proper API capture at some point
+	}
+
+	 #    use Image::Thumbnail 0.65;
+
+
 
 
 # Analyze Request --------------------------------------------------------------------
