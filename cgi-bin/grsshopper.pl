@@ -1716,15 +1716,12 @@ sub format_record {
 			$filldata->{page_code} .				
 			&db_get_template($dbh,$filldata->{page_footer});	
 	} else { 	
-		
+	
 									# Or Get the Template (aka View)
 
 		my $view_title = $record_format;
-
 		if ($table eq "post") { $view_title = $filldata->{post_type}."_".$view_title; }	# Special for post
-
 		unless ($view_title =~ /$table/) { $view_title = $table."_".$view_title; }	# ensure full view format name		
-	
 		$view_text = &db_get_text($dbh,"view",$view_title);		
 
 	}
@@ -1825,7 +1822,7 @@ sub facebook_post {
 		callback           => $Site->{fb_postback_url}
 	);
 		
-	my $text = &format_record($dbh,"","post","post_facebook",$record);				# Format content
+	my $text = &format_record($dbh,"","post","facebook",$record);				# Format content
 	my $link = $Site->{st_url}."post/".$id."/rd";
 	
 	$text =~ s/<br>|<br\/>|<br \/>|<\/p>/\n\n/ig;							# No HTML
@@ -2766,7 +2763,7 @@ sub make_keylist {
 				if ($replace) { $replace .= $script->{separator}; }	
 				if ($script->{format} eq "text") { $replace .= qq|$kname|; } 
 				elsif ($script->{format}) { 
-					my $ftext = &format_record($dbh,$query,$script->{keytable},"$script->{keytable}_$script->{format}",$c);
+					my $ftext = &format_record($dbh,$query,$script->{keytable},"$script->{format}",$c);
 					$replace .= $ftext; }
 				else { $replace .= qq|<a href="$Site->{st_url}$script->{keytable}/$connection" style="text-decoration:none;">$kname</a>|; $replace =~ s/\n/<br\/>/ig; }
 			
@@ -2821,7 +2818,7 @@ sub make_keylist {
 
 			my $author = &db_get_record($dbh,"author",{author_id=>$connection});
 			if ($author->{author_id}) {
-				$replace .= &format_record($dbh,$query,"author","author_".$autocontent,$author);
+				$replace .= &format_record($dbh,$query,"author",$autocontent,$author);
 			}
 
 		}
@@ -3284,7 +3281,7 @@ sub make_keywords {
 
 		my $sql = "SELECT * FROM $script->{db} $where$order$limit";
 
-		
+
 						# Permissions
 						
 		my $perm = "view_".$table;					
@@ -3351,7 +3348,7 @@ sub make_keywords {
 			my $record_text = &format_record($dbh,
 				$query,
 				$script->{db},
-				$script->{db}."_".$script->{format},
+				$script->{format},
 				$record,
 				$keyflag);
 
@@ -3397,7 +3394,7 @@ sub make_keywords {
 		} else {
 			# If no results are found, and a empty format is specified, display empty format. -Luc
 			if ($script->{empty_format}) {
-				$results_in = &format_record($dbh, "", 	$script->{db}, 	$script->{db}."_".$script->{empty_format}, "", 1);
+				$results_in = &format_record($dbh, "", 	$script->{db}, 	$script->{empty_format}, "", 1);
 			}
 		}	
 		
@@ -3649,7 +3646,29 @@ sub make_lookup {
 
 
 
+# -------   Header ------------------------------------------------------------
 
+sub header {
+
+	my ($dbh,$query,$table,$format,$title) = @_;
+	$format ||= "html";
+	my $template = $Site->{lc($format) . "_header"} || lc($format) . "_header";
+	
+	return &get_template($dbh,$query,$template,$title);
+
+}
+
+# -------   Footer -----------------------------------------------------------
+
+sub footer {
+
+	my ($dbh,$query,$table,$format,$title) = @_;
+	$format ||= "html";
+	my $template = $Site->{lc($format) . "_footer"} || lc($format) . "_footer";
+	return &get_template($dbh,$query,$template,$title);
+
+
+}
 
 
 
@@ -6438,9 +6457,6 @@ sub search {
 						# Set Record Format
 		my $record_format = lc($page->{format});							# default record format	
 		if ($record_format =~ /html/i) { $record_format = "summary"; }			# special case for HTML pages
-		if ($page->{table} eq "post") { $record_format = $type."_".$record_format; }
-		if ($page->{table} eq "event") { $record_format = $type."_".$record_format; }
-		$record_format = $page->{table}."_".$record_format;
 
 
 						# Format Record
@@ -8789,16 +8805,12 @@ sub record_preview {
 	my $preview = &db_get_record($dbh,$table,{$table."_id" => $id});			# Get record
 	
 	
-	my $pformat;									# Determine Format
-	if ($table eq "post") { $pformat = "post_".$vars->{post_type}."_preview"; }
-	else { $pformat = $table ."_preview"; }
-	
 	
 
 	my $wp = {}; 									# Format Record
 	$vars->{comments} = "no";
 	$wp->{table} = $table;
-	$wp->{page_content} = &format_record($dbh,$query,$table,$pformat,$preview);
+	$wp->{page_content} = &format_record($dbh,$query,$table,"preview",$preview);
 	&format_content($dbh,$query,$options,$wp);
 	
 	my $hh; 
