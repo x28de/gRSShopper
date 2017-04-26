@@ -1,6 +1,6 @@
 #!/usr/bin/perl
- print "Content-type: text/html\n\n";
-print "Start";
+# print "Content-type: text/html\n\n";
+#print "Start";
 
 #    gRSShopper 0.3  Login  0.5  -- gRSShopper administration module
 #    29 January 2012 - Stephen Downes
