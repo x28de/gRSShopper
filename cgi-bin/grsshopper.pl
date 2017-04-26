@@ -8202,6 +8202,11 @@ sub get_template {
 
 	$template =~ s/&#39;/'/g;									# 	- Makes scripts work
 	&make_site_info(\$template);									#	- Template and Site Info
+	
+														# Write Page Title
+	$template =~ s/\Q[*page_title*]\E/$title/g;
+	$template =~ s/\Q<page_title>\E/$title/g;	
+
 							
 	return $template;
 
