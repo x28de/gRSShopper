@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
-#    gRSShopper 0.7  Admin  0.6  -- gRSShopper administration module
-#    26 April 2017 - Stephen Downes
+#    gRSShopper 0.7  Admin  0.61  -- gRSShopper administration module
+#    27 April 2017 - Stephen Downes
 
 #    Copyright (C) <2011>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -23,6 +23,14 @@
 #
 #-------------------------------------------------------------------------------
 
+
+
+# Diagnostics
+
+	our $diag = 0;
+	if ($diag>0) { print "Content-type: text/html\n\n"; }
+
+
 # Forbid bots
 
 	die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						
@@ -37,6 +45,7 @@
 # Load modules
 
 	our ($query,$vars) = &load_modules("admin");								
+
 
 # Load Site
 
@@ -62,8 +71,8 @@
 
 
 # Restrict to Admin
-													
-	if ($Site->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }		
+
+	if ($vars->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }		
 		
 
 
@@ -242,6 +251,7 @@ unless ($table || $action) {				# Default to Admin Menu
 #	}
 #	close IN;
 
+if ($diag>9) { print "Action: $action <br>"; }
 
 if ($action) {					# Perform Action, or
 	my $tt = ucfirst($action)." ".ucfirst($table);
@@ -2533,100 +2543,6 @@ sub list_records {
 }
 
 
-# -------   Output Record ------------------------------------------------------
-
-
-sub output_record {
-
-	my ($dbh,$query,$table,$id_number,$format) = @_;
-	my $vars = $query->Vars;
-	$vars->{comment} = "yes";
-
-											# If ID is specified as text
-	if (($id_number+0) == 0) {		# Try to find by title
-		$id_number = &find_by_title($dbh,$table,$id_number);
-	}
-
-	my $fields = &set_fields($table);
-
-	
-	
-						# Get Record from DB
-
-	my $wp = &db_get_record($dbh,$table,{$fields->{id}=>$id_number});
-	unless ($wp) { &error($dbh,$query,"",
-			qq|Looking for $table number $id_number, 
-			but it was not found, sorry.|); }
-			
-						# Permissions
-						
-	return unless (&is_allowed("view",$table,$wp)); 		
-		
-			
-						# Title
-	$wp->{page_title} = $wp->{$fields->{title}} || $wp->{$fields->{name}};
-	$Site->{header} =~ s/\Q[*page_title*]\E/$wp->{$fields->{title}}/g;
-	$Site->{header} =~ s/\Q<page_title>\E/$wp->{$fields->{title}}/g;
-
-	
-
-						# Set Formats
-
-	my ($page_format,$record_format,$mime_type) =
-		&set_formats($dbh,$query,$wp,$table);
-		
-		
-
-						# Create Edit Links
-						
-#	my $edit_links = qq|<p class="notice">
-#		Admin Options: [<a href="?$table=$id_number&action=edit">Edit</a>]
-#						</p>|;
-
-						# Put Record Data Into Template 
-
-	$wp->{page_content} = &format_record($dbh,$query,$table,$record_format,$wp);
-
-
-						# For non-Page Records, Add Header and Footer
-
-
-	unless ($table eq "page" || $format eq "viewer") {
-		
-		
-		if ($table eq "presentation") {
-			$header_template = "presentation_header";
-			$footer_template = "presentation_footer";	
-		}
-		
-		my $header_template = $Site->{lc($page_format) . "_header"} || lc($page_format) . "_header";
-		my $footer_template = $Site->{lc($page_format) . "_footer"} || lc($page_format) . "_footer";
-		$wp->{page_content} =
-			&db_get_template($dbh,$header_template) .
-			$edit_links . $wp->{page_content} .	&db_get_template($dbh,$footer_template);	
-	}
-	
-
-
-						# Format Record Content
-
-	$wp->{table} = $table;
-	&format_content($dbh,$query,$options,$wp);
-
-	 					# Fill special Admin links and post-cache data
-
-	&make_pagedata($query,\$wp->{page_content});				
-	&make_admin_links(\$wp->{page_content});
-	&make_login_info($dbh,$query,\$wp->{page_content},$table,$id_number);
-	
-						# Fill timezone dates
-	&autotimezones($query,\$wp->{page_content});
-	
-	$wp->{page_content} =~ s/\Q]]]\E/] ]]/g;   # Fixes a Firefox XML CDATA bug
-	print "Content-type: ".$mime_type."\n\n";
-	print $wp->{page_content};
-
-}
 
 # -------  Autopost------------------------------------------------------    
 
@@ -3560,6 +3476,7 @@ sub cron_tasks {
 	
 	my $log = "";	# Flag that indicates whether an activity was logged
 	my $loglevel = 0;
+			
 	
 	#my $content = "Cron Report \n\n";
 	#$content .= "Site Context: $Site->{context} \n\n";

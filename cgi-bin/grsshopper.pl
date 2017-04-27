@@ -1,6 +1,6 @@
-#    gRSShopper 0.7  Common Functions  0.8  -- 
+#    gRSShopper 0.7  Common Functions  0.81  -- 
 
-#    26 April 2017
+#    27 April 2017
 
 #    Copyright (C) <2013>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -14,6 +14,7 @@
 #    GNU General Public License for more details.
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 
 
 
@@ -174,17 +175,20 @@ sub get_site {
 	
 	
 	my $numArgs = $#ARGV + 1;							# Command Line Args (For Cron)
-	if ($#ARGV > 1) { $context = "cron"; }					# Set cron context, as appropriate
+	if ($ARGV[1]) { $context = "cron"; }					# Set cron context, as appropriate
 	if ($vars->{action} eq "cron") { 						# Note that a cron key is required to execute 
 		$context = "cron"; 							# from the command line
 		$vars->{cronuser} = "web";
-	}			
+	}
+	if ($context) { $vars->{context} = $context; }
+	
 
 	our $Site = gRSShopper::Site->new({						# Create new Site object
 		context		=>	$context,
 		data_dir	=>	'/var/www/cgi-bin/data/',		# Location of site configuration files
 	});
 
+	
 
 	
 	$Site->{scriptfile} = $0;						# Find script filename 
@@ -208,7 +212,7 @@ sub get_site {
 		}		
 	}	
 
-
+	
 
 										# Open Site Database
 
@@ -224,6 +228,7 @@ sub get_site {
 										# Get Site Info From Database	
 	&get_config($dbh);
 
+	
 
 	
 	my $upload_limit = $Site->{file_limit} || 10000;		# File Upload Limit
@@ -443,6 +448,81 @@ sub anonymous {
 	
 	# Place selected data into person hash
 	$Person->{person_lastread} = $p->{person_lastread};	
+	
+}
+
+
+
+# -------   Output Record ------------------------------------------------------
+
+
+sub output_record {
+
+    my ($dbh,$query,$table,$id_number,$format) = @_;
+    if ($diag>9) { print "Output Record<br>"; }
+   
+	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
+	my $output = "";
+
+	
+																										# Check Request
+	$table ||= $vars->{table}; die "Table not specified in output record" unless ($table);			#   - table
+	$id_number ||= $vars->{id_number};  
+	unless ($table) { my $err = ucfirst($table)." ID not specified in output record" ; die "$err"; } 	#   - ID number
+	unless ($id_number =~ /^[+-]?\d+$/) { $id_number = &find_by_title($dbh,$table,$id_number); } 		#     (Try to find ID number by title)
+	$format ||= $vars->{format} || "html";									#   - format
+	
+						
+						
+	return unless (&is_allowed("view",$table,$wp));								# Permissions
+	
+
+	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id_number});					# Get Record
+	unless ($record) { die "Looking for $table number $id_number, but it was not found, sorry."; }		#     - catch get record error
+#	my ($hits,$total) = &record_hit($table,$id_number);							#     - Increment record hits counter
+
+	$record->{page_title} = $Site->{st_name} . " ~ " .
+		$record->{$table."_title"} || $record->{$table."_name"} || "Title";				# Page Title
+
+	$record->{page_content} = &format_record($dbh,$query,$table,$format,$record);				# Page Content = Formated Record content
+
+
+	$header_template = $record->{page_header} || lc($format) . "_header";					# Add headers and footers
+	$footer_template = $record->{page_footer} || lc($format) . "_footer";					#     - pages can override default templates
+
+	if ($table eq "presentation") {
+		$header_template = "presentation_header";
+		$footer_template = "presentation_footer";	
+	}
+
+	$record->{page_content} =
+		&db_get_template($dbh,$header_template,$record->{page_title}) .
+		$record->{page_content} .
+		&db_get_template($dbh,$footer_template,$record->{page_title});
+		
+
+	&format_content($dbh,$query,$options,$record);								# Format Page content
+	
+	&make_pagedata($query,\$record->{page_content});								# Fill special Admin links and post-cache content
+	&make_admin_links(\$record->{page_content});
+	&make_login_info($dbh,$query,\$record->{page_content},$table,$id_number);
+						
+	$record->{page_content} =~ s/\Q]]]\E/] ]]/g;  								# Fixes a Firefox XML CDATA bug			
+	
+	$output .= $record->{page_content};
+
+														# Fill special Admin links and post-cache data
+
+	&make_pagedata($query,\$wp->{page_content});				
+	&make_admin_links(\$wp->{page_content});
+	&make_login_info($dbh,$query,\$wp->{page_content},$table,$id_number);
+	&autotimezones($query,\$record->{page_content});
+		
+	my $mime_type = set_mime_type($format);
+	print "Content-type: ".$mime_type."\n\n";								# Print output
+	print $output;
+	if ($diag>9) { print "/Output Record<br>"; }
+	exit;
 	
 }
 
@@ -1574,8 +1654,12 @@ sub format_content {
 
 				
 	my ($dbh,$query,$options,$wp) = @_;
+	if ($diag>9) { print "Format Content <br>"; }
+	
     	my $vars = ();
     	if (ref $query eq "CGI") { $vars = $query->Vars; }
+
+    		
 
 						# Default Content
 	unless (defined $wp->{page_content}) { $wp->{page_content} = &printlang("No content"); }
@@ -1596,6 +1680,7 @@ sub format_content {
 	&make_counter($dbh,\$wp->{page_content});						# Make Boxes	
 	my $results_count = &make_keywords($dbh,$query,\$wp->{page_content},$wp);	# Make Keywords
 	$wp->{page_linkcount} .= $results_count;
+	
 	$wp->{page_content} =~ s/<count>/$vars->{results_count}/mig;			# Update results count from keywords
 
 
@@ -1652,6 +1737,7 @@ sub format_content {
 		&format_rssify(\$wp->{page_content});
 	}
 
+	if ($diag>9) { print "/Format Content <br>"; }
 	
 }
 
@@ -1675,7 +1761,7 @@ sub format_record {
 
 
 	my ($dbh,$query,$table,$record_format,$filldata,$keyflag) = @_;
-	
+	if ($diag>9) { print "Format Record  <br>"; }
 
 	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
 	my $id_number = $filldata->{$table."_id"};
@@ -1791,6 +1877,8 @@ sub format_record {
 	if ($view_text =~ /CampaignToBuildOneBigCampaign/ || $view_text =~ /Blacklock/ ||  $view_text =~ /One Big Campaign/ || $view_text =~ /feed\/408/) {
 		$view_text = " - ";
 }
+
+	if ($diag>9) { print "/Format Record <br>"; }
 	return $view_text;											# Return the Completed Record
 
 }
@@ -2576,40 +2664,47 @@ sub make_hits {
 sub make_next {
 
 	my ($dbh,$input,$table,$id_number,$filldata) = @_;
-
-	return unless (defined $input);
+	if ($diag>9) { print "Make Next<br>"; }
+	
+	unless (defined $input) { if ($diag>9) { print "/Make Next - input not defined<br>"; } return;	}
+	unless (defined $input) { if ($diag>9) { print "/Make Next - input not defined<br>"; } return;	}
 	
 	my @directions = qw(next previous first last);
 	foreach my $direction (@directions) {
 
 		my $count=0;
 		while ($$input =~ /<$direction(.*?)>/sig) {
+			
 			$count++; last if ($count > 100);			# Prevent infinite loop	
 		
 			my $autocontent = $1;my $nexttext = "";
+			next if ($autocontent eq "BuildDate");			# Fixes RSS bug, need something more permanent
+			
 			my $script = {}; 
 			&parse_keystring($script,$autocontent);
 			my $format = $script->{format} || $vars->{format} || "html";
 			
-			my $typesql;
+
 			if ($script->{type}) { 	$typesql = " ".$table."_type='".$script->{type}."' AND ";  }		
 			
 			my $nextsql ="SELECT ".$table."_id FROM $table WHERE $typesql ".$table."_id ";		
+			
 			if ($direction eq "next") {  $nextsql .= ">'".$id_number."' ORDER BY ".$table."_id";}		
 			elsif ($direction eq "previous") { $nextsql .= "<'".$id_number."' ORDER BY ".$table."_id DESC";}	
 			elsif ($direction eq "first") { $nextsql .= "<'".$id_number."' ORDER BY ".$table."_id";}	
-			elsif ($direction eq "last") { $nextsql .= "id>'".$id_number."' ORDER BY ".$table."_id DESC";}	
+			elsif ($direction eq "last") { $nextsql .= ">'".$id_number."' ORDER BY ".$table."_id DESC";}	
 			$nextsql .= " LIMIT 1";
 								
 			my ($newnextid) = $dbh->selectrow_array($nextsql);
-			if ($newnextid) { $nexttext = qq|[<a class="next" href="|.$Site->{st_cgi}.
-				qq|page.cgi?$table=$newnextid&format=$format">@{[&printlang(ucfirst($direction))]}</a>]|; }
-
-
-			$$input =~ s/$autotext/$nexttext/;
+			if ($newnextid) { 
+				$nexttext = qq|[<a class="next" href="|.$Site->{st_cgi}.
+					qq|page.cgi?$table=$newnextid&format=$format">@{[&printlang(ucfirst($direction))]}</a>]|; 
+			}
+			$$input =~ s/$autotext/$nexttext/; 
 		}
+		
 	}
-
+	if ($diag>9) { print "/Make Next<br>"; }
 
 }
 
@@ -2696,15 +2791,21 @@ sub make_escape {
 sub make_keylist {
 	
 	my ($dbh,$query,$text_ptr) = @_;
+	if ($diag>9) { print "Make Keylist <br>"; }
+	
    	my $vars = ();	
        	if (ref $query eq "CGI") { $vars = $query->Vars; }
-#print "<p>Make keylist<br> $$text_ptr <br>";	
-	unless ($$text_ptr =~ /<keylist (.*?)>/i) { return 1 } 	
+
+
+	unless ($$text_ptr =~ /<keylist (.*?)>/i) { 
+		if ($diag>9) { print "/Make Keylist - No content found<br>"; }
+		return 1 
+	} 	
 
 	while ($$text_ptr =~ /<keylist (.*?)>/ig) {
 
 		my $autocontent = $1; my $replace = "";
-#print " -- $autocontent ";		
+#print " -- $autocontent <br>";		
 
 						# No endless loops, d'uh
 		$escape_hatch++; die "Endless keyword loop" if ($escape_hatch > 10000);		
@@ -2784,7 +2885,7 @@ sub make_keylist {
 		
 	}       		
        		
-	
+	if ($diag>9) { print "/Make Keylist <br>"; }
 }
 
 
@@ -2889,7 +2990,7 @@ sub make_enclosures {
 sub make_media {
 	
 	my ($text_ptr,$table,$id,$filldata) = @_;
-print "Making media<p>";	
+#print "Making media<p>";	
    	return 1 unless ($$text_ptr =~ /<media (.*?)>/i);       	
 	while ($$text_ptr =~ /<media (.*?)>/ig) {
 
@@ -3029,11 +3130,12 @@ sub make_display {
 	my ($table,$id,$autocontent,$style,$filldata) = @_;
 	my $replace = "";
 	my $imagefile = &item_images($table,$id,"largest");
+	my $imlink = $imagefile->{file_link} || $filldata->{$table."_link"};
 	my $width = 400;
 	
 	if ($imagefile->{file_dirname}) {
 		$replace =  qq|<div class="image_$autocontent">
-		<a href="$imagefile->{file_link}"><img src="<st_url>$imagefile->{file_dirname}" $style 
+		<a href="$imlink"><img src="<st_url>$imagefile->{file_dirname}" $style 
 		alt="$imagefile->{file_dirname}" width="$width"></a></div>|; 
 	}
 
@@ -3221,9 +3323,13 @@ sub make_lunchbox {
 sub make_keywords {
 
 	my ($dbh,$query,$text_ptr) = @_;
+	if ($diag>9) { print "Make Keywords <br>"; }
+	
    	my $vars = (); my $results_count=0;
    	my $running_results_count;
-  	
+
+
+ 	
    	return 1 unless ($$text_ptr =~ /<keyword (.*?)>/i);				# Return 1 if no keywords
 											# This allows static pages to be published
 											# Otherwise, if keyword returns 0 results,
@@ -3408,6 +3514,7 @@ sub make_keywords {
 	}
 
 
+	if ($diag>9) { print "/Make Keywords <br>"; }
 	return $running_results_count;
 }
 
@@ -3804,8 +3911,9 @@ sub upload_url {
 	my $result = getstore($url,$file->{fullfilename});
 	
 	unless ($result eq "200") {   
-		print "Error $result while trying to download $url <br>"; 
-		print "Try saving manually and uploading from your computer "; 
+		$vars->{msg} .= qq|
+			Error $result while trying to download <a href="$url">$url</a> <br> 
+			Try saving manually and uploading from your computer|;
 		$file->{fullfilename} = ""; $file->{file_title} = "";
 		return 0;
 	}
@@ -5595,6 +5703,72 @@ sub db_get_content {
 	
 }
 
+# -------   Get Template -------------------------------------------------------- 
+
+sub db_get_template {
+
+	my ($dbh,$title,$page_title) = @_; 
+
+
+	if ($title =~ /'/) { &error($dbh,"","","Cannot put apostraphe in template title"); }  # '
+	&error($dbh,"","","Database not initialized in get_single_value") unless ($dbh);
+	return unless ($title);							# Just pass by blank template requests
+
+
+	my $stmt = qq|SELECT template_description FROM template WHERE template_title='$title' LIMIT 1|; 
+
+
+	my $ary_ref = $dbh->selectcol_arrayref($stmt);
+	my $ret = $ary_ref->[0];
+
+														# Write Page Title
+	$ret =~ s/\Q[*page_title*]\E/$page_title/g;
+	$ret =~ s/\Q<page_title>\E/$page_title/g;
+
+	return $ret;
+
+}
+
+# -------  Get Template ---------------------------------------------------------
+#
+#	Get a template from the database, format it, and return the formatted text
+#
+
+sub get_template {
+ 
+	my ($dbh,$query,$template_title,$title) = @_;
+ 	if ($diag>9) { print "Get Template <br>"; }
+	
+														# Get Template From DB
+					
+	return unless ($template_title);			                   		#     - Can print 'blank' remplate (ie., nothing)
+	my $template_record = &printlang($template_title) || $template_title;		#     - Try to find a translated title of template
+	my $template = &db_get_description($dbh,"template",$template_record) ||		#     - Get the template text from the database
+		&printlang("Template file $template_record not found",$ermsg);		# 		- or report error
+
+
+														# Format the template
+	&make_boxes($dbh,\$template);									# 	- Make boxes		
+	&make_counter($dbh,\$template);								# 	- Make counter	 
+	
+	&make_keywords($dbh,$query,\$template);							# 	- Make Keywords
+	
+	&autodates(\$template);										# 	- Autodates
+
+														# More Formatting
+
+	$template =~ s/&#39;/'/g;									# 	- Makes scripts work
+	&make_site_info(\$template);									#	- Template and Site Info
+	
+														# Write Page Title
+	$template =~ s/\Q[*page_title*]\E/$title/g;
+	$template =~ s/\Q<page_title>\E/$title/g;	
+
+	if ($diag>9) { print "/ Get Template <br>"; }							
+	return $template;
+
+
+}
 
 #
 # -------   Get Description --------------------------------------------------------
@@ -5785,26 +5959,7 @@ return $ret;
 
 }
 
-# -------   Get Item By Title -------------------------------------------------------- 
 
-sub db_get_template {
-
-my ($dbh,$title) = @_; 
-
-if ($title =~ /'/) { &error($dbh,"","","Cannot put apostraphe in template title"); }  # '
-&error($dbh,"","","Database not initialized in get_single_value") unless ($dbh);
-return unless ($title);							# Just pass by blank template requests
-
-
-my $stmt = qq|SELECT template_description FROM template WHERE template_title='$title' LIMIT 1|; 
-
-
-my $ary_ref = $dbh->selectcol_arrayref($stmt);
-my $ret = $ary_ref->[0];
-
-return $ret;
-
-}
 
 # -------   Delete -------------------------------------------------------------
 
@@ -6873,9 +7028,9 @@ sub rfc822_date {
 	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
 	my @months = &month_array();
 	my @days = &day_array();
-		
-
-	return "$days[$dow], $day $months[$month] $year $hour:$min:$sec -0400";
+	unless ($minute) { $minute="00"; }
+	unless ($second) { $second="00"; }	
+	return "$days[$dow], $day $months[$month] $year $hour:$minute:$second -0400";
 }
 
 
@@ -6954,7 +7109,7 @@ sub set_dt {
 	}
 		
 	my $dt = DateTime->from_epoch( epoch => $time );			# Convert to DateTime
-	my $tz = $tz || $Site->{st_timezone} || "America/Moncton";					# Allows input to specify timezone
+	my $tz = $tz || $Site->{st_timezone} || "America/Toronto";					# Allows input to specify timezone
 	unless (DateTime::TimeZone->is_valid_name($tz)) { 
 		print "Content-type: text/html\n\n"; print "Invalid time zone in set_dt(): $tz <p>"; return; }
 	if ($tz) { $dt->set_time_zone($tz); }
@@ -7005,7 +7160,7 @@ sub month_array {
 sub day_array {
 
 											# String Arrays
-	return (&printlang("Sun"),&printlang("Mon"),&printlang("Tues"),
+	return (&printlang("Sun"),&printlang("Mon"),&printlang("Tue"),
 		&printlang("Wed"),&printlang("Thu"),&printlang("Fri"),&printlang("Sat"));
 	
 	
@@ -7089,9 +7244,10 @@ sub epoch_to_rfc822 {
 	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
 	my @months = &month_array();
 	my @days = &day_array();
-		
+	unless ($minute) { $minute="00"; }
+	unless ($second) { $second="00"; }		
 
-	return "$days[$dow], $day $months[$month] $year $hour:$min:$sec -0400";
+	return "$days[$dow], $day $months[$month] $year $hour:$minute:$second -0400";
 
 }
 
@@ -7124,7 +7280,7 @@ sub datepicker_to_epoch {
 
 	$m = int($m); $h = int($h); $y = int($y); $d = int($d); $mm = int($mm);		# Convert datepicker to integers
 
-	my $tz ||= $Site->{st_timezone} || "America/Moncton";	# Needs to be the server time zone setting
+	my $tz ||= $Site->{st_timezone} || "America/Toronto";	# Needs to be the server time zone setting
 	
 	my $dt = DateTime->new( 
 		year 	   => $y,
@@ -8174,44 +8330,7 @@ sub site_url {
 
 
 
-# -------  Get Template ---------------------------------------------------------
-#
-#	Get a template from the database, format it, and return the formatted text
-#
 
-sub get_template {
- 
-	my ($dbh,$query,$template_title,$title) = @_;
- 
-	
-														# Get Template From DB
-					
-	return unless ($template_title);			                   		#     - Can print 'blank' remplate (ie., nothing)
-	my $template_record = &printlang($template_title) || $template_title;		#     - Try to find a translated title of template
-	my $template = &db_get_description($dbh,"template",$template_record) ||		#     - Get the template text from the database
-		&printlang("Template file $template_record not found",$ermsg);		# 		- or report error
-
-
-														# Format the template
-	&make_boxes($dbh,\$template);									# 	- Make boxes		
-	&make_counter($dbh,\$template);								# 	- Make counter	 
-	&make_keywords($dbh,$query,\$template);							# 	- Make Keywords
-	&autodates(\$template);										# 	- Autodates
-
-														# More Formatting
-
-	$template =~ s/&#39;/'/g;									# 	- Makes scripts work
-	&make_site_info(\$template);									#	- Template and Site Info
-	
-														# Write Page Title
-	$template =~ s/\Q[*page_title*]\E/$title/g;
-	$template =~ s/\Q<page_title>\E/$title/g;	
-
-							
-	return $template;
-
-
-}
 
 
 
@@ -8568,7 +8687,7 @@ sub record_convert_dates {
 	my ($table,$vars) = @_;
 	
 											#Set default timezones, durations
-	$vars->{$table."_timezone"} ||= $Site->{st_timezone} || "America/Moncton";	# Allows input to specify timezone						
+	$vars->{$table."_timezone"} ||= $Site->{st_timezone} || "America/Toronto";	# Allows input to specify timezone						
 	unless ($vars->{$table."_duration"}) {$vars->{$table."_duration"} = "1:00";}	
 	unless ($vars->{$table."_duration"} =~ /:/) {$vars->{$table."_duration"} .= ":00";}										
 	
@@ -9115,10 +9234,10 @@ package gRSShopper::Temp;
 		
 	} elsif ($numArgs > 1) {							# Home from Cron request
 		$self->{st_home} = $ARGV[0];   
-		unless ($home) { die "Cannot determine website home."; }        			
+		unless ($self->{st_home}) { die "Cannot determine website home in cron."; }        			
 
 	} else {
-		die "Cannot determine website home.";
+		die "Cannot determine website home in ENV or cron.";
 	}
 
 
