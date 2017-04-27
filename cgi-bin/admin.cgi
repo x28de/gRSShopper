@@ -204,9 +204,9 @@ unless ($table || $action) {				# Default to Admin Menu
 # $eth->execute();
 
 
-	my $alterstmt = "ALTER TABLE page MODIFY page_code longtext";
-	my $asth = $dbh -> prepare($alterstmt);
-	$asth -> execute();
+#	my $alterstmt = "ALTER TABLE page MODIFY page_code longtext";
+#	my $asth = $dbh -> prepare($alterstmt);
+#	$asth -> execute();
 
 #type value verb
 
