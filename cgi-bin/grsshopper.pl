@@ -263,6 +263,7 @@ sub get_person {
 
 	my ($dbh,$query,$Person,$pstatus) = @_;
 	
+	
 	if ($Site->{context} eq "cron") { 			# Create cron person, if applicable,
 								# and exit
 		
@@ -330,7 +331,7 @@ sub get_person {
 	my $persondata = &db_get_record($dbh,"person",{person_title=>$pt,person_id=>$id});
 	while (my($x,$y) = each %$persondata) {	$Person->{$x} = $y; }
 
-	
+
 
 	unless ($Person->{person_status} eq "admin") {		# Screen all non-admin from changing person_status
 		$vars->{person_status} = "";
@@ -351,6 +352,7 @@ sub get_person {
 		$Person->{person_status} = "registered";
 	}
 	
+
 
 	
 
@@ -8085,7 +8087,7 @@ sub send_email {
 
 
 
-	my ($to,$from,$subj,$page,$ext) = @_;
+	my ($to,$from,$subj,$page) = @_;
 	
 
 
@@ -8097,7 +8099,7 @@ use Email::Stuffer;
 use Email::Sender::Transport::SMTP;
 
 
-   my $page_text = "TEXT VERSION \n".$page;
+   my $page_text = $page;
    $page_text =~ s/<head(.*?)head>//sig;
    $page_text =~ s/<style(.*?)style>//sig;
    $page_text =~ s/\[(.*?)\]//sig;

@@ -134,7 +134,7 @@ foreach my $req ("author",
 		$table = $req; 
 		$id = $vars->{$req}; 
 		last; 
-	}
+	} 
 }
 
 
@@ -2635,7 +2635,7 @@ sub update_record {
 			$vars->{$fields->{pub_date}} = &cal_date(time); }
 
 	} elsif ($table eq "person") {
-	
+
 		if ($vars->{$fields->{password}}) {		# Create a Salted Password
 			$vars->{$fields->{password}} = &encryptingPsw($vars->{person_password}, 4);
 			

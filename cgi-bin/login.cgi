@@ -123,6 +123,9 @@ exit;
 
 sub choose_page {
 	my ($dbh,$vars,$query) = @_;
+	&login_form_text($dbh,$vars);
+	exit;
+	
 	if ($Person->{person_status} ne "anonymous") {
 		print "Content-Type: text/html; charset=utf-8\n\n";
 		&show_connected_page($dbh, $query);
@@ -466,19 +469,19 @@ sub reg_google_user {
 
 	# Send email to user
 	my $subj = "Welcome to ".$Site->{st_name};
-	my $pagetext = qq|
+	my $pagetext = qq|<html><head></head><body><p>
 
-Welcome to $Site->{st_name}. It is nice to have you aboard.
+Welcome to $Site->{st_name}. It is nice to have you aboard.</p><p>
 
 This email confirms your new user registration. Please save it in a safe place. In order to post comments on the website, you will need to login with your userid and password.
-
-   Site address: $Site->{st_url}
-   Your userid is: $vars->{person_title}
-
+</p><p>
+   Site address: $Site->{st_url}<br />
+   Your userid is: $vars->{person_title}</p><p>
+   
 Should you forget your userid and password, you can always have them sent to you at this email address.
-To recover missing login infromation, go here: $Site->{st_cgi}login.cgi?refer=&action=Email
+To recover missing login infromation, go here: $Site->{st_cgi}login.cgi?refer=&action=Email</p><p>
 
-   -- $Site->{st_crea}
+   -- $Site->{st_crea}</p></body></html>
 	|;
 
 
@@ -500,7 +503,7 @@ To recover missing login infromation, go here: $Site->{st_cgi}login.cgi?refer=&a
         $page_text =~ s/<vars_person_title>/$vars->{person_title}/g;
 	
 
-	&send_email($vars->{person_email},$Site->{st_pub},$subj,$pagetext,"htm");
+	&send_email($vars->{person_email},$Site->{st_pub},$subj,$pagetext);
 
 
 
@@ -510,18 +513,18 @@ To recover missing login infromation, go here: $Site->{st_cgi}login.cgi?refer=&a
 	# Send Email to Admin
 	$subj = "New User Registration";
 	$pagetext = qq|
+<html><head></head><body>
+	New User Registration:</p><p>
 
-	New User Registration:
+	Userid: $vars->{person_title}</p><p>
+	Email: $vars->{person_email}</p><p>
 
-	Userid: $vars->{person_title}
-	Email: $vars->{person_email}
-
-	$vars->{msg}
+	$vars->{msg}</p><p>
 	Remove this user?
-	$Site->{st_cgi}login.cgi?action=Remove&person_id=$vars->{key}
+	<a href="$Site->{st_cgi}login.cgi?action=Remove&person_id=$vars->{key}">Click here</a></p><p>
 
 	Source:
-	$vars->{source}
+	$vars->{source}</p><p></body></html>
 
 	|;
 
