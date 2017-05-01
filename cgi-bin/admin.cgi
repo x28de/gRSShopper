@@ -3473,14 +3473,20 @@ sub count_feed {
 sub cron_tasks {
 	
 	my ($dbh,$query) = @_;	
-	
+
 	my $log = "";	# Flag that indicates whether an activity was logged
 	my $loglevel = 0;
 			
 	
-	#my $content = "Cron Report \n\n";
-	#$content .= "Site Context: $Site->{context} \n\n";
-	#$content .="0 $ARGV[0] 1 $ARGV[1] 2 $ARGV[2] 3 $ARGV[3] \n";
+	my $content = "Cron Report \n\n";
+	$content .= "Site Context: $Site->{context} \n\n";
+	$content .="0 $ARGV[0] 1 $ARGV[1] 2 $ARGV[2] 3 $ARGV[3] \n";
+	$content .= qq|
+	Home: $Site->{st_home}
+	Site URL: $Site->{st_url}
+	Script: $Site->{script}
+	|;
+	print $content;
 
 										# Confirm cron key
 	my $cronkey = $vars->{cronkey} || $ARGV[1];

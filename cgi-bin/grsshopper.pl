@@ -174,16 +174,16 @@ sub get_site {
 	my ($context) = @_;
 	
 	
-	my $numArgs = $#ARGV + 1;							# Command Line Args (For Cron)
+	my $numArgs = $#ARGV + 1;						# Command Line Args (For Cron)
 	if ($ARGV[1]) { $context = "cron"; }					# Set cron context, as appropriate
-	if ($vars->{action} eq "cron") { 						# Note that a cron key is required to execute 
-		$context = "cron"; 							# from the command line
+	if ($vars->{action} eq "cron") { 					# Note that a cron key is required to execute 
+		$context = "cron"; 						# from the command line
 		$vars->{cronuser} = "web";
 	}
 	if ($context) { $vars->{context} = $context; }
 	
 
-	our $Site = gRSShopper::Site->new({						# Create new Site object
+	our $Site = gRSShopper::Site->new({					# Create new Site object
 		context		=>	$context,
 		data_dir	=>	'/var/www/cgi-bin/data/',		# Location of site configuration files
 	});
@@ -252,33 +252,6 @@ sub get_config {
 	$sth->finish();
 }
 
-# -------   Get Site Home ------------------------------------------------------
-#
-#  Deduces the home URL of the website the script is managing
-#  This information is used to find the name of the site configuration script
-#  The Site Home is typically the domain name, eg. www.downes.ca
-#  This is the case if the admin script is in http://www.downes.ca/cgi-bin/admin.cgi
-#  Home URL subdirectories may also be used, if a subdirectory URL is called
-#  Eg. site home is www.downes.ca_subdomain if admin script is in 
-#  http://www.downes.ca/subdomain/cgi-bin/admin.cgi
-#  If the 'cgi-bib' dir is not use, the Site home will be wherever the
-#  admin.cgi script is located eg. http://www.downes.ca/wherever/admin.cgi will
-#  have a home of www.downes.ca/wherever
-
-
-sub get_site_home {
-
-	my $home = $ENV{'SCRIPT_URI'};
-	$home =~ s'http(s|)://'';			# remove protocol
-	my @spl = split '/',$ENV{'SCRIPT_URI'};
-	my $script = pop @spl;
-	$home =~ s|$script||;
-	$home =~ s|cgi-bin/||; 
-	$home =~ s|/$||;
-	$home =~ s'/'_';
-	return $home;
-	
-}
 
 
 
@@ -481,8 +454,9 @@ sub output_record {
 	unless ($record) { die "Looking for $table number $id_number, but it was not found, sorry."; }		#     - catch get record error
 #	my ($hits,$total) = &record_hit($table,$id_number);							#     - Increment record hits counter
 
-	$record->{page_title} = $Site->{st_name} . " ~ " .
-		$record->{$table."_title"} || $record->{$table."_name"} || "Title";				# Page Title
+	$record->{page_title} = $record->{$table."_title"} || $record->{$table."_name"} || "Untitled";		# Page Title
+	unless ($table eq "page") { $record->{page_title} = $Site->{st_name} . " ~ " .
+		$record->{page_title}; }
 
 	$record->{page_content} = &format_record($dbh,$query,$table,$format,$record);				# Page Content = Formated Record content
 
@@ -494,12 +468,15 @@ sub output_record {
 		$header_template = "presentation_header";
 		$footer_template = "presentation_footer";	
 	}
+	
 
+
+	unless ($table eq "page") {
 	$record->{page_content} =
 		&db_get_template($dbh,$header_template,$record->{page_title}) .
 		$record->{page_content} .
 		&db_get_template($dbh,$footer_template,$record->{page_title});
-		
+	}
 
 	&format_content($dbh,$query,$options,$record);								# Format Page content
 	
@@ -513,7 +490,7 @@ sub output_record {
 
 														# Fill special Admin links and post-cache data
 
-	&make_pagedata($query,\$wp->{page_content});				
+	&make_pagedata($query,\$wp->{page_content},\$wp->{page_title});				
 	&make_admin_links(\$wp->{page_content});
 	&make_login_info($dbh,$query,\$wp->{page_content},$table,$id_number);
 	&autotimezones($query,\$record->{page_content});
@@ -2509,7 +2486,7 @@ sub make_data_elements {
 
 sub make_pagedata {
 
-	my ($query,$input) = @_;
+	my ($query,$input,$title) = @_;
 
 	return unless (defined $input);
 	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
@@ -2529,6 +2506,11 @@ sub make_pagedata {
 
 		$$input =~ s/<pagedata $autotext>/$replace/;
 	}
+	
+									# Write Page Title
+	$$input =~ s/\Q[*page_title*]\E/$$title/g;
+	$$input =~ s/\Q<page_title>\E/$$title/g;
+
 
 }
 
@@ -5721,9 +5703,6 @@ sub db_get_template {
 	my $ary_ref = $dbh->selectcol_arrayref($stmt);
 	my $ret = $ary_ref->[0];
 
-														# Write Page Title
-	$ret =~ s/\Q[*page_title*]\E/$page_title/g;
-	$ret =~ s/\Q<page_title>\E/$page_title/g;
 
 	return $ret;
 
@@ -9205,7 +9184,21 @@ package gRSShopper::Temp;
 #  If the 'cgi-bin' dir is not use, the Site home will be wherever the
 #  admin.cgi script is located eg. http://www.downes.ca/wherever/admin.cgi will
 #  have a home of www.downes.ca/wherever
-  
+ 
+ # -------   Get Site Home ------------------------------------------------------
+#
+#  Deduces the home URL of the website the script is managing
+#  This information is used to find the name of the site configuration script
+#  The Site Home is typically the domain name, eg. www.downes.ca
+#  This is the case if the admin script is in http://www.downes.ca/cgi-bin/admin.cgi
+#  Home URL subdirectories may also be used, if a subdirectory URL is called
+#  Eg. site home is www.downes.ca_subdomain if admin script is in 
+#  http://www.downes.ca/subdomain/cgi-bin/admin.cgi
+#  If the 'cgi-bib' dir is not use, the Site home will be wherever the
+#  admin.cgi script is located eg. http://www.downes.ca/wherever/admin.cgi will
+#  have a home of www.downes.ca/wherever
+
+
   sub __home {
   	
   	my($self, $args) = @_;
@@ -9214,22 +9207,19 @@ package gRSShopper::Temp;
   	
 	
   	my $home;
+  	my $ht = "http://";
   	my $numArgs = $#ARGV + 1;
   	if ($ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'}) {
   				
 											# Script 
     		$self->{script} = $ENV{'SCRIPT_URI'}; 					#    - eg. http://www.downes.ca/cgi-bin/admin.cgi
     		unless ($self->{script}) { die "Cannot determine website script."; }	#    - Failure?
-  		my $ht;if ($self->{script} =~ /https:/) {				#    - Set protocol
+  		if ($self->{script} =~ /https:/) {				#    - Set protocol
 			$ht = "https://"; } else { $ht = "http://"; }
 		
 											# Home
   		$self->{st_home} = $ENV{'HTTP_HOST'} || $ENV{'SERVER_NAME'};		#    - eg. www.downes.ca
   		unless ($self->{st_home}) { die "Cannot determine website home."; }	#    - Failure?
-  		
- 		$self->{co_host} = $self->{st_home};					# Set cookie host 		
- 		$self->{st_url} = $ht.$self->{st_home}."/";				# Set base URL
-		$self->{st_cgi} = $self->{st_url}."cgi-bin/";				# Set base URL 		
   
 		
 	} elsif ($numArgs > 1) {							# Home from Cron request
@@ -9239,7 +9229,13 @@ package gRSShopper::Temp;
 	} else {
 		die "Cannot determine website home in ENV or cron.";
 	}
-
+	
+	$self->{co_host} = $self->{st_home};						# Set cookie host 		
+ 	$self->{st_url} = $ht.$self->{st_home}."/";					# Set base URL
+	$self->{st_cgi} = $self->{st_url}."cgi-bin/";					# Set base URL 	
+	
+	
+  }
 
   sub __initialize {
 
@@ -9357,7 +9353,7 @@ package gRSShopper::Temp;
 	exit;
   }
 		
- }
+ 
  
  
    #----------------------------------------------------------------------------------------------------------
