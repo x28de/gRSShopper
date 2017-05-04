@@ -105,6 +105,7 @@ foreach my $req ("author",
 		"box",
 		"chat",
 		"cite",
+		"element",
 		"event",
 		"feed",
 		"field",
@@ -188,14 +189,14 @@ unless ($table || $action) {				# Default to Admin Menu
 }
 
 #          $dbh->{RaiseError} = 1;
-#my $crvotetable = qq|CREATE TABLE `vote` (
-#  `vote_id` int(15) NOT NULL auto_increment,
-#  `vote_post` int(15) default NULL,
-#  `vote_person` int(15) default NULL,
-#  `vote_value` int(15) default NULL,
-#  `vote_creator` int(15) default NULL,
-#  `vote_crdate` int(15) default NULL,
-#  PRIMARY KEY  (`vote_id`)
+
+#my $crvotetable = qq|CREATE TABLE `element` (
+#  `element_id` int(15) NOT NULL auto_increment,
+#  `element title` int(15) default NULL,
+#  `element_edit` boolean default TRUE,
+#  `element_view` boolean default TRUE,
+#  `element_fields` text default NULL,
+#  PRIMARY KEY  (`element_id`)
 #) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;|;
 
 #my $asth = $dbh -> prepare($crvotetable);
@@ -799,7 +800,7 @@ sub admin_permissions {
 	my $content = qq|<h2>Permissions</h2><p>|;
 	
 	# my @tables = $dbh->tables();
-	my @tables = qw{author badge box event feed file journal link mapping optlist page person post presentation 
+	my @tables = qw{author badge box element event feed file journal link mapping optlist page person post presentation 
 		project publication publisher task template thread topic view};
 	my @actions = qw{create approve edit delete view};
 	my @reqs = qw{admin editor owner project registered anyone};	
@@ -2461,7 +2462,7 @@ sub list_records {
 	} else { $where = ""; }
 
 						# Set Search Conditions
-#print "Content-type: text/html\n\n";
+print "Content-type: text/html\n\n";
 	my $titsearch = $table ."_". $titname;						
 #print "search $table $titname <br>";
 	if ($vars->{where}) {
@@ -2483,16 +2484,17 @@ sub list_records {
 
 	my $stmt = qq|SELECT * FROM $table $where $sort $limit|;
 	if ($table eq "cache") { $stmt = qq|SELECT * FROM cache limit 100|;	}
-
+print $stmt;
 	my $sthl = $dbh->prepare($stmt);
 	$sthl->execute();
 		if ($sthl->errstr) { print "Content-type: text/html\n\n";print "DB LIST ERROR: ".$sthl->errstr." <p>"; exit; }
 	$output .=  "<p>\n";
 	while (my $list_record = $sthl -> fetchrow_hashref()) {
+print "one";		
 		my $rid = $list_record->{$table."_id"};
 		
 # 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Spam&$table=$rid')">Spam</a>] 		
-		if ($table eq "page" || $table eq "link" || $table eq "post" ) {
+		if ($table eq "page" || $table eq "link" || $table eq "post" || "element" ) {
 			$output .= qq|
 			[<a href="$Site->{st_cgi}admin.cgi?action=edit&$table=$rid">Edit</a>]
 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Delete&$table=$rid')">Delete</a>]
@@ -2584,8 +2586,8 @@ sub update_record {
 
 
 	
- #print "Content-type: text/html; charset=utf-8\n\n";
-#while (my($vx,$vy) = each %$vars) { print "$vx = $vy <br/>"; }
+	#print "Content-type: text/html; charset=utf-8\n\n";
+	#while (my($vx,$vy) = each %$vars) { print "$vx = $vy <br/>"; }
 
 						# Validate Input
 
@@ -2925,6 +2927,7 @@ sub edit_record {
                 badge => ["name","description","image","criteria","issuer","submit"],
 		box => ["title","description","content","submit"],
 		chat => ["description","signature","shown","creator","crip","crdate","thread"],
+		element => ["title","edit","show","data","submit","view"],
 		event => ["title","link","start","finish","timezone","location","status","section","description","submit","image_file"],
 		field => ["title","type","size","submit"],
 		file => ["title","dir","dirname","link","mime","type","size","align","width","height","crdate","post","description","submit"],

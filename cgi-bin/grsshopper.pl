@@ -4565,7 +4565,9 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		} elsif ($col =~ /_start|_finish/) {
 			$form_text .=  &form_date_time_select($col,$record->{$col},$table,$record);
 		} elsif ($col =~ /_timezone/) {
-			$form_text .=  &form_timezone($col,$record->{$col},$table,$record);			
+			$form_text .=  &form_timezone($col,$record->{$col},$table,$record);	
+		} elsif ($col =~ /_edit|_show/) {
+			$form_text .= &form_boolean($col,$record->{$col},$table,$record);
 		} elsif ( $coltypes->{$col} =~ /int/ ||
 		     ($coltypes->{$col} =~ /varchar/ && $size <60)) {	
 			$form_text .=  &form_textinput($record,$col);
@@ -4775,6 +4777,40 @@ sub form_file_select {
 
 }
 
+sub form_boolean {
+	
+	
+	my ($col,$data,$table,$record) = @_;
+
+	my $output = "";
+	unless (defined $data) { $data = 1; }
+
+	
+	foreach my $opt ("TRUE","FALSE") {
+		my $optbin; if ($opt eq "TRUE") { $optbin=1; } else { $optbin=0; }
+		my $selected; if ($optbin eq $data) { $selected = " selected"; } else { $selected=""; }
+		$output .= qq|    <option value="$optbin"$selected>$opt</option>\n|;				
+		
+	}
+	
+
+	$output = qq|<select name="$col" style="width:12em;">$output</select>|; 
+
+	my $open="";my$close="";
+	if ($Site->{newrow} eq "1") {
+		$Site->{newrow} = 0;
+		$close = "</tr>";
+	} else {
+		$Site->{newrow} = 1;
+		$open = "<tr>";
+	}
+	
+	my $cname = $col; $cname =~ s/$table//; $cname =~s/_//; $cname=ucfirst($cname);
+	return qq|$open<td>$cname</td><td>$output</td>$close|;	
+	
+
+	
+}
 
 sub form_graph_list {
 	
@@ -5529,6 +5565,7 @@ sub form_update_submit_data {
 	} else {				# Update Record
 
 		my $where = { $fields->{id} => $id_number};
+		
 		$id_number = &db_update($dbh,$table, $vars, $id_number);
 		$vars->{msg} .= ucfirst($table)." $id_number successfully updated<br/>";
 	}
@@ -6143,6 +6180,7 @@ sub db_insert_ignore {		# Inserts record into table from hash
 sub db_update {		
 	
 	my ($dbh,$table,$input,$where,$msg) = @_;
+#print "Content-type: text/html\n\n";	
 	unless ($dbh) { die "Error $msg Database handler not initiated"; }
 	unless ($table) { die "Error $msg Table not specified on update"; }
 	unless ($input) { die "Error $msg No data provided on update"; }
@@ -6151,10 +6189,9 @@ sub db_update {
 	if ($diag eq "on") { print "DB Update ($table $input $where)<br/>\n"; }
 	die "Unsupported data type specified to update" unless (ref $input eq 'HASH' || ref $input eq 'Link' || ref $input eq 'Feed' || ref $input eq 'gRSShopper::Record' || ref $input eq 'gRSShopper::Feed');
 	#print "Updating $table $input $where <br>";
-
 	my $data = &db_prepare_input($dbh,$table,$input);
 	#print "Data: $data <br>";
-	return "No data" unless ($data);
+	#return "No data" unless ($data);
 	
 	my $sql = "UPDATE $table SET ";
 	my(@sqlf, @sqlv) = ();
@@ -6167,7 +6204,8 @@ sub db_update {
 
 	$sql .= join ', ', @sqlf;
 	$sql .= " WHERE ".$table."_id = '".$where."'";
-	#print "$sql <br>".@sqlv;
+	#print "$sql <br>";
+	#foreach $l (@sqlv) { print "$l ; "; }
 	my $sth = $dbh->prepare($sql);
 	
 	if ($diag eq "on") { print "$sql <br/>\n @sqlv <br/>\n"; }
@@ -6217,8 +6255,9 @@ sub db_increment {
 sub db_prepare_input {	# Filters input hash to contain only columns in given table
 
 	my ($dbh,$table,$input) = @_;
-	if ($diag eq "on") { print "DB Prepare Input ($table $input)<br/>\n"; }
+	#print "DB Prepare Input ($table $input)<br/>\n"; 
 	my $data = ();
+
 
 						# Get a list of columns
 
@@ -6227,7 +6266,9 @@ sub db_prepare_input {	# Filters input hash to contain only columns in given tab
 						# Clean input for save
 	foreach my $ikeys (keys %$input) {
 
-		next unless ($input->{$ikeys});		
+		
+		next unless (defined $input->{$ikeys});	
+			
 		next if ($ikeys =~ /_id$/i);	
 		if (&index_of($ikeys,\@columns) < 0) {
 			# print "Warning: input for aa".$ikeys."aa does not have a corresponding column in aa".$table."aa<p>";	
