@@ -781,8 +781,7 @@ sub received {
 	unless ($id_number) { &error($dbh,"","","Submission failed; input record number not found."); }
 
 	# Get Record
-	my $fields = &set_fields($table);
-	my $record = &db_get_record($dbh,$table,{$fields->{id} => $id_number});
+	my $record = &db_get_record($dbh,$table,{$table."_id" => $id_number});
 	unless ($record) { &error($dbh,"","","Submission failed; can't find record"); }
 
 						# Title and Feed
@@ -800,7 +799,7 @@ sub received {
 	print qq|<p><ul>|;
 	if ($table eq "post") {
 		if ($vars->{post_type} eq "comment") {
-		print qq|<li><a href="$Site->{st_url}post/$record->{$fields->{thread}}">Back to the discussion thread</a></li>
+		print qq|<li><a href="$Site->{st_url}post/$record->{$table."_thread"}">Back to the discussion thread</a></li>
 			<li><a href="$Site->{st_url}threads.htm">View all discussion threads</a></li>
 			<li><a href="$Site->{st_cgi}page.cgi?$table=$id_number&action=edit&code=$vars->{code}">Continue Editing Your $item_name</a></li>|;
 		} elsif ($vars->{post_type} eq "trend") {  # Special for ed future course
@@ -823,7 +822,7 @@ sub received {
 
 		# Define Display Format
 		my $pformat;
-		if ($record->{$fields->{type}}) { $pformat = "post_".$record->{$fields->{type}}."_summary"; }
+		if ($record->{$table."_type"}) { $pformat = "post_".$record->{$table."_type"}."_summary"; }
 		else { $pformat = $table ."_summary"; }
 
 		# Format Record

@@ -230,6 +230,9 @@ print "gRSShopper web server environment test.".$newline.$newline;
     $missing=1;
   } else { 
 	print " OK$newline"; 
+	# &test_thumbnails();
+	
+
   }	
   
    # -------------
@@ -437,3 +440,25 @@ sub send_email {
 
 }
 
+sub test_thumbnails {
+	
+
+print "Testing thumbnails<p>";
+        # Create a thumbnail from 'test.jpg' as 'test_t.jpg'
+        # using ImageMagick, Imager, GD or Image::Epeg.
+        my $t = new Image::Thumbnail(
+                module     => "Image::Magick",
+                size       => 55,
+                create     => 1,
+                input      => "/var/www/cgi-bin/test.jpg",
+                outputpath => "/var/www/cgi-bin/Riga001_t.jpg",
+                CHAT => 1
+        ) or print "Error: $!";
+        
+        print $t->{error};
+        print $t->{warning};
+                print $t->{module};
+                        print $t->{thumb};
+        
+print "OK";	
+}

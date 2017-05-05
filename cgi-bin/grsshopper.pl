@@ -4341,12 +4341,10 @@ sub form_editor() {
 										# in case they're used accidentally. Heh
 
 
-						# Set Column Names
-
-	my $fields = &set_fields($table);
 
 
 						# Set record ID number, value
+
 
 	unless ($dbh) { &error($dbh,$query,"","Database not ready") }	
 	unless ($table) { &error($dbh,$query,"","A record type must be provided."); }
@@ -4354,11 +4352,11 @@ sub form_editor() {
 	if ($id_number) { $id_value = $id_number; }
 	else { $id_value = "new"; }
 
-		
+#print "$id_number $id_value <p>";		
 	
 						# Get Record
 	my $record; my $quotationtext; my $link; my $feed;	
-	$record = &db_get_record($dbh,$table,{$fields->{id} => $id_number});
+	$record = &db_get_record($dbh,$table,{$table."_id" => $id_number});
 
 
 
@@ -4415,7 +4413,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 						# Create thread options
 				
 
-	$form_text .= &form_thread_options($table,$id_number,$record->{$fields->{location}});
+	$form_text .= &form_thread_options($table,$id_number,$record->{$table."_location"});
 
 						# Stuff for courses
 						
@@ -4505,23 +4503,49 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 						# Init Rows (for short text inputs)
 	$Site->{newrow} = 0;
 
-	my @columns = (); 
-	my $coltypes = ();			 
-	my $showstmt = "SHOW COLUMNS FROM $table";
-	my $sth = $dbh -> prepare($showstmt);
-	$sth -> execute();
-	while (my $showref = $sth -> fetchrow_hashref()) { 			
-		push @columns,$showref->{Field}; 
-		$coltypes->{$showref->{Field}} = $showref->{Type};
-	}
+
 
 	# Remove spacings
-	$record->{$fields->{description}} =~ s/<br\/>/\n/g;
-	$record->{$fields->{content}} =~ s/<br\/>/\n/g;
+	$record->{$table."_description"} =~ s/<br\/>/\n/g;
+	$record->{$table."_content"} =~ s/<br\/>/\n/g;
 
 	$Site->{newrow} eq "1";
-	foreach my $sc (@{$showcols->{$table}}) {
-		my $col = $table."_".$sc;
+	
+	# Get list of field data types for table (from the Element table)
+	
+	my $tableid = &db_locate($dbh,"element",{element_title=>$table});
+	my $table_data = &db_get_single_value($dbh,"element","element_data",$tableid);
+	my @fieldlist = split /;/,$table_data;
+	
+	unless (@fieldlist) {					# Backup in case the table hasn't been defined in Element
+		my @columns = (); my $coltypes = ();			 
+		my $showstmt = "SHOW COLUMNS FROM $table";
+		my $sth = $dbh -> prepare($showstmt);
+		$sth -> execute();
+		while (my $showref = $sth -> fetchrow_hashref()) { 
+push @columns,$showref->{Field}; 
+$coltypes->{$showref->{Field}} = $showref->{Type};
+			my $prefix = $table."_"; $showref->{Field} =~ s/$prefix//; 
+			my ($fieldtype,$fieldsize) = split /\(|\)/,$showref->{Type};
+			push @fieldlist,"$showref->{Field},$fieldtype,$fieldsize,$showref->{Default}";
+		}	
+	
+	}
+	
+	# Process each field in turn
+	
+	foreach my $f (@fieldlist) {
+
+		# get field name, type, size and default value
+
+  		my ($col,$fieldtype,$fieldsize,$fielddefault) = split /,/,$f; 
+		
+  		# Normalize column names
+		$sc = $col;
+  		$col = $table."_".$col;	
+  		
+  		#$col = $table ."_" . $fieldlist_items[0];
+
 
 
 		# Test for canonical vocabulary
@@ -4543,9 +4567,13 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 						# Isolate Field Type
 		my $fieldstem = $col; my $tabstem = $table."_";
 		$fieldstem =~ s/$tabstem//;
+
+		my $keylist=0; foreach my $tab (@db_tables) { if ($tab eq $sc) { $keylist=1; last; } }
+
+#$form_text .= qq|<tr><td colspan="4"> $col,$fieldtype,$fieldsize,$fielddefault </td></tr>|;
 		
 						# Print Input Fields
-		if ((grep {$_ eq $fieldstem} @db_tables) && ($fieldstem ne "url") && ($fieldstem ne "link") && ($fieldstem ne "field")) {			
+		if ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "authorid")&& ($sc ne "journalid")&& ($sc ne "linkid")&&($sc ne "feedid")) {			
 			$form_text .= &form_keylist($table,$id_value,$sc);
 			# $form_text .=  &form_keyinput($col,$record->{$col},2);	
 		}  elsif ($fieldstem eq "twitter") {
@@ -4556,12 +4584,14 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 			$form_text .=  &form_textinput($record,$col,4);
 		} elsif ( $col =~ /_type|_catdetails|_active|_status|_category/ ) {
 			$form_text .=  &form_option_select($dbh,$col,$record->{$col});
-		} elsif ( $col =~ /_content/) {
+		} elsif ( $col =~ /_content/ || $col =~ /_description/) {
 			$form_text .=  &form_textarea($col,80,30,$record->{$col});
 		} elsif ($col =~ /_file/) {
 			$form_text .=  &form_file_select($dbh,$table,$id_number);
 		} elsif ($col =~ /_date/) {
 			$form_text .=  &form_date_select($col,$record->{$col});
+		} elsif ($col =~ /_data/) {
+			$form_text .=  &form_data($col,$record->{$col},$table);
 		} elsif ($col =~ /_start|_finish/) {
 			$form_text .=  &form_date_time_select($col,$record->{$col},$table,$record);
 		} elsif ($col =~ /_timezone/) {
@@ -4808,9 +4838,45 @@ sub form_boolean {
 	my $cname = $col; $cname =~ s/$table//; $cname =~s/_//; $cname=ucfirst($cname);
 	return qq|$open<td>$cname</td><td>$output</td>$close|;	
 	
+}
+
+sub form_data {
+	
+	
+	my ($col,$data,$table,$record) = @_;
+
+	my $output = ""; my $rows=0;
 
 	
+	$output .= qq|<table border="1" padding="2"|;
+	my @data_items = split /;/,$data;
+	foreach my $data_item (@data_items) {
+		$output .= "<tr>"; $rows++;
+		@data_bits = split /,/,$data_item;
+		foreach my $data_bit (@data_bits) {
+			$output .= qq|<td>$data_bit</td>|;
+		}
+		$output .= "</td>";
+	}
+	$output .= "</table><br>";
+	$data =~ s/;/;\n/g;
+	$output .= qq|<textarea name="$col" rows="$rows" cols=60>$data</textarea>|;
+	
+			
+	my $open = ""; my $close = "";
+	if ($Site->{newrow} eq "1") {
+		$Site->{newrow} = 0;
+		$close = "</tr>";
+	} else {
+		$Site->{newrow} = 1;
+		$open = "<tr>";
+	}
+
+	my $cname = $col; $cname =~ s/$table//; $cname =~s/_//; $cname=ucfirst($cname);
+	return qq|$open<td>$cname</td><td>$output</td>$close|;	
+	
 }
+
 
 sub form_graph_list {
 	
@@ -5134,7 +5200,6 @@ sub form_keylist {
 	
 	my ($table,$id,$key,$more) = @_;
 
-
 	my $suggform = ""; my $suggstr;	
 	$key =~ s/id$//i;
 	my $admin = 1 if ($Person->{person_status} eq "admin");
@@ -5152,6 +5217,7 @@ sub form_keylist {
 	# Add More
 	
 		# Create List of Alternatives from DB
+		
 		my $arr_ref = &get_key_name_array($key);
 		foreach my $ar (@$arr_ref) { 
 			if ($suggstr) { $suggstr .= ","; }
@@ -5271,6 +5337,7 @@ sub form_keyinput {
 
 sub form_textarea {
 	my ($name,$cols,$rows,$content) = @_;
+
 	my $title = $name;
 	$title =~ s/(.*?)_(.*?)/$2/;
 	$title = ucfirst($title);
@@ -5533,21 +5600,18 @@ sub form_update_submit_data {
 
 	my ($dbh,$query,$table,$id_number,$data) = @_;
 	my $vars = $data || $query->Vars;
-	
-	my $fields = &set_fields($table);
-
+		
 	if ($table eq "post") {
-		#$vars->{$fields->{description}} =~ s/\n/<br\/>/g;
-		#$vars->{$fields->{content}} =~ s/\n/<br\/>/g;
-		if ($Person->{person_status} eq "admin") { $vars->{$fields->{source}} = "admin"; }
+
+		if ($Person->{person_status} eq "admin") { $vars->{$table."_source"} = "admin"; }
 
 	}		
 		
 		
 	if ($id_number eq "new") {	# Create Record, or
 
-		$vars->{$fields->{crdate}} = time;
-		$vars->{$fields->{creator}} = $Person->{person_id};
+		$vars->{$table."_crdate"} = time;
+		$vars->{$table."_creator"} = $Person->{person_id};
 		$id_number = &db_insert($dbh,$query,$table,$vars);
 		$vars->{msg} .= "Created new $table ($id_number) <br/>";
 
@@ -5564,7 +5628,7 @@ sub form_update_submit_data {
 
 	} else {				# Update Record
 
-		my $where = { $fields->{id} => $id_number};
+		my $where = { $table."_id" => $id_number};
 		
 		$id_number = &db_update($dbh,$table, $vars, $id_number);
 		$vars->{msg} .= ucfirst($table)." $id_number successfully updated<br/>";
@@ -5576,6 +5640,7 @@ sub form_update_submit_data {
 		exit;
 	}
 	
+
 	return $id_number;
 }
 
@@ -6339,35 +6404,6 @@ sub db_tables {
 		while (my($hx,$hy) = each %$hash_ref) { push @tables,$hy; }
 	}
 	return @tables;
-}
-
-
-
-
-#-------------------------------------------------------------------------------
-#
-# -------   Set Fields ---------------------------------------------------------
-#
-# 		Reads the fields list from a file and defines field names for the current table
-# 		eg. 'description' in the 'post' table is named 'post_description' 
-# 		This file is generated in admin.cgi, refield()
-# 		Done this way to avoid another database hit and to allow unique field names
-#	      Edited: 28 March 2010
-#-------------------------------------------------------------------------------
-
-
-sub set_fields {
-
-	my $table = shift;
-	my $fields = {};
-
-	my @fieldlist = qw(access active author body cache code cohort crdate creator crip content current day description dirname environment feedid feedname file finish 	finishtime group host icalstart icalend id identifier issued journal link localtz location mday mime modified mon name owner_url parent password pub_date refresh source sponsor sponsor_url srefresh star start status starttime supdated text textsize thread timezone title type updated yday year);
-
-   	foreach my $f (@fieldlist) {
-		$fields->{$f} = $table."_".$f;
-	}
-	return $fields
-
 }
 
 
@@ -9034,14 +9070,14 @@ sub record_notifications {
 	}
 				
 	if ($vars->{post_email_checked} eq "checked") {			
-		&add_to_notify_list($dbh,$Person->{person_email},$vars->{$fields->{thread}});
+		&add_to_notify_list($dbh,$Person->{person_email},$vars->{$table."_thread"});
 	} else {
-		&del_from_notify_list($dbh,$Person->{person_email},$vars->{$fields->{thread}});	
+		&del_from_notify_list($dbh,$Person->{person_email},$vars->{$table."_thread"});	
 	}	
 	
 	
 					# Get Email Addresses
-		my $elist = &db_get_single_value($dbh,"post","post_emails",$vars->{$fields->{thread}});
+		my $elist = &db_get_single_value($dbh,"post","post_emails",$vars->{$table."_thread"});
 
 		my @earray = split ",",$elist;
 	

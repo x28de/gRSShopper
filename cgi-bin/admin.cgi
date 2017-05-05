@@ -27,20 +27,22 @@
 
 # Diagnostics
 
-	our $diag = 0;
+	our $diag = 1;
 	if ($diag>0) { print "Content-type: text/html\n\n"; }
 
 
 # Forbid bots
 
-	die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);						
+	die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);	
+						
 
 # Load gRSShopper
 
 	use File::Basename;												
 	use CGI::Carp qw(fatalsToBrowser);
 	my $dirname = dirname(__FILE__);								
-	require $dirname . "/grsshopper.pl";								
+	require $dirname . "/grsshopper.pl";	
+								
 
 # Load modules
 
@@ -51,18 +53,19 @@
 
 	our ($Site,$dbh) = &get_site("admin");									
 	if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
+	
 
 # Get Person  (still need to make this an object)
 
 	our $Person = {}; bless $Person;				
 	&get_person($dbh,$query,$Person);		
 	my $person_id = $Person->{person_id};
+	
 
 # Initialize system variables
 
 	my $options = {}; bless $options;		
 	our $cache = {}; bless $cache;	
-
 
 
 # Option to call initialize functions
@@ -93,57 +96,25 @@
 
 # Analyze Request --------------------------------------------------------------------
 
-my $table = ""; 
-my $id = "new";
-my $format = ""; 
-my $action = $vars->{action};			# Determine Action
+# Determine Action ( assumes admin.cgi?action=$action )
+
+	my $action = $vars->{action};			
+
+# Determine Request Table, ID number ( assumes admin.cgi?$table=$id and not performing action other than list or edit)
+
+	my @tables = &db_tables($dbh);
+	foreach $t (@tables) { 
+		if ((!$action || $action eq "edit" || $action eq"list") && $vars->{$t}) { 
+			$table = $t;	
+			$id = $vars->{$t}; 
+			$vars->{id} = $id;
+			last; 	
+		}
+	}
 
 
-						# Determine Request Table, ID number
-foreach my $req ("author",
-		"badge",
-		"box",
-		"chat",
-		"cite",
-		"element",
-		"event",
-		"feed",
-		"field",
-		"file",
-		"journal",
-		"link",
-		"lookup",
-		"graph",
-		"mapping",
-		"media",
-		"optlist",
-		"post",
-		"page",
-		"person",
-		"presentation",
-		"publication",
-		"project",
-		"reference",
-		"subscription",
-		"task",
-		"template",
-		"thread",
-		"topic",
-		"view") {
-
-	if ($vars->{$req}) { 
-		$table = $req; 
-		$id = $vars->{$req}; 
-		last; 
-	} 
-}
-
-
-
-
-
-
-						# Direct DB and list requests
+# Direct Request Table, ID number, and list requests ( required for most actions, assumes admin.cgi?db=$table&id=$id or admin.cgi?table=$table&id=$id , no $id for action=list )
+				
 if ($vars->{db} || $vars->{table}) {
 	$table = $vars->{table} || $vars->{db};
 	if ($vars->{id}) {
@@ -155,150 +126,92 @@ if ($vars->{db} || $vars->{table}) {
 	}
 }
 
+# Determine Output Format  ( assumes admin.cgi?format=$format )
 
-if ($vars->{format}) {				# Determine Output Format
-	$format = $vars->{format};
-	if ($format eq "edit") {	# temporary
-		$action = "edit";
-		$format = "html";
-	}
-} else {
-	if ($action eq "list") {		# Format for Lists
-		$format = "list";
-	} else {					
-		$format = "html";		# Default to HTML
-	}
-}
+if ($vars->{format}) { 	$format = $vars->{format};  }
+if ($action eq "list") { $format = "list"; }
+$format ||= "html";		# Default to HTML
 
-
-$vars->{id} ||= $id;
-
-# &test_thumbnails("Riga001.jpg");
 
 	
 
 # Actions ------------------------------------------------------------------------------
 
+# Perform Action, or
 
-	
+if ($action) {					
 
-unless ($table || $action) {				# Default to Admin Menu
-	$Site->{header} =~ s/\Q[*page_title*]\E/Admin/g;
-	$Site->{header} =~ s/\Q<page_title>\E/Admin/g;
-	&admin_general($dbh,$query); 
-}
-
-#          $dbh->{RaiseError} = 1;
-
-#my $crvotetable = qq|CREATE TABLE `element` (
-#  `element_id` int(15) NOT NULL auto_increment,
-#  `element title` int(15) default NULL,
-#  `element_edit` boolean default TRUE,
-#  `element_view` boolean default TRUE,
-#  `element_fields` text default NULL,
-#  PRIMARY KEY  (`element_id`)
-#) ENGINE=MyISAM DEFAULT CHARSET=utf8 AUTO_INCREMENT=1 ;|;
-
-#my $asth = $dbh -> prepare($crvotetable);
-#	$asth -> execute();
-# print "Content-type:text/html\n\n";
-# print $@;
-
-#my $t = time;
-#print &tz_date($query,$t);
-
-# my $eth = $dbh->prepare("TRUNCATE TABLE link");
-# $eth->execute();
-
-# my $eth = $dbh->prepare("TRUNCATE TABLE feed");
-# $eth->execute();
-
-
-#	my $alterstmt = "ALTER TABLE page MODIFY page_code longtext";
-#	my $asth = $dbh -> prepare($alterstmt);
-#	$asth -> execute();
-
-#type value verb
-
-#	my $alterstmt = "ALTER TABLE feed MODIFY feed_lastBuildDate varchar(64)";
-#	my $asth = $dbh -> prepare($alterstmt);
-#	$asth -> execute();
-
-
-#	my $alterstmt = "ALTER TABLE post MODIFY post_comments int(5)";
-#	my $asth = $dbh -> prepare($alterstmt);
-#	$asth -> execute();
-
-# my $sth = $dbh->prepare("TRUNCATE TABLE event");
-# $sth->execute();
-
-# my $eth = $dbh->prepare("DELETE FROM post WHERE post_type='Adelaide '");
-# $eth->execute();
-
-	
-# fix_graph();
-
-
-
-#	open IN,"/var/www/downes/files/bounceout.txt" or die "Cannot open filtemails.txt";		#
-#	while (<IN>) {
-#		chomp;
-#		my $e = $_;
-
-# my $eth = $dbh->prepare("DELETE FROM person WHERE person_email='$e'");
-# $eth->execute();
-
-#		print "$e deleted <br>";
-#	}
-#	close IN;
-
-if ($diag>9) { print "Action: $action <br>"; }
-
-if ($action) {					# Perform Action, or
-	my $tt = ucfirst($action)." ".ucfirst($table);
-	$Site->{header} =~ s/\Q[*page_title*]\E/$tt/g;
-	$Site->{header} =~ s/\Q<page_title>\E/$tt/g;	
 
 	for ($action) {
 														# Main admin menu nav
 
-		/general/ && do { &admin_general($dbh,$query); last;			};	# 	- General
-		/harvester/ && do { &admin_harvester($dbh,$query); last;		};	# 	- Harvester
-		/users/ && do { &admin_users($dbh,$query); last;			};	# 	- Users
-		/newsletters/ && do { &admin_newsletters($dbh,$query); last;	};		#	- Newsletters
-		/database/ && do { &admin_database($dbh,$query); last;		};		#	- Database
-		/meetings/ && do { &admin_meetings($dbh,$query); last;		};		#	- Meetings
-		/logs/ && do { &admin_logs($dbh,$query); last;		};			#	- Logs
-		/accounts/ && do { &admin_accounts($dbh,$query); last;		};		#	- Accounts
-		/permissions/ && do { &admin_permissions($dbh,$query); last;		};	#	- Permissions
+		/general/ && do { &admin_general($dbh,$query); last;			};	# 	- General Menu
+		/harvester/ && do { &admin_harvester($dbh,$query); last;		};	# 	- Harvester Menu
+		/users/ && do { &admin_users($dbh,$query); last;			};	# 	- Users Menu
+		/newsletters/ && do { &admin_newsletters($dbh,$query); last;	};		#	- Newsletters Menu
+		/database/ && do { &admin_database($dbh,$query); last;		};		#	- Database Menu
+		/meetings/ && do { &admin_meetings($dbh,$query); last;		};		#	- Meetings Menu
+		/logs/ && do { &admin_logs($dbh,$query); last;		};			#	- Logs Menu
+		/accounts/ && do { &admin_accounts($dbh,$query); last;		};		#	- Accounts Menu
+		/permissions/ && do { &admin_permissions($dbh,$query); last;		};	#	- Permissions Menu
 		
 		
 														# Editing Functions
-		/edit/i && do { &edit_record($dbh,$query,$table,$id); last; 	};		#	- Edit													
-		/Delete/i && do { &record_delete($dbh,$query,$table,$id); last; };		#	- Delete 		
-		/Spam/i && do { &record_delete($dbh,$query,$table,$id);  last; };		#	- Spam
-	
-		/approve/i && do { &record_approve($dbh,$query,$table,$id); last; };		#	- Approve
-		/retire|reject/i && do { &record_retire($dbh,$query,$table,$id); last; };	#	- Reject / Retire	
-		
-		/multi/i && do { &admin_multi($dbh,$query); last;		};		#	- Multi									
 														
-		/config/ && do { &admin_update_config($dbh,$query); last;			};	# Update config data
-		/db_pack/ && do {&admin_db_pack($dbh,$query); last;		};		# Make a new pack
+		/list/ && do { &list_records($dbh,$query,$table); last;		};		#	- List records
+		/edit/i && do { &edit_record($dbh,$query,$table,$id); last; 	};		#	- Edit Record - Show the Editing form
+		/update/ && do { &update_record($dbh,$query,$table,$id); last; }		# 	- Edit Record - Update with input data											
+		/Delete/i && do { &record_delete($dbh,$query,$table,$id); last; };		#	- Delete Record 
+		/Spam/i && do { &record_delete($dbh,$query,$table,$id);  last; };		#	- Delete Record and log creator IP to Spam	
+		/multi/i && do { &admin_multi($dbh,$query); last;		};		#	- Multi-Delete Record (FIXME needs work)		
+		
+			
+														# Feed Functions
+	
+		/approve/i && do { &record_approve($dbh,$query,$table,$id); last; };		#	- Approve Feed
+		/retire|reject/i && do { &record_retire($dbh,$query,$table,$id); last; };	#	- Reject / Retire Feed	
+		
+									
+														# Site Configuration
+														
+		/config/ && do { &admin_update_config($dbh,$query); last;	};		#	- Update config data
+		/db_pack/ && do {&admin_db_pack($dbh,$query); last;		};		#	- Make a new pack
+		/showcolumns/ && do { &showcolumns($dbh,$query); last; };			#	- Show the columns in a table
+		/addcolumn/ && do { &addcolumn($dbh,$query); last; };				#	- Add new column to a table
+		/removecolumnwarn/ && do { &removecolumnwarn($dbh,$query); last; };		#	- Remove column - warn user			
+		/removecolumndo/ && do { &removecolumndo($dbh,$query); last; };			#	- Remove column - remove it
+		
+		
+			
+														# Newsletter and Page Functions
 
-		/update/ && do { $id = &update_record($dbh,$query,$table,$id);
-			&edit_record($dbh,$query,$table,$id); last; 		};
+		/publish/ && do { 
+				if ($table eq "badge"){ &publish_badge($dbh,$query,$id,"verbose"); last;} 
+				else { &publish_page($dbh,$query,$id,"verbose"); last; } };
+				
+		/rollup/ && do { &news_rollup($dbh,$query); last;			};	#	- Show posts allocated to future newsletters
+		/autosub/ && do { &autosubscribe_all($dbh,$query); last;   };			#	- Auto-subscribe all users to newsletter
+		/autounsub/ && do { &autounsubscribe_all($dbh,$query); last; };			#	- Auto-unsubscribe all users from newsletter
+		/send_nl/ && do { &send_nl($dbh,$query); last;	};				#	- Send newsletter to email subscribers
+
+
+														# Cron Tasks (FIXME make a separate file? )
+
+		/rotate/ && do { &rotate_hit_counters($dbh,$query,"post"); last;};		#	- Reset daily hits counter to '0'
+
 		/remove_key/ && do { &remove_key($dbh,$query,$table,$id); 
 			&edit_record($dbh,$query,$table,$id); last;};	
 
+
+
 		/fixmesubs/ && do { &fixmesubs($dbh,$query,$table); last;		};
-		/list/ && do { &list_records($dbh,$query,$table); last;		};
-		/rollup/ && do { &news_rollup($dbh,$query); last;			};
-		/rotate/ && do { &rotate_hit_counters($dbh,$query,"post"); last;			};
+
+
+
 		/export_users/ && do { &export_user_list($dbh,$query); last;			};
 		/import/ && do { &import($dbh,$query,$table); last;		};
 		/remove_all/ && do { &delete_all_users($dbh,$query); last; };
-		/send_nl/ && do { &send_nl($dbh,$query); last;	};	
+	
 		
 		/youtubepost/ && do { &parse_youtube($dbh,$query); last; };	
 		/autopost/ && do { &autopost($dbh,$query); last; };
@@ -306,13 +219,10 @@ if ($action) {					# Perform Action, or
 
 		/eduser/ && do { &admin_users_edit($dbh,$query); last;			};
 		/subs/ && do { &edit_subs($dbh,$query); last;			};
-		/autosub/ && do { &autosubscribe_all($dbh,$query); last;   };
-		/autounsub/ && do { &autounsubscribe_all($dbh,$query); last; };
+
 
 		
-		/publish/ && do { 
-				if ($table eq "badge"){ &publish_badge($dbh,$query,$id,"verbose"); last;} 
-				else { &publish_page($dbh,$query,$id,"verbose"); last; } };
+
 		/make_icon/ && do { &auto_make_icon($table,$id); 
 				&edit_record($dbh,$query,$table,$id); last;};	
 		/logview/ && do { &log_view($dbh,$query); last; };
@@ -323,10 +233,7 @@ if ($action) {					# Perform Action, or
 		/reindex/ && do { &reindex_matches($dbh,$query,$table,$id); };
 
 		/count/ && do { &count_feed($dbh,$query); last; };
-		/showcolumns/ && do { &showcolumns($dbh,$query); last; };
-		/addcolumn/ && do { &addcolumn($dbh,$query); last; };
-		/removecolumnwarn/ && do { &removecolumnwarn($dbh,$query); last; };			
-		/removecolumndo/ && do { &removecolumndo($dbh,$query); last; };	
+
 		/cache_clear/ && do { print "Content-type: text/html\n\n"; &cache_clear($dbh,$query); last; };
 		#/stats/ && do { &calculate_stats($dbh,$query); last;  };
 		/graph/ && do { &make_graph($dbh,$query); last;  };
@@ -337,14 +244,22 @@ if ($action) {					# Perform Action, or
 
 	}
 
+# Output Record, or
 
-} else {					# Default Data Output
+} elsif ($table) {					# Default Data Output
 
 	&output_record($dbh,$query,$table,$id,$format);
+
+} else {
+	
+# Show Admin Menu
+
+	&admin_general($dbh,$query); 
 }
+
 						
 
-&db_cache_write($dbh);				# Write cache records to database after page is printed
+# &db_cache_write($dbh);				# Write cache records to database after page is printed
 
 if ($dbh) { $dbh->disconnect; }			# Close Database and Exit
 exit;
@@ -800,8 +715,7 @@ sub admin_permissions {
 	my $content = qq|<h2>Permissions</h2><p>|;
 	
 	# my @tables = $dbh->tables();
-	my @tables = qw{author badge box element event feed file journal link mapping optlist page person post presentation 
-		project publication publisher task template thread topic view};
+	my @tables = &db_tables($dbh);
 	my @actions = qw{create approve edit delete view};
 	my @reqs = qw{admin editor owner project registered anyone};	
 	
@@ -1090,7 +1004,7 @@ sub admin_users_edit {
 		
 	
 	
-	my $user = &db_get_record($dbh,"person",{$fields->{id}=>$id_number});
+	my $user = &db_get_record($dbh,"person",{$table."_id"=>$id_number});
 	
 
 
@@ -2462,9 +2376,9 @@ sub list_records {
 	} else { $where = ""; }
 
 						# Set Search Conditions
-print "Content-type: text/html\n\n";
+
 	my $titsearch = $table ."_". $titname;						
-#print "search $table $titname <br>";
+
 	if ($vars->{where}) {
 		my $w = "where ".$titsearch." LIKE '%".$vars->{where}."%'";
 		if ($where) {
@@ -2484,13 +2398,13 @@ print "Content-type: text/html\n\n";
 
 	my $stmt = qq|SELECT * FROM $table $where $sort $limit|;
 	if ($table eq "cache") { $stmt = qq|SELECT * FROM cache limit 100|;	}
-print $stmt;
+
 	my $sthl = $dbh->prepare($stmt);
 	$sthl->execute();
 		if ($sthl->errstr) { print "Content-type: text/html\n\n";print "DB LIST ERROR: ".$sthl->errstr." <p>"; exit; }
 	$output .=  "<p>\n";
 	while (my $list_record = $sthl -> fetchrow_hashref()) {
-print "one";		
+		
 		my $rid = $list_record->{$table."_id"};
 		
 # 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Spam&$table=$rid')">Spam</a>] 		
@@ -2603,14 +2517,16 @@ sub update_record {
 	else { return unless (&is_allowed("edit",$table,$record)); }
 
 
-	my $fields = &set_fields($table);
+
 
 
 						# Clean Input
 						# Fix mismatched href quotes
 
-	$vars->{$fields->{description}} =~ s/href=('|&#39;|&apos;)(.*?)"/href="$2"/ig;	
+	$vars->{$table."_description"} =~ s/href=('|&#39;|&apos;)(.*?)"/href="$2"/ig;	
 
+
+ 
  
  
 						# Fix relative links
@@ -2623,25 +2539,29 @@ sub update_record {
 	}
 						# Require URL in link
 	if ($vars->{post_type} eq "link") {
-		unless ($vars->{$fields->{link}} =~ /http/i) {
+		unless ($vars->{$table."_link"} =~ /http/i) {
 			&error($dbh,$query,"","Link must contain 'http'");
 		}
 	}
-
+	
+	# Remove line feeds in _data
+	$vars->{$table."_data"} =~ s/\n//g;
+	$vars->{$table."_data"} =~ s/\r//g;
 						# Table-specific functions
 						# Capitalize titles in Post
 	if ($table eq "post") {
-		$vars->{$fields->{title}} = &capitalize($vars->{$fields->{title}});
-		$vars->{$fields->{name}} = &capitalize($vars->{$fields->{name}});
-		unless ($vars->{$fields->{pub_date}}) {
-			$vars->{$fields->{pub_date}} = &cal_date(time); }
+		$vars->{$table."_title"} = &capitalize($vars->{$table."_title"});
+		$vars->{$table."_name"} = &capitalize($vars->{$table."_name"});
+		unless ($vars->{$table."_pub_date"}) {
+			$vars->{$table."_pub_date"} = &cal_date(time); }
 
 	} elsif ($table eq "person") {
 
-		if ($vars->{$fields->{password}}) {		# Create a Salted Password
-			$vars->{$fields->{password}} = &encryptingPsw($vars->{person_password}, 4);
+		if ($vars->{$table."_password"}) {		# Create a Salted Password
+			$vars->{$table."_password"} = &encryptingPsw($vars->{person_password}, 4);
 			
 		}
+
 	} elsif ($table eq "optlist") {				# Autogenerate Optlist Titles
 		$vars->{optlist_table} ||= "table";
 		$vars->{optlist_field} ||= "field";
@@ -2688,6 +2608,7 @@ sub update_record {
 
 							# Submit and verify record
 	$id_number = &form_update_submit_data($dbh,$query,$table,$id_number);
+	
 	my $new_record=&db_get_record($dbh,$table,{$table.+"_id"=>$id_number});
 	&error($dbh,"","","New $table record not created properly.") unless ($new_record);
 	$new_record->{type} = $table;
@@ -2799,8 +2720,11 @@ sub update_record {
 #	print "Content-type: text/html; charset=utf-8\n\n";
 
 	$vars->{updated_table} = $table;
-	$vars->{updated_title} = $vars->{$fields->{title}};
-	return $id_number;
+	$vars->{updated_title} = $vars->{$table."_title"};
+	
+	
+	&edit_record($dbh,$query,$table, $id_number);
+
 	
 	
 }
@@ -2849,7 +2773,7 @@ sub save_file {
 		file_mime => $mime,
 		file_size => $ffsize,
 		file_post => $id_number,
-		file_link => $vars->{$fields->{link}},
+		file_link => $vars->{$table."_link"},
 		file_crdate => time,
 		file_creator => $Person->{person_id},
 		file_type => $file_type,
@@ -2970,276 +2894,6 @@ sub edit_record {
 
 
 
-# -------  Mapping Select Source ---------------------------------------------
-
-
-sub map_form_source {
-
-	my ($dbh,$query,$mapping) = @_;
-	my $vars = $query->Vars;
-
-	my $input_type_selected = {};
-	$input_type_selected->{$mapping->{mapping_stype}} = " checked";
-
-#while (my($mx,$my) = each %$mapping) { print "$mx = $my <br>"; }
-	my $output = qq|<hr><h4>Define Mapping Source Feeds</h4>
-		<p>A mapping will be executed provided a certain input condition is met. Here we 
-		define what that condition may be. You can select a feed if it is a...
-		<dl>
-		<table border=1 cellpadding=5 cellspacing=0 style="color:#91c6e7">|;
-
-						# Specific Feed
-	my $mapfeedid = $mapping->{mapping_specific_feed};
-	$output .= qq|<tr>
-		<td valign="top" width="25%">
-		<input type="radio" name="mapping_stype" value="mapping_specific_feed"  
-		$input_type_selected->{mapping_specific_feed}>
-		Specific Feed:</td>
-		<td valign="top" width="75%">
-		<select name="mapping_specific_feed" >|;
-		
-	my $stmt = qq|SELECT feed_id,feed_title FROM feed ORDER BY feed_title|;
-	my $sth = $dbh->prepare($stmt);
-	$sth->execute();
-	while (my $feed = $sth -> fetchrow_hashref()) {
-		my $selected; if ($mapfeedid eq $feed->{feed_id}) { $selected = " selected"; }
-		my $ft = substr($feed->{feed_title},0,35);
-		$output .= qq|<option value="$feed->{feed_id}" $selected> $ft </option>\n|;
-	}
-	$output .=  qq|</select></td></tr>|;
-
-						# Feed Type
-	$output .= qq|<tr>
-		<td valign="top" width="25%">	
-		<input type="radio" name="mapping_stype"  value="mapping_feed_type"  
-		$input_type_selected->{mapping_feed_type}> Feed Type</td>
-		<td valign="top" width="75%">
-		<input type="text" name="mapping_feed_type" 
-		value="$mapping->{mapping_field_type}" size="40">
-		[<a href="Javascript:alert('Enter feed types (eg., rss, opml, atom, ical)');">Help</a>]
-		</td></tr>|;
-
-
-						# Feed Field
-	$output .= qq|<tr>
-		<td valign="top" width="25%">	
-		<input type="radio" name="mapping_stype" value=mapping_feed_fields  
-		$input_type_selected->{mapping_feed_fields}> Feed Fields</td>
-		<td valign="top" width="75%">
-		<input type="text" name="mapping_feed_fields" 
-		value="$mapping->{mapping_feed_fields}" size="40">
-		[<a href="Javascript:alert('Enter field (eg., enclosure, start_date, width)');">Help</a>]
-		</td></tr>|;
-
-
-						# Feed Field Value Pair
-	$output .= qq|<tr>
-		<td valign="top" width="25%">	
-		<input type="radio" name="mapping_stype" value="mapping_feed_value_pair"  
-		$input_type_selected->{mapping_feed_value_pair}> Value Pair</td>
-		<td valign="top" width="75%">
-		<input type="text" name="mapping_field_value_pair" 
-		value="$mapping->{mapping_field_value_pair}" size="40">
-		[<a href="Javascript:alert('Enter a field and a value (eg., title:OLDaily)');">Help</a>]
-		</td></tr>|;
-
-
-	$output .= qq|</table></dl></p>|;
-	return $output;
-}
-
-
-
-# -------  Map Form Field Values -----------------------------------------------
-
-sub map_form_field_values {
-
-	my ($dbh,$query,$mapping) = @_;
-	my $vars = $query->Vars;
-	my @dest_columns = &db_columns($dbh,$mapping->{mapping_dtable});
-
-	my $output = qq|<h4>Set Destination Table Values</h4>
-		<p>When a new destination record is created, these values will be set:</p><dl>
-		<table border=1 cellpadding=5 cellspacing=0 style="color:#91c6e7">\n
-		<tr><td><i>Field Name</i></td><td><i>Value</td></tr>|;	
-		
-						# get existing values, if any, and display
-	my @existing;					
-	my $tvals = $mapping->{mapping_values};
-	my @tvallist = split ";",$tvals;
-	foreach my $tval (@tvallist) {
-		my ($tvfield,$tvval) = split ",",$tval;
-		my $elname = "mapping_value_".$tvfield;
-		$output .= qq|<tr><td align="right">$tvfield</td>
-					<td><input name="$elname" type="text" size="20"
-					value="$tvval"></td></tr>|;
-		push @existing,$tvfield;			
-	}
-	
-						# print blank for new value
-	$output .=  qq|<tr><td align="right"><select name="mapping_tval_field">|;
-	foreach my $dc (@dest_columns) {
-			next if $dc =~ /\Q_id\E/i;
-			next if (&index_of($dc,\@existing) >= 0);	
-			my $match = $dc;
-			my $prefix = $mapping->{mapping_dtable}."_";
-			$match =~ s/\Q$prefix\E//;
-			$output .=  qq|<option value="$dc">$match</option>\n|;
-		}
-	$output .=  qq|</select></td><td><input name="mapping_tval_value"
-		type="text" size="20"></td></tr></table></dl><br/>|;
-	
-	return $output;				
-
-
-}
-
-
-
-# -------  Map Form Mappings -----------------------------------------------
-
-sub map_form_mappings {
-
-	my ($dbh,$query,$mapping) = @_;
-	my $vars = $query->Vars;
-	
-	my $mapping_prefix = $mapping->{mapping_prefix} || "link";  	# Set prefix and define source columns
-	my @source_columns = ();	
-	if ($mapping_prefix eq "link") {
-		@source_columns = qw|title description type link category guid created issued author authorname authorurl modified base localcat feedid feedname lat long owner_url identifier parent star host sponsor sponsor_url access start finish|;
-	}
-
-	
-						# get column list for destination
-						
-	my @dest_columns = &db_columns($dbh,$mapping->{mapping_dtable});	
-	
-						# print options table headings
-	my $output = qq|<h4>Map Table Elements</h4>
-		<dl><table border=1 cellpadding=5 cellspacing=0 style="color:#91c6e7">\n
-		<tr><td><i>Source</i></td><td>&nbsp;</td><td><i>Destination: $mapping->{mapping_dtable}</i></td></tr>|;	
-		
-						# Set up hash of existing mappings
-	my $mapping_hash = {};
-	my @mappinglist = split ";",$mapping->{mapping_mappings};
-	foreach my $ml (@mappinglist) {
-		my ($mlf,$mlv) = split ",",$ml;
-			$mapping_hash->{$mlf} = $mlv;
-	}
-		
-						# print table
-	foreach my $sc (@source_columns) {
-		next if $sc =~ /\Q_id\E/i;
-		my $sp = $mapping_prefix . "_";
-		$sc =~ s/\Q$sp\E//;
-		my $spc = $mapping_prefix."_".$sc;
-		$output .= qq|<tr><td align="right">$sc</td><td> ---> </td>\n|;
-		$output .= qq|<td><select name="$spc">\n|;
-		$output .= qq|<option value="null"></option>\n|;		
-		foreach my $dc (@dest_columns) {
-		
-			# Create option text
-			next if $dc =~ /\Q_id\E/i;
-			my $match = $dc;
-			my $prefix = $mapping->{mapping_dtable}."_";
-			$match =~ s/\Q$prefix\E//;
-				
-			# print the option	
-			$output .=  qq|<option value="$dc"|;
-			if ($mapping_hash->{$spc} eq $dc) {		# Print existing mappings
-				$output .=  " selected";
-			} else {									# Autogenerate new mappings
-				if ($sc eq $match) { $output .=  " selected"; }
-			}
-			$output .=  qq|>$match</option>\n|;
-			
-		}
-	
-		$output .=  qq|</select></td></tr>|;
-	}
-	$output .=  "</table></dl>";
-	return $output;
-}
-
-
-
-
-
-
-# -------  Mapping Select Destination -------------------------------------------
-
-sub map_form_destination {
-
-	my ($dbh,$query,$mapping) = @_;
-	my $vars = $query->Vars;
-
-	my $output =  qq|<h4>Define Destination Table</h4>
-		<p>Select a destination table: 
-		<select name="mapping_dtable">\n|;
-		
-						# Define list of destination tables
-	my @tables = qw|author box event feed file journal link page person post presentation publication project task template topic|;
-		
-						# Print list of destination tables
-	foreach my $t (@tables) {
-		my $sel = "";
-		if ($t eq $mapping->{mapping_dtable}) { $sel = " selected"; }
-		$output .= qq|<option value="$t"$sel>$t</option>\n|;
-	}
-	$output .= qq|</select></p>\n|;
-
-						# Mapping Priority
-	my $priority = $mapping->{mapping_priority} || 1;
-	$output .=  qq|<h4>Define Mapping Priority</h4>
-		<p>Higher Number = Higher Priority. <b>Priority:
-		<input type="text" name="mapping_priority" value="$priority" size="5"></p>|;	
-
-	return $output;
-
-}
-
-
-
-
-
-
-
-
-
-
-
-	
-
-# -------  Mapping Instructions -----------------------------------------------
-	
-sub map_instructions {
-
-	my ($dbh,$query,$mapping) = @_;
-	my $vars = $query->Vars;
-
-	my $output = qq|
-		<h1>Edit Feed Mapping</h1>
-		<p>A <i>mapping</i> is a way to direct where you want harvested data
-		to be stored. The mapping source is always a feed, while the mapping
-		destination is always a database table.</p>|;
-	if ($vars->{new_dtable}) {
-		$output .=  qq|<p>You have now selected a new mapping source and destination table. Now, 
-				specify mapping from input fields to output fields. Some default
-                        mappings have been suggested.</p>|;
-	}
-
-	$output .= "<p>Editing: <b>". ($mapping->{mapping_title} || "New Mapping") ."</b></p>";
-	return $output;
-
-}
-
-
-
-
-
-
-
-
 
 
 
@@ -3286,8 +2940,8 @@ sub record_delete {
 	my $vars = $query->Vars;
 	
 						# Get Record from DB
-	my $fields = &set_fields($table);
-	my $wp = &db_get_record($dbh,$table,{$fields->{id}=>$id});
+
+	my $wp = &db_get_record($dbh,$table,{$table."_id"=>$id});
 	$wp->{post_title} ||= &printlang("Record no longer exists");
 
 			
@@ -4074,28 +3728,6 @@ sub footer {
 
 }
 
-sub test_thumbnails {
-	
-
-print "Testing...<p>";
-        # Create a thumbnail from 'test.jpg' as 'test_t.jpg'
-        # using ImageMagick, Imager, GD or Image::Epeg.
-        my $t = new Image::Thumbnail(
-                module     => "Image::Magick",
-                size       => 55,
-                create     => 1,
-                input      => "/var/www/cgi-bin/test.jpg",
-                outputpath => "/var/www/cgi-bin/Riga001_t.jpg",
-                CHAT => 1
-        ) or print "Error: $!";
-        
-        print $t->{error};
-        print $t->{warning};
-                print $t->{module};
-                        print $t->{thumb};
-        
-print "OK";	
-}
 
 sub fix_graph() {
 	
