@@ -4494,11 +4494,11 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 			my ($bd,$dt) = split /\./,$dtb;
 			$dtb = $dt;
 		}
-		push @db_tables,$dtb; my $dtba = $dtb."id"; push @db_tables,$dtba; 
+		push @db_tables,$dtb;  
 	}
 	
 	
-#	foreach my $dt (@db_tables) { print "$dt<br>";  }	
+	#foreach my $dt (@db_tables) { print "$dt<br>";  }	
 	
 						# Init Rows (for short text inputs)
 	$Site->{newrow} = 0;
@@ -4573,7 +4573,7 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 #$form_text .= qq|<tr><td colspan="4"> $col,$fieldtype,$fieldsize,$fielddefault </td></tr>|;
 		
 						# Print Input Fields
-		if ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "authorid")&& ($sc ne "journalid")&& ($sc ne "linkid")&&($sc ne "feedid")) {			
+		if ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field")) {			
 			$form_text .= &form_keylist($table,$id_value,$sc);
 			# $form_text .=  &form_keyinput($col,$record->{$col},2);	
 		}  elsif ($fieldstem eq "twitter") {
@@ -5195,66 +5195,75 @@ sub form_textinput {
 
 
 # -------  Key List --------------------------------------------
+#
+#   This allows records from one table to be associeted with another.
+#   For example, a post may have an author; the 'author' field is a keylist
+#   The user submits the name or title of the author; if it is found it
+#   is associeted with the post in the graph, otherwise a new 'author'
+#   record is created, and it is associated with the post in the graph.
+#   The choices are made available in a dropdown if fewer than 20, or
+#   available as an autofill if fewer than 100, otherwise a record search
+#   is provided.
+#
 
 sub form_keylist {
 	
 	my ($table,$id,$key,$more) = @_;
+ 
+	my $suggform = "";	
 
-	my $suggform = ""; my $suggstr;	
-	$key =~ s/id$//i;
-	my $admin = 1 if ($Person->{person_status} eq "admin");
-	
-	# Temporary - what I really should do here is count the number of items in the table and do a cut-off
-	if ($key eq "author" || $key eq "feed") { $more = 1; }
+
 
 	# Create Title
-	my $content = qq|<tr><td valign="top">|.ucfirst($key).qq|(s)</td><td colspan="3">|;
+	my $content = qq|<tr><td>"<hr>$table,$id,$key,$more<hr>";</td></tr><tr><td valign="top">|.ucfirst($key).qq|(s)</td><td colspan="3">|;
 	
-	# Get Existing List
+	# Get Existing List of names from $key
 	my $sugglist = &form_graph_list($table,$id,$key);
 	
+    # Find how many items there are in the $key table
+	my $count = &db_count($dbh,$key);
 
-	# Add More
-	
-		# Create List of Alternatives from DB
-		
+	# Get the list of names for an autofill if the list is short enough
+	if ($count < 100000) {
+
 		my $arr_ref = &get_key_name_array($key);
+		my $suggstr = "";
+
+		# for each name	put in JSON list format (remove quotes nd line feeds, put within single quotes)		
 		foreach my $ar (@$arr_ref) { 
 			if ($suggstr) { $suggstr .= ","; }
 			$ar =~ s/('|&#39;)/&apos;/g;$ar=~s/(\n|\r)//g;		
 			$suggstr .= qq|'$ar'|;
-		}
-		$suggstr = qq|source: [ $suggstr ]|;
 
+		}
+
+		$suggstr = qq|source: [ $suggstr ]|;
+	
 		# Place into Input script
 		$suggform = qq|<input name="keyname_$key" value="" id="autocomplete_$key" >
 			<script>
 			\$( "#autocomplete_$key" ).autocomplete({$suggstr});
 			</script>|;
 
+	# Just create the form if the list is too long, and provide a search option
+	} else {
+
+		$suggform = qq|<input name="keyname_$key" value=""> Search |;
+
+	}
+
+		
 	
-	if ($admin && $more) {
 		
-		if ($sugglist eq "None") {
-			$content .= $suggform;
-		} else {
-		
-		
-		$content .= qq|$sugglist
-	<div id="clasp_$key" class="clasp"><a href="javascript:lunchboxOpen('$key');">Add more...</a></div>
-	<div id="lunch_$key" class="lunchbox">
-		<div class="well">
+		$content .= qq|
+			$sugglist
 			$suggform
 			<input type="submit" value="Submit new $key">
-		</div>			
-	</div>|;
-		}
+		|;
 		
-	} else {
-		
-		# Temporary - what I should really do here is put in a popup search window
-		$content .= qq|$sugglist<input type="text" name="keyname_$key" size=40"> (Enter title or name)|;
-	}	
+
+
+
 
 	$content .= qq| </td></tr>|;	
 	
@@ -5278,7 +5287,7 @@ sub get_key_name {
 
 # -------- get key name array ---------------------------------------
 #
-#   Returns an array of key names or titles
+#   Returns an array of names or titles for a table $key
 #   Use for form typeahead lookup
 
 sub get_key_name_array {
@@ -5293,10 +5302,9 @@ sub get_key_name_array {
 # -------- get key namefield ---------------------------------------
 
 sub get_key_namefield {
-	my ($key) = @_; my $field;
-	if ($key eq "person" || $key eq "author") { $field = "name"; }
-	else { $field = "title"; }
-	$field = $key."_".$field;
+	my ($key) = @_; 
+	my $field = $key."_title";
+	if ($key eq "person" || $key eq "author") { $field = $key."_name"; }
 	return $field;	
 	
 }
