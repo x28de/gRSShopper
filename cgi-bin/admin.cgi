@@ -27,7 +27,7 @@
 
 # Diagnostics
 
-	our $diag = 1;
+	our $diag = 0;
 	if ($diag>0) { print "Content-type: text/html\n\n"; }
 
 
@@ -46,14 +46,16 @@
 
 # Load modules
 
-	our ($query,$vars) = &load_modules("admin");								
+	our ($query,$vars) = &load_modules("admin");
 
 
 # Load Site
 
 	our ($Site,$dbh) = &get_site("admin");									
 	if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
-	
+
+
+
 
 # Get Person  (still need to make this an object)
 
@@ -2404,22 +2406,22 @@ sub list_records {
 		if ($sthl->errstr) { print "Content-type: text/html\n\n";print "DB LIST ERROR: ".$sthl->errstr." <p>"; exit; }
 	$output .=  "<p>\n";
 	while (my $list_record = $sthl -> fetchrow_hashref()) {
-		
+	
 		my $rid = $list_record->{$table."_id"};
 		
 # 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Spam&$table=$rid')">Spam</a>] 		
-		if ($table eq "page" || $table eq "link" || $table eq "post" || "element" ) {
+
+		if ($table eq "page" || $table eq "link" || $table eq "post" || $table eq "element" ) {
 			$output .= qq|
 			[<a href="$Site->{st_cgi}admin.cgi?action=edit&$table=$rid">Edit</a>]
 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Delete&$table=$rid')">Delete</a>]
-
 			<a href="$Site->{st_url}$table/$rid">$list_record->{$table."_title"}</a><br/>
 			|;
 			
 			next;
 				
 		}
-		
+	
 		
 #print "<hr>";while (my($lx,$ly) = each %$list_record) { print "$lx = $ly <br>"; }
 
