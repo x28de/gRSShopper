@@ -1,6 +1,6 @@
 #    gRSShopper 0.7  Common Functions  0.81  -- 
 
-#    27 April 2017
+#    10 May 2017
 
 #    Copyright (C) <2013>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -4354,18 +4354,40 @@ sub form_editor() {
 
 
 
-						# Set record ID number, value
-
+	# Check Starting Data
 
 	unless ($dbh) { &error($dbh,$query,"","Database not ready") }	
 	unless ($table) { &error($dbh,$query,"","A record type must be provided."); }
 	my $id_value = "";
-	if ($id_number) { $id_value = $id_number; }
-	else { $id_value = "new"; }
 
-#print "$id_number $id_value <p>";		
+
+	# If Record doesn't exist, create a new empty record
+
+	if ($id_number) { $id_value = $id_number; }
+	else { 
+
+		# Record wasn't found, create a new record, eg., a new 'author'
+		unless ($keyrecord) {
+
+			# Initialize values				
+			my $table_record = {
+				$table."_creator"=>$Person->{person_id},
+				$table."_crdate"=>time,
+				$table."_name"=>"New $table",
+				$table."_title"=>"New $table"
+			};
+
+			# Save the values and obtain new record id
+			$id_number = &db_insert($dbh,$query,$table,$table_record);
+			$id_value = $id_number;
+		}
+
+	}
+
 	
-						# Get Record
+	
+	# Get Record
+
 	my $record; my $quotationtext; my $link; my $feed;	
 	$record = &db_get_record($dbh,$table,{$table."_id" => $id_number});
 
@@ -4435,31 +4457,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		$form_text .=  qq|[<a href="course.cgi?action=review&page=$record->{post_thread}">Review Entire Course</a>]<br/><br/>|;
 	}
 
-						# Create WYSIWYG Options
-						
-#	if ($table eq "post") {						
-		$form_text .= qq[
-        <script type="text/javascript">
-	tinymce.init({selector:'textarea',
-		plugins: [
-			"advlist autolink lists link image charmap print preview anchor",
-			"searchreplace visualblocks code fullscreen",
-			"insertdatetime media table contextmenu paste"
-			],
-		insertdatetime_formats: ["%Y/%m/%d", "%H:%M"],
-		extended_valid_elements : "script[language|type|src],link,keyword,box,time,date",	
-		toolbar: "insertfile undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image",
-		autosave_ask_before_unload: false,
-		selector: "textarea.editme",
-		browser_spellcheck: true,
-		max_height: 200,
-		min_height: 160,
-		height : 180			
-		});
-</script>
 
-		];
-#	}
 
 						# Create Form Heading
 	$form_text .=  qq|
@@ -4490,11 +4488,11 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 	 
 		 
 	if ($autoblog) {
-		$form_text .= qq|<table border=0 cellpadding=4 cellspacing=0><tr><td>
+		$form_text .= qq|<table border=0 cellpadding=10 cellspacing=0><tr><td>
 			<i>Full text of the link you are commenting on is located below the form</i></td></tr></table>|;
 	}
 	$form_text .= qq|	 
-		 <table border=0 cellpadding=2 cellspacing=0 style="color:#888888;">\n|;
+		 <table border=1 cellpadding=10 cellspacing=0 style="color:#888888;">\n|;
 	
 						# Get the full list of tables, for crosslinks
 						
@@ -4554,15 +4552,17 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
   		# Normalize column names
 		$sc = $col;
   		$col = $table."_".$col;	
-  		
+ 
+ 
+ 		
   		#$col = $table ."_" . $fieldlist_items[0];
 
-
+######################
 
 		# Test for canonical vocabulary
 		my $opts = &db_get_record($dbh,"optlist",{optlist_title=>$col});
 		if ($opts->{optlist_data} || $opts->{optlist_list}) { 
-			$form_text .=  &form_optlist_select($dbh,$table,$col,$record->{$col},$opts);  
+			$form_text .=  &form_select($dbh,$table,$col,$record,$opts);  
 			next; 
 		}
 
@@ -4586,7 +4586,9 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 						# Print Input Fields
 		if ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field")) {			
 			$form_text .= &form_keylist($table,$id_value,$sc);
-			# $form_text .=  &form_keyinput($col,$record->{$col},2);	
+			# $form_text .=  &form_keyinput($col,$record->{$col},2);
+#		} elsif ( $col =~ /_description/) {	
+#			$form_text .=  &form_textarea($col,80,15,$record->{$col});	
 		}  elsif ($fieldstem eq "twitter") {
 			$form_text .=  &form_twitter($record,2);		
 		} elsif (($table eq "media") && ($fieldstem eq "link")) {
@@ -4596,7 +4598,8 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 		} elsif ( $col =~ /_type|_catdetails|_active|_status|_category/ ) {
 			$form_text .=  &form_option_select($dbh,$col,$record->{$col});
 		} elsif ( $col =~ /_content/ || $col =~ /_description/) {
-			$form_text .=  &form_textarea($col,80,30,$record->{$col});
+			#$form_text .=  &form_textarea($col,80,30,$record->{$col});
+			$form_text .=  &form_wysihtml($record,$col,4);
 		} elsif ($col =~ /_file/) {
 			$form_text .=  &form_file_select($dbh,$table,$id_number);
 		} elsif ($col =~ /_date/) {
@@ -4656,6 +4659,205 @@ $form_text .=  &form_submit();
 
 	return $form_text;
 }
+
+
+# -------  WYSI HTML Input -----------------------------------------------------
+#
+# Creates Formatted HTML Text Input Form Field
+
+sub form_wysihtml {
+	my ($record,$col,$colspan,$advice) = @_;
+	my ($table,$title) = split /_/,$col;
+	my $id = $record->{$table."_id"};
+	my $value = $record->{$col} || "Enter $table $title here";
+
+return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+<div id="$col" data-type="wysihtml5" data-pk="1">$value</div>
+<script>
+\$(function(){
+    \$('#$col').editable({
+		mode: 'inline',
+        url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        title: 'Enter comments',
+        params: function (params) {  
+            var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"wysihtml5"};
+            return data;
+        },
+    });
+});
+</script></div></td></tr>
+
+|;
+
+
+}
+
+
+
+
+# -------  Text Input -----------------------------------------------------
+#
+# Creates Text Input Form Field
+
+sub form_textinput {
+	my ($record,$col,$colspan,$advice) = @_;
+	my ($table,$title) = split /_/,$col;
+	my $id = $record->{$table."_id"};
+	my $value = $record->{$col};
+
+return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+   <div>
+		<a href="#" id="$col" data-type="text" data-pk="1">$value</a><span id="|.
+		$col
+	.qq|_okindicator"></span>
+		<script>
+		\$(function(){
+		    \$('#$col').editable({
+ 				mode: 'inline',
+        		url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        		title: 'Enter $table $title',
+       			params: function (params) {  
+        			var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"text"};
+        			return data;
+       			},
+     			success: function(response) {
+					\$('#|.
+					$col.
+					qq|_okindicator').html(response);
+				}
+    		});
+		});
+		</script>
+   </div></td></tr>
+|;
+
+
+}
+
+
+# -------  Key List --------------------------------------------
+#
+#   This allows records from one table to be associeted with another.
+#   For example, a post may have an author; the 'author' field is a keylist
+#   The user submits the name or title of the author; if it is found it
+#   is associeted with the post in the graph, otherwise a new 'author'
+#   record is created, and it is associated with the post in the graph.
+#   The choices are made available in a dropdown if fewer than 20, or
+#   available as an autofill if fewer than 100, otherwise a record search
+#   is provided.
+#
+
+sub form_keylist {
+
+	my ($table,$id,$key,$more) = @_;
+	my $col = $table."_".$key;
+	my $key_title = ucfirst($key);
+
+	my $keylist_text = &form_graph_list($table,$id,$key);
+	$keylist_text ||= "None";
+
+return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+   <div>$key_title List: <a href="#" id="$col">Enter $key name</br></a><br> 
+   <div id="|.$col.qq|_extra">$keylist_text</div>
+   <script>
+   \$(function(){
+      \$('#$col').editable({
+         type: 'text',
+		 mode: 'inline',
+         url: 'http://www.downes.ca/cgi-bin/api.cgi',    
+         pk: 1,  
+         placement: 'top',
+         title: 'Enter $key name',
+         display: function(value, response) {
+            //render response into element
+            \$(this).html('Enter $key name:');
+         },
+         params: function (params) {  
+            var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:'keylist'};
+            return data;
+         },
+         success: function(response) {
+            \$('#|.$col.qq|_extra').html(response);
+         }
+      });
+   });
+   </script>
+   </div></td></tr>
+|;
+
+
+
+
+
+	my ($record,$col,$colspan,$advice) = @_;
+	my ($table,$title) = split /_/,$col;
+	my $id = $record->{$table."_id"};
+	my $value = $record->{$col};
+
+	
+	my ($table,$id,$key,$more) = @_;
+ 
+	my $suggform = "";	
+
+
+
+	# Create Title
+	my $content = qq|<tr><td>"<hr>$table,$id,$key,$more<hr>";</td></tr><tr><td valign="top">|.ucfirst($key).qq|(s)</td><td colspan="3">|;
+	
+	# Get Existing List of names from $key
+	my $sugglist = &form_graph_list($table,$id,$key);
+	
+    # Find how many items there are in the $key table
+	my $count = &db_count($dbh,$key);
+
+	# Get the list of names for an autofill if the list is short enough
+	if ($count < 100000) {
+
+		my $arr_ref = &get_key_name_array($key);
+		my $suggstr = "";
+
+		# for each name	put in JSON list format (remove quotes nd line feeds, put within single quotes)		
+		foreach my $ar (@$arr_ref) { 
+			if ($suggstr) { $suggstr .= ","; }
+			$ar =~ s/('|&#39;)/&apos;/g;$ar=~s/(\n|\r)//g;		
+			$suggstr .= qq|'$ar'|;
+
+		}
+
+		$suggstr = qq|source: [ $suggstr ]|;
+	
+		# Place into Input script
+		$suggform = qq|<input name="keyname_$key" value="" id="autocomplete_$key" >
+			<script>
+			\$( "#autocomplete_$key" ).autocomplete({$suggstr});
+			</script>|;
+
+	# Just create the form if the list is too long, and provide a search option
+	} else {
+
+		$suggform = qq|<input name="keyname_$key" value=""> Search |;
+
+	}
+
+		
+	
+		
+		$content .= qq|
+			$sugglist
+			$suggform
+			<input type="submit" value="Submit new $key">
+		|;
+		
+
+
+
+
+	$content .= qq| </td></tr>|;	
+	
+
+	return $content;
+}
+
 
 # -------  Form Submit -----------------------------------------------------
 #
@@ -5054,6 +5256,67 @@ sub date_time_find {
 }
 
 
+sub form_select {
+
+
+
+	my ($dbh,$table,$col,$record,$opts) = @_;	
+	my ($table,$title) = split /_/,$col;
+	my $id = $record->{$table."_id"};
+	my $value = $record->{$col};
+
+    my $selected_value = $record->{$col};
+	my $options = "";
+
+	my @opts = split ";",$opts->{optlist_data};
+	foreach my $opt (@opts) {
+		my ($oname,$ovalue) = split ",",$opt;
+		next unless ($oname && $ovalue);
+		if ($opted eq $ovalue) { $selected_value = $ovalue; }
+		$options .= qq|{value: '$ovalue', text: '$oname'},|;
+	}
+	
+
+return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+<div><a href="#" id="$col"></a></div>
+
+<script>
+\$(document).ready(function() {
+  
+    
+    //make status editable
+    \$('#$col').editable({
+		mode: 'inline',
+        type: 'select',
+        title: '$table $title',
+        placement: 'right',
+        value: '$selected_value',
+		params: function (params) {  
+            var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:'select'};
+            return data;
+         },
+        source: [$options]
+       
+        //for some reason data doesn't submit if you remove pk, so don't remove it
+        ,pk: 1
+        ,url: 'http://www.downes.ca/cgi-bin/api.cgi'
+        
+    });
+});
+</script>
+</div></td></tr>|;
+
+
+
+
+
+
+
+
+
+}
+
+
 # -------  Optlist Select ----------------------------------------------------
 
 sub form_optlist_select {
@@ -5139,87 +5402,17 @@ sub form_option_select {
 
 }
 
-# -------  Text Input -----------------------------------------------------
+
+
+
+
+
+# -------  form keylist list --------------------------------------------
 #
-# Creates Text Input Form Field
+#   generates the list of authors (with edit links) ised by keylist
 
-sub form_textinput {
-	my ($record,$col,$colspan,$advice) = @_;
+sub form_keylist_list {
 
-	my ($table,$title) = split /_/,$col;
-	$title = ucfirst($title);
-	my $id = $record->{$table."_id"};
-	my $value = $record->{$col};
-	$value ||= $advice;						# Allows advice to be put in the form
-									# prior to input
-									# (there's a way to make this light and disappear, 
-									# but I don't know what that is yet)
-
-	$value =~ s/"/&quot;/sig;		#"
-
-
-	my $open = ""; my $size=""; my $stylesize; my $close = "";
-
-	if ($colspan) {
-		$open = "<tr>\n";
-		$size = 60; $stylesize="500px";
-		$colspan = qq| colspan="3"|;
-		$Site->{newrow} = 0;
-		$close = "</tr>";
-	} else {
-		$size = 20; $stylesize="200px";
-		if ($Site->{newrow} eq "1") {
-			$Site->{newrow} = 0;
-			$close = "</tr>";
-		} else {
-			$Site->{newrow} = 1;
-			$open = "<tr>";
-		}
-	}
-
-	my $lgoto = ""; 
-	
-	if ($col =~ /_post/) {
-
-		$lgoto = qq|[<a href="$Site->{script}?action=edit&post=$value">Edit Post</a>]|;
-	}
-
-	if ($col =~ /_icon/) {
-		$stylesize = "30em";
-		$icopref = $Site->{st_icon} || "file/icon/";		
-		$lgoto = qq|[<a href="$Site->{script}?action=make_icon&db=$table&id=$id">Make Icon</a>]|;
-	}
-
-	my $texttype; if ($col =~ /password/) { $texttype = "password"; } else { $texttype = "text"; }
-	return qq |
-		$open
-		<td valign="middle">$title</td>
-		<td valign="middle"$colspan>
-		$icopref<input type="$texttype" name="$col" value="$value" size="$size" style="width:|.$stylesize.qq|;height:1.8em;"> $lgoto
-		</td>
-		$close
-		|;
-
-
-
-}
-
-
-
-# -------  Key List --------------------------------------------
-#
-#   This allows records from one table to be associeted with another.
-#   For example, a post may have an author; the 'author' field is a keylist
-#   The user submits the name or title of the author; if it is found it
-#   is associeted with the post in the graph, otherwise a new 'author'
-#   record is created, and it is associated with the post in the graph.
-#   The choices are made available in a dropdown if fewer than 20, or
-#   available as an autofill if fewer than 100, otherwise a record search
-#   is provided.
-#
-
-sub form_keylist {
-	
 	my ($table,$id,$key,$more) = @_;
  
 	my $suggform = "";	
@@ -5229,27 +5422,22 @@ sub form_keylist {
 	# Create Title
 	my $content = qq|<tr><td>"<hr>$table,$id,$key,$more<hr>";</td></tr><tr><td valign="top">|.ucfirst($key).qq|(s)</td><td colspan="3">|;
 	
+
+	
 	# Get Existing List of names from $key
 	my $sugglist = &form_graph_list($table,$id,$key);
+
+return $sugglist;
 	
     # Find how many items there are in the $key table
 	my $count = &db_count($dbh,$key);
 
-	# Get the list of names for an autofill if the list is short enough
-	if ($count < 100000) {
+
 
 		my $arr_ref = &get_key_name_array($key);
 		my $suggstr = "";
 
-		# for each name	put in JSON list format (remove quotes nd line feeds, put within single quotes)		
-		foreach my $ar (@$arr_ref) { 
-			if ($suggstr) { $suggstr .= ","; }
-			$ar =~ s/('|&#39;)/&apos;/g;$ar=~s/(\n|\r)//g;		
-			$suggstr .= qq|'$ar'|;
 
-		}
-
-		$suggstr = qq|source: [ $suggstr ]|;
 	
 		# Place into Input script
 		$suggform = qq|<input name="keyname_$key" value="" id="autocomplete_$key" >
@@ -5257,12 +5445,7 @@ sub form_keylist {
 			\$( "#autocomplete_$key" ).autocomplete({$suggstr});
 			</script>|;
 
-	# Just create the form if the list is too long, and provide a search option
-	} else {
 
-		$suggform = qq|<input name="keyname_$key" value=""> Search |;
-
-	}
 
 		
 	
@@ -5278,9 +5461,8 @@ sub form_keylist {
 
 
 	$content .= qq| </td></tr>|;	
-	
-
 	return $content;
+
 }
 
 
@@ -8584,6 +8766,7 @@ sub record_graph {
 			my $keytable = $1; 					# This is a record in another table associated with this one Eg. 'author'
 			my @keynamelist = parse_csandv($vval);  		# Find eg. authors, split: first, second and third  (but leave values in quotes intact)
 			foreach my $keyname (@keynamelist) {			# For each., eg. author...
+				
 				$keyname =~ s/^ | $//g;	 			# Trim leading, trailing white space
 
 				my $keyfield = &get_key_namefield($keytable);	# Are we looking for _name, _title ...?
@@ -8598,6 +8781,8 @@ sub record_graph {
 					$keyrecord->{$keytable."_id"} = &db_insert($dbh,$query,$keytable,$keyrecord);
 					&error($dbh,"","api","New $keytable crash and burn") unless ($keyrecord->{$keytable."_id"});
 				}	
+
+
 				$keyrecord->{type}=$keytable;	
 								# Create Graph Record
 				if ($keytable eq "author") { $keytype = "by"; }						

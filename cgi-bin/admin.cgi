@@ -2542,7 +2542,7 @@ sub update_record {
 						# Require URL in link
 	if ($vars->{post_type} eq "link") {
 		unless ($vars->{$table."_link"} =~ /http/i) {
-			&error($dbh,$query,"","Link must contain 'http'");
+	#		&error($dbh,$query,"","Link must contain 'http'");
 		}
 	}
 	

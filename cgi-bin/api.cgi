@@ -40,13 +40,13 @@ print "Content-type: text/html\n\n";
 
 # Load modules
 
-	our ($query,$vars) = &load_modules("admin");
+	our ($query,$vars) = &load_modules("api");
 
 
 # Load Site
 
-	our ($Site,$dbh) = &get_site("admin");									
-	if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
+	our ($Site,$dbh) = &get_site("api");									
+
 
 
 
@@ -66,20 +66,26 @@ print "Content-type: text/html\n\n";
 		
 
 
+
 my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
 &send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
-
-
-
-
 
 
 	
 
 
-if ($vars->{pk}) { 
+if ($vars->{updated}) { 
 
-	if ($vars->{file_name}) { &api_file_upload();
+
+	if ($vars->{type} eq "text" || $vars->{type} eq "wysihtml5" || $vars->{type} eq "select") {  &api_textfield_update(); }
+
+	elsif ($vars->{type} eq "keylist") { &api_keylist_update();  }
+
+	elsif ($vars->{file_name}) { &api_file_upload();
+
+
+
+
 
     # Identify, Save and Associate File
 
@@ -88,23 +94,14 @@ if ($vars->{pk}) {
 #	elsif ($vars->{file_url}) { $file = &upload_url($vars->{file_url}); }		# File from URL
 	}
 
-	
+
+#my $return = &form_graph_list("post","60231","author");
 
 	
-	print <<END_OF_HTML;
-		Status: 503 Database Borked
-		Content-type: text/html
-		
-		<HTML>
-		<HEAD><TITLE>400 Bad Request</TITLE></HEAD>
-		<BODY>
-		  <H1>Error</H1>
-		  <P>Sorry, the database is currently not available. Please
-		    try again later.</P>
-	</BODY>
-	</HTML>
-END_OF_HTML
 
+
+	print $return;
+	exit;
 
 }
 
@@ -112,6 +109,95 @@ END_OF_HTML
 	print "Content-type: text/html\n\n";
 	print "ok";
 	exit;
+
+
+
+# API Keylist Update
+#
+# Find or, if not found, create a new $key record named $value
+# Then create a graph entry linking the new $key with $table $id
+#
+
+sub api_keylist_update {
+
+	my ($table,$key) = split /_/,$vars->{name};
+	my $id = $vars->{table_id};
+	my $value = $vars->{value};
+
+	# Split list of input $value by ;
+	my @keynamelist = split /;/,$value;
+
+	# For each member of the list...
+	foreach my $keyname (@keynamelist) {			
+
+		# Trim leading, trailing white space
+		$keyname =~ s/^ | $//g;	 			
+
+		# Are we looking for _name, _title ...?
+		my $keyfield = &get_key_namefield($key);
+
+		# can we find a record with that name or title?
+		my $keyrecord = &db_get_record($dbh,$key,{$keyfield=>$keyname});	
+
+		# Record wasn't found, create a new record, eg., a new 'author'
+		unless ($keyrecord) {
+
+			# Initialize values				
+			$keyrecord = {
+				$key."_creator"=>$Person->{person_id},
+				$key."_crdate"=>time,
+				$keyfield=>$keyname
+			};
+
+			# Save the values and obtain new record id
+			$keyrecord->{$key."_id"} = &db_insert($dbh,$query,$key,$keyrecord);
+		}	
+
+		# Error unless we have a new record id
+		print &error() unless $keyrecord->{$key."_id"};
+
+		# Save Graph Data
+		my $graphid = &db_insert($dbh,$query,"graph",{
+			graph_tableone=>$key, graph_idone=>$keyrecord->{$key."_id"}, graph_urlone=>$keyrecord->{$key."_url"},
+			graph_tabletwo=>$table, graph_idtwo=>$id, graph_urltwo=>"",
+			graph_creator=>$Person->{person_id}, graph_crdate=>time, graph_type=>"", graph_typeval=>""}); 
+	}
+	
+	# Return new graph output for the form		
+	print &form_graph_list($table,$id,$key);
+
+}
+
+
+
+sub api_textfield_update {
+
+my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+&send_email('stephen@downes.ca','stephen@downes.ca', 'testfield update',$str); 
+
+	my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id});
+	if ($id_number) { &api_ok();   } else { &api_error(); }
+	#die "api failed to update $vars->{table_name}  $vars->{table_id}";
+    #enless ($id_number);
+
+
+}
+
+sub api_ok {
+
+
+	print "&nbsp;&nbsp;&nbsp;&nbsp;ok!";
+	exit;
+
+}
+
+sub api_error {
+
+
+	print "300 API Error - failed to update $vars->{table_name}  $vars->{table_id} \n";
+	exit;
+
+}
 
 sub api_file_upload {
 
@@ -162,7 +248,7 @@ sub api_save_file {
 
 	my $graphid = &db_insert($dbh,$query,"graph",{
 		graph_tableone=>'file', graph_idone=>$file_record->{file_id}, graph_urlone=>$file_record->{file_url},
-		graph_tabletwo=>$vars->{graph_table}, graph_idtwo=>=>$vars->{graph_id}, graph_urltwo=>$urltwo,
+		graph_tabletwo=>$vars->{graph_table}, graph_idtwo=>$vars->{graph_id}, graph_urltwo=>$urltwo,
 		graph_creator=>$Person->{person_id}, graph_crdate=>time, graph_type=>$file_record->{file_type}, graph_typeval=>$graph_typeval}); 
 
 
