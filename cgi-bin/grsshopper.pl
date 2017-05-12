@@ -2918,6 +2918,52 @@ sub make_keylist {
 }
    	
    	
+# -------   Make Admin Nav ----------------------------------------------------------
+#
+#	Prints the navigation bar to create and list types of records
+#
+
+sub make_admin_nav {
+
+	my ($dbh,$text_ptr) = @_;
+
+   	return 1 unless ($$text_ptr =~ /<admin_nav(.*?)>/i);   
+   	
+   	my @tables = $dbh->tables();    	
+	while ($$text_ptr =~ /<admin_nav(.*?)>/ig) {
+		my $autocontent = $1; my $replace = ""; 
+				
+		my $replace = qq|
+			<div id="admin_table_nav">
+			[<a href="$Site->{script}">Admin</a>]<br/><br/>
+			|;
+
+		foreach my $table (@tables) {
+			$table =~ s/`//ig;
+			if ($table =~ /\./) { my $tmp; ($tmp,$table) = split /\./,$table; }
+			
+#			next unless (&is_viewable("nav",$table)); 		# Permissions
+
+			my $numb;
+			if ($table eq "feed") { $numb = "&number=1000"; }
+			elsif ($table eq "page") { $numb = "&number=500"; }
+
+			my $tname = ucfirst($table);
+			my $title = "List ".$tname."s";
+			$replace .= qq{
+				[<a href="$Site->{st_cgi}admin.cgi?db=$table&action=edit">New</a>]
+				[<a href="$Site->{st_cgi}admin.cgi?db=$table&action=list$numb">List</a>]
+				$tname <br />\n
+			};
+		}
+		$replace .= "</div>";
+		$$text_ptr =~ s/\Q<admin_nav$autocontent>\E/$replace/;
+	}
+	
+
+}
+
+   	
 #-------------------------------------------------------------------------------
 #
 # -------   Make Enclosures ------------------------------------------------------
@@ -4375,7 +4421,8 @@ sub form_editor() {
 				$table."_creator"=>$Person->{person_id},
 				$table."_crdate"=>time,
 				$table."_name"=>"New $table",
-				$table."_title"=>"New $table"
+				$table."_title"=>"New $table",
+				$table."_pub_date"=>&tz_date(time,"day","")
 			};
 
 			# Save the values and obtain new record id
@@ -4567,7 +4614,10 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 			next; 
 		}
 
-
+		if ( $col eq "view_text" || $col eq "template_description" ||  $col eq "page_code") {	
+			$form_text .= &form_textarea($col,80,15,$record->{$col});
+			next;
+		}
 						# Find the Size, if specified
 		my $size;
 		if ($coltypes->{$col} =~ /\((.*?)\)/) {
@@ -4585,11 +4635,11 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 #$form_text .= qq|<tr><td colspan="4"> $col,$fieldtype,$fieldsize,$fielddefault </td></tr>|;
 		
 						# Print Input Fields
-		if ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field")) {			
+		if ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "post")) {			
 			$form_text .= &form_keylist($table,$id_value,$sc);
 			# $form_text .=  &form_keyinput($col,$record->{$col},2);
-#		} elsif ( $col =~ /_description/) {	
-#			$form_text .=  &form_textarea($col,80,15,$record->{$col});	
+		} elsif ( $col eq /view_text/) {	
+			$form_text .= "Hello". &form_textarea($col,80,15,$record->{$col});	
 		}  elsif ($fieldstem eq "twitter") {
 			$form_text .=  &form_twitter($record,2);		
 		} elsif (($table eq "media") && ($fieldstem eq "link")) {
@@ -5544,34 +5594,25 @@ sub form_textarea {
 	my $title = $name;
 	$title =~ s/(.*?)_(.*?)/$2/;
 	$title = ucfirst($title);
-	my $output = "";
-	my $noEditor = "";
-	if ($name =~ /(template_|_code|view_|_rules|box_)/) { $noEditor = qq|class="mceNoEditor"|; }
-	else { $noEditor = qq|class="editme"|; }
 
 	my $rulesinfo; if ($name =~ /rules/) { 
-		$rulesinfo = qq| [<a href="http://grsshopper.downes.ca/rules.htm" target="_new">Rules Help</a>]|;
+		$rulesinfo = qq|<br>[<a href="http://grsshopper.downes.ca/rules.htm" target="_new">Rules Help</a>]|;
 		$rows=5;
 	}
+
+
+	my $output = qq|<tr><td align="right" valign="top">$col $rulesinfo</td><td colspan=3 width=800 valign="top">|;
+
+
 	$content =~ s/</&lt;/sig;
 	$content =~ s/>/&gt;/sig;
 
-	if ($name =~ /description|rules|code|content/) { 
-		$output .= qq|<tr><td colspan="4">$title$rulesinfo<br/>|;
-	} else {
-		# Hide most textareas unless needed
-		$output .= qq|<tr><td>$title</td><td colspan="3">
-		<div id="clasp_$name" class="clasp"><a href="javascript:lunchboxOpen('$name');">Open...</a></div></td></tr><tr><td colspan="4">
-		<div id="lunch_$name" class="lunchbox">
-		|;
-	}
-		
-	# Style width:auto to replace bootstrap default - line 802 in bootstrap.css
 	$output .= qq |
-		<textarea name="$name" cols="$cols" rows="$rows" style="width:auto;" $noEditor >$content</textarea>
+		<textarea name="$name" cols="79" rows="$rows">$content</textarea><br/>
+		<input type="submit" value="Update Record" class="button">
 		|;
 		
-	unless ($name =~ /description|rules/) {  $output .= qq|	</div>|; }	
+	
 	$output .= qq|</td></tr>|;
 	
 	return $output;
@@ -6034,7 +6075,8 @@ sub get_template {
 
 
 														# Format the template
-	&make_boxes($dbh,\$template);									# 	- Make boxes		
+	&make_boxes($dbh,\$template);									# 	- Make boxes	
+	&make_admin_nav($dbh,\$template);							# Admin Table Navigation Box
 	&make_counter($dbh,\$template);								# 	- Make counter	 
 	
 	&make_keywords($dbh,$query,\$template);							# 	- Make Keywords
@@ -8369,17 +8411,9 @@ sub send_email {
 
 	my ($to,$from,$subj,$page) = @_;
 	
-
-
-
-
-
-
-use Email::Stuffer;
-use Email::Sender::Transport::SMTP;
-
-
+	   $page = "Content-Type: text/html; charset=utf-8\n\n".$page;
    my $page_text = $page;
+
    $page_text =~ s/<head(.*?)head>//sig;
    $page_text =~ s/<style(.*?)style>//sig;
    $page_text =~ s/\[(.*?)\]//sig;
@@ -8390,6 +8424,51 @@ use Email::Sender::Transport::SMTP;
    $page_text =~ s/  //sig;
    $page_text =~ s/\r//sig;
    $page_text =~ s/\n\n/\n/sig;
+   
+	# I can make this much more efficient later
+   
+
+	$subj = '🍁' .$subj;	# Adds maple leaf emoji
+
+	my $html_file = $Site->{st_urlf}."email_html.htm";
+	my $text_file = $Site->{st_urlf} . "email_text.txt";
+	open OUTFILE, ">$html_file" or die "could not save $html_file for emailing. $!";
+	print OUTFILE $page;
+	close OUTFILE;
+	
+	open OUTFILE, ">$text_file" or die "could not save $text_file for emailing. $!";
+	print OUTFILE $page_text;
+	close OUTFILE;
+
+	
+    use MIME::Lite::TT::HTML;
+    
+    my $msg = MIME::Lite::TT::HTML->new(
+        From        => $from,
+        To          => $to,
+        Subject     => $subj,
+        TimeZone    => 'America/Toronto',
+        Encoding    => 'quoted-printable',
+        Template    => {
+            html => 'email_html.htm',
+            text => 'email_text.txt',
+        },
+        Charset     => 'UTF-8',
+        TmplOptions =>  {INCLUDE_PATH => $Site->{st_urlf}}
+       # TmplOptions => \%options,
+       # TmplParams  => \%params,
+    );
+    
+    $msg->send;
+
+return;
+
+
+
+use Email::Stuffer;
+use Email::Sender::Transport::SMTP;
+
+
 
 
 Email::Stuffer

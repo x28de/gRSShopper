@@ -67,8 +67,8 @@ print "Content-type: text/html\n\n";
 
 
 
-my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-&send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
+#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+#&send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
 
 
 	
@@ -172,8 +172,8 @@ sub api_keylist_update {
 
 sub api_textfield_update {
 
-my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-&send_email('stephen@downes.ca','stephen@downes.ca', 'testfield update',$str); 
+#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+#&send_email('stephen@downes.ca','stephen@downes.ca', 'testfield update',$str); 
 
 	my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id});
 	if ($id_number) { &api_ok();   } else { &api_error(); }
@@ -253,12 +253,12 @@ sub api_save_file {
 		graph_creator=>$Person->{person_id}, graph_crdate=>time, graph_type=>$file_record->{file_type}, graph_typeval=>$graph_typeval}); 
 
 
-my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-while (my ($x,$y) = each %$file) 	{ $str .= "$x = $y <br>\n"; }
-$str .= "Graph: $graphid <p>"; 
+#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+#while (my ($x,$y) = each %$file) 	{ $str .= "$x = $y <br>\n"; }
+#$str .= "Graph: $graphid <p>"; 
 
 
-&send_email('stephen@downes.ca','stephen@downes.ca', 'file upload',$str);
+#&send_email('stephen@downes.ca','stephen@downes.ca', 'file upload',$str);
 
 
 

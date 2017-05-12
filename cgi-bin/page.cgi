@@ -685,20 +685,26 @@ sub post_search {
 	$Site->{header} =~ s/\Q<page_title>\E/Search/g;
 	
 	print "Content-type: text/html; charset=utf-8\n\n";
-	print $Site->{header};	
+	
+
 	
 	my $newq = $vars->{q};
 	$newq =~ s/ /%20/g;
 
+	my $header = &db_get_template($dbh,"page_header","Search: $vars->{q}");
+	my $footer = &db_get_template($dbh,"page_footer","Search: $vars->{q}");
+	
+	my $output = $header;	
+	
 	$vars->{number}=20;
 	my ($sort,$start,$number,$limit) = &sort_start_number($query,"post");
 	my $searchtable = $vars->{db} || "post"; exit "No search permitted" if ($searchtable =~ /person/);
 	
-	print "<h2>Search</h2>";
+	$output .= "<h2>Search</h2>";
 	if ($searchtable eq "post") {
-		print qq|<p>This page: <a href="$Site->{st_url}search/$newq">$Site->{st_url}search/$newq</a></p>|;
+		$output .=  qq|<p>This page: <a href="$Site->{st_url}search/$newq">$Site->{st_url}search/$newq</a></p>|;
 	} else {
-		print qq|<p>This page: <a href="$Site->{st_url}search/$newq">$Site->{st_url}search/$searchtable/$newq</a></p>|;
+		$output .=  qq|<p>This page: <a href="$Site->{st_url}search/$newq">$Site->{st_url}search/$searchtable/$newq</a></p>|;
 	}
 	
 	my $keyword = qq|<keyword start=$start;db=$searchtable;sort=crdate DESC;number=$number;title,description~$vars->{q};truncate=500;format=search>|;
@@ -706,14 +712,20 @@ sub post_search {
 	
 	
 	
-	print $keyword;
+	
+	$output .= $keyword;
+
 	my $newstart = $vars->{start} + $vars->{number};
 	
 	unless ($results_count < $vars->{number}) {
-		print qq|<p>[<a href="$Site->{st_cgi}page.cgi?start=$newstart&q=$newq">Next $vars->{number} results</a>]|;
+		$output .=  qq|<p>[<a href="$Site->{st_cgi}page.cgi?start=$newstart&q=$newq">Next $vars->{number} results</a>]|;
 	}
 	
-	print $Site->{footer};
+	$output .=  $footer;
+	
+	my $page->{page_content} = $output;
+	&format_content($dbh,"","",$page);
+	print $page->{page_content};
 	exit;
 	
 }

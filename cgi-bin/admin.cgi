@@ -22,7 +22,7 @@
 #           Admin Functions 
 #
 #-------------------------------------------------------------------------------
-
+#print "Content-type: text/html\n\n";
 
 
 # Diagnostics
@@ -93,8 +93,19 @@
 
 	 #    use Image::Thumbnail 0.65;
 
+print "Content-type: text/html\n\n";
+my $psql = "SELECT * FROM publication";
+my $psth = $dbh->prepare($psql);
+$psth->execute();
+while (my $pub = $psth -> fetchrow_hashref()) { 
 
+#	my $graphid = &db_insert($dbh,$query,"graph",{
+#		graph_tableone=>'publication', graph_idone=>$pub->{publication_id}, graph_urlone=>'',
+#		graph_tabletwo=>'post', graph_idtwo=>$pub->{publication_post},graph_urltwo=>'',
+#		graph_creator=>$Person->{person_id}, graph_crdate=>time, graph_type=>'published', graph_typeval=>''}); 
+# print "graph $graphic $pub->{publication_title} -- $pub->{publication_id} - $pub->{publication_post} <br>";
 
+}
 
 # Analyze Request --------------------------------------------------------------------
 
@@ -177,6 +188,7 @@ if ($action) {
 														# Site Configuration
 														
 		/config/ && do { &admin_update_config($dbh,$query); last;	};		#	- Update config data
+		/export_table/ && do { &admin_db_export($dbh,$query); last;	};		#	- export a table
 		/db_pack/ && do {&admin_db_pack($dbh,$query); last;		};		#	- Make a new pack
 		/showcolumns/ && do { &showcolumns($dbh,$query); last; };			#	- Show the columns in a table
 		/addcolumn/ && do { &addcolumn($dbh,$query); last; };				#	- Add new column to a table
@@ -1243,11 +1255,16 @@ sub admin_database {
 		
 		
 	$content .= qq|		
-		<h3>Export Data</h3><ul>
-		Export scripts use <b>mysqldump</b> and assume you are using MySQL and Linux. If you
-		are not set up this way you will need to replace the export scripts with scripts that 
-		will work for your system.<br/><br/>
-		</ul>|;	
+		<h3>Export Data</h3><ul><table border=1 cellpadding=10>
+		Export a table in the format desired. Exported data will be sent to your browser; save page as desired.<br/><br/>|;
+		foreach my $t (@tables) { 	
+			
+			$content .= qq|<tr><td>$t</td><td><a href="$Site->{st_cgi}admin.cgi?action=export_table&table=$t&format=tab">tab delimited</a></td></tr>		
+			|
+			
+		}	
+		
+	$content .=  qq|</table></ul>|;	
 		
 			
 	$content .= qq|		
@@ -1348,6 +1365,29 @@ sub run_sql_file {
       print &printlang("Run OK",$sqlFile),"<br/>";
       exit; 	
 }
+
+sub admin_db_export {
+	
+	my ($dbh,$query) = @_;	
+	my $vars = $query->Vars;
+	
+	print "Content-type: text/plain\n\n";
+	my $sth= $dbh->prepare(qq|select * from $vars->{table}|);
+	$sth->execute();
+	
+	my $fields = join "\t" , @{$sth->{NAME}};
+	print $fields,"\n";	
+
+	my $count = 0;
+	while (my $row = $sth->fetchrow_arrayref()) {
+		foreach my $r (@$row) { $row[$count] =~ s/\t/    /g; $count++;}
+		print join( "\t", map( {$dbh->quote($_)} @$row)),"\n";
+	}
+	$dbh->disconnect;
+
+	}
+
+
 
 sub admin_db_pack {
 	
@@ -2399,30 +2439,45 @@ sub list_records {
 						# Execute SQL search
 
 	my $stmt = qq|SELECT * FROM $table $where $sort $limit|;
-	if ($table eq "cache") { $stmt = qq|SELECT * FROM cache limit 100|;	}
+	# print $stmt;	
 
 	my $sthl = $dbh->prepare($stmt);
 	$sthl->execute();
-		if ($sthl->errstr) { print "Content-type: text/html\n\n";print "DB LIST ERROR: ".$sthl->errstr." <p>"; exit; }
+	if ($sthl->errstr) { print "Content-type: text/html\n\n";print "DB LIST ERROR: ".$sthl->errstr." <p>"; exit; }
+
 	$output .=  "<p>\n";
+
 	while (my $list_record = $sthl -> fetchrow_hashref()) {
 	
 		my $rid = $list_record->{$table."_id"};
-		
-# 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Spam&$table=$rid')">Spam</a>] 		
 
+
+		if ($table eq "author_list") { 
+			$output .= qq|$list_record->{author_list_id}
+			 Author <a href="http://www.downes.ca/author/$list_record->{author_list_author}">$list_record->{author_list_author}</a> $list_record->{author_list_table}
+			 <a href="http://www.downes.ca/$list_record->{author_list_table}/$list_record->{author_list_item}">$list_record->{author_list_item}</a>
+			 <br>|; next;
+		}
+		
+# 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Spam&$table=$rid')">Spam</a>] 
+		
+						my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
+                                                localtime($list_record->{$table."_crdate"});
+                                                $year = $year + 1900;
+                                                my @abbr = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+                                                
 		if ($table eq "page" || $table eq "link" || $table eq "post" || $table eq "element" ) {
 			$output .= qq|
 			[<a href="$Site->{st_cgi}admin.cgi?action=edit&$table=$rid">Edit</a>]
 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Delete&$table=$rid')">Delete</a>]
-			<a href="$Site->{st_url}$table/$rid">$list_record->{$table."_title"}</a><br/>
+			<a href="$Site->{st_url}$table/$rid">$list_record->{$table."_title"}</a>, $mday $abbr[$mon] $year<br/>
 			|;
-			
 			next;
+
 				
 		}
 	
-		
+	
 #print "<hr>";while (my($lx,$ly) = each %$list_record) { print "$lx = $ly <br>"; }
 
 		#&db_update($dbh,"feed", {feed_status => "A"},$list_record->{feed_id} );
