@@ -7176,7 +7176,7 @@ sub autodates {
 		elsif ($format eq "datepicker") { $replace = &tz_date($time,"min",$tz); }
 		elsif ($format eq "iso") { $replace = &iso_date($time,"day",$tz); }
 		elsif ($format eq "isoh") { $replace = &iso_date($time,"min",$tz); }		
-		else { $relace = "Autodates error"; }
+		else { $replace = "Autodates error"; }
 		
 	
 		$$text_ptr =~ s/<date $autocontent>/$replace/sg

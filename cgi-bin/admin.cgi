@@ -22,7 +22,7 @@
 #           Admin Functions 
 #
 #-------------------------------------------------------------------------------
-#print "Content-type: text/html\n\n";
+print "Content-type: text/html\n\n";
 
 
 # Diagnostics
@@ -79,8 +79,7 @@
 
 	if ($vars->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }		
 		
-
-
+	
 
 
 # To fix
@@ -93,11 +92,11 @@
 
 	 #    use Image::Thumbnail 0.65;
 
-print "Content-type: text/html\n\n";
-my $psql = "SELECT * FROM publication";
-my $psth = $dbh->prepare($psql);
-$psth->execute();
-while (my $pub = $psth -> fetchrow_hashref()) { 
+
+#my $psql = "SELECT * FROM publication";
+#my $psth = $dbh->prepare($psql);
+#$psth->execute();
+#while (my $pub = $psth -> fetchrow_hashref()) { 
 
 #	my $graphid = &db_insert($dbh,$query,"graph",{
 #		graph_tableone=>'publication', graph_idone=>$pub->{publication_id}, graph_urlone=>'',
@@ -105,13 +104,15 @@ while (my $pub = $psth -> fetchrow_hashref()) {
 #		graph_creator=>$Person->{person_id}, graph_crdate=>time, graph_type=>'published', graph_typeval=>''}); 
 # print "graph $graphic $pub->{publication_title} -- $pub->{publication_id} - $pub->{publication_post} <br>";
 
-}
+#}
 
 # Analyze Request --------------------------------------------------------------------
 
-# Determine Action ( assumes admin.cgi?action=$action )
+# Determine Action ( assumes admin.cgi?action=$action&id=$id )
 
-	my $action = $vars->{action};			
+	my $action = $vars->{action};
+	my $id = $vars->{id};
+				
 
 # Determine Request Table, ID number ( assumes admin.cgi?$table=$id and not performing action other than list or edit)
 
@@ -146,7 +147,7 @@ if ($action eq "list") { $format = "list"; }
 $format ||= "html";		# Default to HTML
 
 
-	
+
 
 # Actions ------------------------------------------------------------------------------
 
@@ -201,7 +202,7 @@ if ($action) {
 
 		/publish/ && do { 
 				if ($table eq "badge"){ &publish_badge($dbh,$query,$id,"verbose"); last;} 
-				else { &publish_page($dbh,$query,$id,"verbose"); last; } };
+				else { &publish_page($dbh,$query,$vars->{page},"verbose"); last; } };
 				
 		/rollup/ && do { &news_rollup($dbh,$query); last;			};	#	- Show posts allocated to future newsletters
 		/autosub/ && do { &autosubscribe_all($dbh,$query); last;   };			#	- Auto-subscribe all users to newsletter
