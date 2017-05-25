@@ -2220,6 +2220,7 @@ sub email_password {
 
 				# Page header
 	my $pagetitle = &printlang("Password reset",$Site->{st_name});	
+
 	$Site->{header} =~ s/\Q[*page_title*]\E/$pagetitle/g;	
 	print "Content-type: text/html; charset=utf-8\n\n";
 		
@@ -2239,6 +2240,7 @@ sub email_password {
 	print "</div>";
 	print $Site->{footer};
 }
+
 
 
 #   -------------------------------------------------------------------------------------

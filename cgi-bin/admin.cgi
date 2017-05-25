@@ -44,9 +44,13 @@ print "Content-type: text/html\n\n";
 	require $dirname . "/grsshopper.pl";	
 								
 
+
 # Load modules
 
 	our ($query,$vars) = &load_modules("admin");
+	
+
+
 
 
 # Load Site
@@ -92,6 +96,9 @@ print "Content-type: text/html\n\n";
 
 	 #    use Image::Thumbnail 0.65;
 
+	
+
+
 
 #my $psql = "SELECT * FROM publication";
 #my $psth = $dbh->prepare($psql);
@@ -106,19 +113,34 @@ print "Content-type: text/html\n\n";
 
 #}
 
-# Analyze Request --------------------------------------------------------------------
+my $data = qq|
 
+data,text;
+edit,tinyint,1;
+fields,text;
+show,varchar,250;
+title,varchar,250;
+view,tinyint,1
+|;
+
+#&db_drop_table($dbh,"element");
+#&db_create_table($dbh,"form",$data);
+
+# Analyze Request --------------------------------------------------------------------
+	
 # Determine Action ( assumes admin.cgi?action=$action&id=$id )
 
 	my $action = $vars->{action};
 	my $id = $vars->{id};
 				
 
-# Determine Request Table, ID number ( assumes admin.cgi?$table=$id and not performing action other than list or edit)
+
+# Determine Request Table, ID number ( assumes admin.cgi?$table=$id and not performing action other than list, edit or delete)
 
 	my @tables = &db_tables($dbh);
 	foreach $t (@tables) { 
-		if ((!$action || $action eq "edit" || $action eq"list") && $vars->{$t}) { 
+	
+		if ((!$action || $action =~ /^edit$/i || $action =~ /^list$/i || $action =~ /^Delete$/i) && $vars->{$t}) { 
 			$table = $t;	
 			$id = $vars->{$t}; 
 			$vars->{id} = $id;
@@ -153,8 +175,11 @@ $format ||= "html";		# Default to HTML
 
 # Perform Action, or
 
-if ($action) {					
 
+
+
+
+if ($action) {					
 
 	for ($action) {
 														# Main admin menu nav
@@ -168,16 +193,19 @@ if ($action) {
 		/logs/ && do { &admin_logs($dbh,$query); last;		};			#	- Logs Menu
 		/accounts/ && do { &admin_accounts($dbh,$query); last;		};		#	- Accounts Menu
 		/permissions/ && do { &admin_permissions($dbh,$query); last;		};	#	- Permissions Menu
+	
+		
 		
 		
 														# Editing Functions
 														
 		/list/ && do { &list_records($dbh,$query,$table); last;		};		#	- List records
 		/edit/i && do { &edit_record($dbh,$query,$table,$id); last; 	};		#	- Edit Record - Show the Editing form
-		/update/ && do { &update_record($dbh,$query,$table,$id); last; }		# 	- Edit Record - Update with input data											
-		/Delete/i && do { &record_delete($dbh,$query,$table,$id); last; };		#	- Delete Record 
+		/update/ && do { &update_record($dbh,$query,$table,$id); last; };		# 	- Edit Record - Update with input data											
+		/Delete/i && do	{ &record_delete($dbh,$query,$table,$id);last; };		#	- Delete Record 
 		/Spam/i && do { &record_delete($dbh,$query,$table,$id);  last; };		#	- Delete Record and log creator IP to Spam	
 		/multi/i && do { &admin_multi($dbh,$query); last;		};		#	- Multi-Delete Record (FIXME needs work)		
+		
 		
 			
 														# Feed Functions
@@ -258,6 +286,7 @@ if ($action) {
 		/cstats/ && do { &calculate_cstats($dbh,$query); last; };
 
 	}
+
 
 # Output Record, or
 
@@ -1450,6 +1479,7 @@ sub admin_update_config {
 		
 		# Status Message
 		$vars->{msg} .= "$vars->{title} : $vx has been set to $vy <br/>";
+		
 	}
 
 
@@ -2327,8 +2357,7 @@ sub list_records {
 	my ($dbh,$query,$table) = @_;
 	my $vars = $query->Vars;
 	my $output = "";
-	
-	
+
 	
 
 	$vars->{where} =~ s/[^\w\s]//ig;	# chars only, no SQL injection for you
@@ -2340,10 +2369,10 @@ sub list_records {
 						# Output Format
 	my $format = $table ."_list";
 
-						# Print Page Header
+	# Print Page Header
 	$output .= "<h2>List ".$table."s</h2>";
 
-	# Search Form
+	# Set Up Search Form
 	my $titname; my $titoptions; my $titselected;
 	if ($vars->{titname}) { $titname = $vars->{titname}; }
 	elsif ($table =~ /^author$|^person$|^badge$/) { $titname = "name"; }
@@ -2359,7 +2388,7 @@ sub list_records {
 	
 	
 	
-	
+	# Print Search Form	
 	
 	$output .= qq|
 		<p> <form method="post" action="$Site->{st_cgi}admin.cgi"> &nbsp; 
@@ -2377,6 +2406,10 @@ sub list_records {
 	if ($vars->{where}) { $output .= "<p>Searching for  $vars->{where} </p>"; }
 
 
+	# Special for certain tables....
+	
+	# Event	
+
 	if ($table eq "event") {
 		my $ctz = $vars->{timezone} || $Site->{st_timezone};
 		$output .= qq|<p><form method="post" action="admin.cgi">
@@ -2388,6 +2421,9 @@ sub list_records {
 		$output .=  &tzdropdown($query,$ctz);
 		$output .=  qq|<input type="submit" value="Select time zone">
 			</form></p>|;
+			
+	# Page		
+			
 	} elsif ($table eq "page") {
 		$output .=  qq|<p><form method="post" action="admin.cgi">
 			<input type="hidden" name="page" value="all">
@@ -2397,29 +2433,35 @@ sub list_records {
 			</form></p>|;
 	}
 
-	if ($vars->{msg}) {
-		$output .=  qq|<p class="notice">$vars->{msg}</p>|;
+
+	# Print Status Message to Output string
+	
+	if ($vars->{msg} || $Site->{msg}) {
+		$output .=  qq|<p class="notice">$vars->{msg}  $Site->{msg}</p>|;
 	}
 
-						# Count Number of Items
-	my $count = &db_count($dbh,$table);
-						# Set Sort, Start, Number values
 
+	# Count Number of Items
+	my $count = &db_count($dbh,$table);
+
+	# Set Sort, Start, Number values
 	my ($sort,$start,$number,$limit) = &sort_start_number($query,$table);
 	$output .=  "<p>Listing $start to ".($start+$number)." of $count ".$table."s</p>";
+
+
 	
-						# Start multi-select form
+	# Start multi-select form ( *** Multi-select is Broken **)
 	$output .= qq|<form method="post" action="admin.cgi" name="multi" onSubmit="return confirmPost();">|;
 
-						# Set Conditions Related to Permissions
+	# Set Conditions Related to Permissions
 	my $permtype = "list_".$table; my $where;
 	if ($Site->{$permtype} eq "owner" && $Person->{person_status} ne "admin") {
 			$where = "WHERE ".$table."_creator = '".$Person->{person_id}."'";
 
 	} else { $where = ""; }
 
-						# Set Search Conditions
 
+	# Set Search Conditions
 	my $titsearch = $table ."_". $titname;						
 
 	if ($vars->{where}) {
@@ -2437,7 +2479,7 @@ sub list_records {
 		
 	}				
 
-						# Execute SQL search
+	# Execute SQL search
 
 	my $stmt = qq|SELECT * FROM $table $where $sort $limit|;
 	# print $stmt;	
@@ -2448,11 +2490,14 @@ sub list_records {
 
 	$output .=  "<p>\n";
 
+
+	# Print the output for each item
+	
 	while (my $list_record = $sthl -> fetchrow_hashref()) {
 	
 		my $rid = $list_record->{$table."_id"};
 
-
+		# Special for Author
 		if ($table eq "author_list") { 
 			$output .= qq|$list_record->{author_list_id}
 			 Author <a href="http://www.downes.ca/author/$list_record->{author_list_author}">$list_record->{author_list_author}</a> $list_record->{author_list_table}
@@ -2460,14 +2505,18 @@ sub list_records {
 			 <br>|; next;
 		}
 		
+		
 # 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Spam&$table=$rid')">Spam</a>] 
 		
-						my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
-                                                localtime($list_record->{$table."_crdate"});
-                                                $year = $year + 1900;
-                                                my @abbr = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+		# Set up time data (should be replaced by autodates() at some point)
+		my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
+                       localtime($list_record->{$table."_crdate"});
+                $year = $year + 1900;
+                my @abbr = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
                                                 
-		if ($table eq "page" || $table eq "link" || $table eq "post" || $table eq "element" ) {
+                                                
+                # Print raw list for key things                                
+		if ($table eq "page" || $table eq "link" || $table eq "post" || $table eq "element" || $table eq "form" ) {
 			$output .= qq|
 			[<a href="$Site->{st_cgi}admin.cgi?action=edit&$table=$rid">Edit</a>]
 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Delete&$table=$rid')">Delete</a>]
@@ -2481,24 +2530,26 @@ sub list_records {
 	
 #print "<hr>";while (my($lx,$ly) = each %$list_record) { print "$lx = $ly <br>"; }
 
-		#&db_update($dbh,"feed", {feed_status => "A"},$list_record->{feed_id} );
-
-						# Format Record
-						
-		if ($list_record->{page_type} eq "course") {
-			$format = "page_course_list";
-		}
+#&db_update($dbh,"feed", {feed_status => "A"},$list_record->{feed_id} );
 
 #print qq|Format Record $table $list_record->{$table."_id"}<br>|;
-		my $record_text = &format_record($dbh,$query,$table,$format,$list_record,1);
-			
-		&autodates(\$record_text);
+
+
+		# Format Record
 						
+		if ($list_record->{page_type} eq "course") { $format = "page_course_list"; }
+		my $record_text = &format_record($dbh,$query,$table,$format,$list_record,1);
+		&autodates(\$record_text);
 		&autotimezones($query,\$record_text); 	# Fill timezone dates
+
+
+		# Print record to output string
+
 		$output .=  $record_text;
 
 	}
 
+	# Finish multi-select form ( *** Multi-select is Broken **)
 
 	$output .=  "</p>\n<p>\n";
 	$output .= qq|Multi: 
@@ -2507,11 +2558,15 @@ sub list_records {
 		<input type="submit" name="multi_action" value="Delete">|;
 	$output .=  "</form></p>\n<p>\n";
 
+
+	# print 'Next' information to output string
+	
 	$output .=  &next_button($query,$table,"list",$start,$number,$count);
-#	print &admin_nav($dbh,$query);
+
 
 	$sthl->finish( );
 
+	# print output in Admin frame
 	
 	&admin_frame($dbh,$query,"List ".$table."s",$output);
 }
@@ -2886,6 +2941,7 @@ sub file_upload_dir {
 sub edit_record {
 
 						# Get variables
+					
 						
 	my ($dbh,$query,$table,$id_number,$viewer) = @_;
 	my $id; my $id_value;						# Not needed, but let's wipe out the value
@@ -2995,6 +3051,7 @@ sub remove_key {
 
 sub record_delete {
 	my ($dbh,$query,$table,$id,$mode) = @_;
+
 	my $vars = $query->Vars;
 	
 						# Get Record from DB
@@ -3004,7 +3061,7 @@ sub record_delete {
 
 			
 						# Permissions
-	return unless (&is_allowed("delete",$table,$wp)); 			
+	die "You are not allowed to delete this record" unless (&is_allowed("delete",$table,$wp)); 			
 	my $readername = $Person->{person_name} || $Person->{person_title};
 		
 						# Ban spam sender IP
@@ -3018,6 +3075,7 @@ sub record_delete {
 	}
 	
 						# Delete the record
+						
 	&db_delete($dbh,$table,$table."_id",$id);
 	
 						# Delete related graph entries

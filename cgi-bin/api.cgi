@@ -76,10 +76,11 @@ print "Content-type: text/html\n\n";
 
 if ($vars->{updated}) { 
 
-
-	if ($vars->{type} eq "text" || $vars->{type} eq "wysihtml5" || $vars->{type} eq "select") {  &api_textfield_update(); }
+	if ($vars->{type} eq "text" || $vars->{type} eq "textarea"  || $vars->{type} eq "wysihtml5" || $vars->{type} eq "select") {  &api_textfield_update(); }
 
 	elsif ($vars->{type} eq "keylist") { &api_keylist_update();  }
+	
+	elsif ($vars->{type} eq "data") { &api_data_update();  }
 
 	elsif ($vars->{file_name}) { &api_file_upload();
 
@@ -121,6 +122,8 @@ if ($vars->{updated}) {
 sub api_keylist_update {
 
 	my ($table,$key) = split /_/,$vars->{name};
+	die "Field does not exist" unless &__check_field($table,$vars->{name}); 
+	
 	my $id = $vars->{table_id};
 	my $value = $vars->{value};
 
@@ -173,10 +176,48 @@ sub api_keylist_update {
 sub api_textfield_update {
 
 #my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-#&send_email('stephen@downes.ca','stephen@downes.ca', 'testfield update',$str); 
+#&send_email('stephen@downes.ca','stephen@downes.ca', 'textfield update',$str."$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id}"); 
 
+
+	die "Field does not exist" unless (&__check_field($vars->{table_name},$vars->{name})); 
 	my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id});
 	if ($id_number) { &api_ok();   } else { &api_error(); }
+	die "api failed to update $vars->{table_name}  $vars->{table_id}" unless ($id_number);
+
+
+}
+
+sub api_data_update {
+
+
+
+    my $data = "";
+    for (my $i=-1; $i < 100; $i++) {
+    	my $row = "";
+    	for (my $j=-1; $j < 100; $j++) { 
+    	   my $slot = $i."-".$j;	
+	   if ($vars->{$slot}) { 
+	   	if ($row) { $row .= ","; }   
+	   	$row .= $vars->{$slot};
+	   }		
+        }
+        if ($data && $row) { $data .= ";"; }   
+	$data .= $row;
+    }
+
+#$data = qq|name,type,size;name,textarea,256;nickname,textarea,256|;
+    my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{field_name} => $data}, $vars->{table_id});
+
+
+#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+#&send_email('stephen@downes.ca','stephen@downes.ca', 'data  update',$str.$data);    
+    
+    if ($id_number) { &api_ok();   } else { &api_error(); }
+
+
+
+#	my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id});
+#	if ($id_number) { &api_ok();   } else { &api_error(); }
 	#die "api failed to update $vars->{table_name}  $vars->{table_id}";
     #enless ($id_number);
 
@@ -201,6 +242,7 @@ sub api_error {
 
 sub api_file_upload {
 
+			
 						
 
 
@@ -347,5 +389,14 @@ sub save_file {
 	if ($file_record->{file_id}) { return $file_record; }
 	else { &error($dbh,"","","File save failed: $! <br>"); }
 	
+	
+}
+
+sub __check_field {
+	my ($table,$field) = @_;
+	
+	my @columns = &db_columns($dbh,$table);
+	return 1 if (&index_of($field,\@columns)>-1);
+	return 0;
 	
 }

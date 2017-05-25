@@ -203,7 +203,6 @@ sub get_site {
 		unless ($Site->{lang_default}) { $Site->{lang_default} = $lang; }
 		unless ($Site->{lang_user}) { $Site->{lang_user} = $lang; }
 
-
 		my $lang_filename = $Site->{scriptdir} . "/languages/".$lang . ".pl";
 			
 		if (-e $lang_filename) { 	
@@ -213,7 +212,8 @@ sub get_site {
 		}		
 	}	
 
-	
+
+		
 
 										# Open Site Database
 
@@ -229,7 +229,7 @@ sub get_site {
 										# Get Site Info From Database	
 	&get_config($dbh);
 
-	
+		
 
 	
 	my $upload_limit = $Site->{file_limit} || 10000;		# File Upload Limit
@@ -242,15 +242,17 @@ sub get_site {
 
 sub get_config {
 
+
 	my ($dbh) = @_;
 	my $sth = $dbh->prepare("SELECT * FROM config");
 	$sth -> execute();
 	while (my $c = $sth -> fetchrow_hashref()) { 
-		next if ($c->{config_noun} =~ /script|st_home|st_url|st_cgi|co_host/ig);	# Can't change basic site data
+		next if ($c->{config_noun} =~ /script|st_home|st_url|st_cgi|co_host|msg/ig);	# Can't change basic site data
 		next unless ($c->{config_value});
 		$Site->{$c->{config_noun}} = $c->{config_value};
 	}
 	$sth->finish();
+
 }
 
 
@@ -4392,13 +4394,13 @@ sub form_editor() {
 	
 	my ($dbh,$query,$table,$showcols,$id_number,$data) = @_;
 
-	my $vars = $query->Vars;
+
+	
 	my $form_text = "";
 	my $autoblog = $vars->{autoblog};
 	my $id; my $id_value;						# Not needed, but let's wipe out the value
 										# in case they're used accidentally. Heh
-
-
+	
 
 
 	# Check Starting Data
@@ -4406,7 +4408,6 @@ sub form_editor() {
 	unless ($dbh) { &error($dbh,$query,"","Database not ready") }	
 	unless ($table) { &error($dbh,$query,"","A record type must be provided."); }
 	my $id_value = "";
-
 
 	# If Record doesn't exist, create a new empty record
 
@@ -4438,7 +4439,6 @@ sub form_editor() {
 
 	my $record; my $quotationtext; my $link; my $feed;	
 	$record = &db_get_record($dbh,$table,{$table."_id" => $id_number});
-
 
 
 						# Permissions
@@ -4490,14 +4490,13 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 
 
 
-
 						# Create thread options
 				
 
 	$form_text .= &form_thread_options($table,$id_number,$record->{$table."_location"});
 
 						# Stuff for courses
-						
+					
 						
 	if ($record->{page_type} eq "course") {
 		$form_text .=  qq|[<a href="course.cgi?action=review&page=$record->{page_id}">Review Entire Course</a>]<br/><br/>|;
@@ -4533,7 +4532,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		|
  	}
 		 
-	 
+ 
 		 
 	if ($autoblog) {
 		$form_text .= qq|<table border=0 cellpadding=10 cellspacing=0><tr><td>
@@ -4544,15 +4543,8 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 	
 						# Get the full list of tables, for crosslinks
 						
-	my @db_tables_a = $dbh->tables(); my @db_tables;			
-	foreach my $dta (@db_tables_a) { $dta =~ s/`//g; push @db_tables_b,$dta; }			#`
-	foreach my $dtb (@db_tables_b) { 
-		if ($dtb =~ /\./) { 		# Strip db name
-			my ($bd,$dt) = split /\./,$dtb;
-			$dtb = $dt;
-		}
-		push @db_tables,$dtb;  
-	}
+
+	my @db_tables = &db_tables($dbh);
 	
 	
 	#foreach my $dt (@db_tables) { print "$dt<br>";  }	
@@ -4568,30 +4560,80 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 
 	$Site->{newrow} eq "1";
 	
-	# Get list of field data types for table (from the Element table)
+	# Find the list for fields to display...
+	my @fieldlist;
 	
-	my $tableid = &db_locate($dbh,"element",{element_title=>$table});
-	my $table_data = &db_get_single_value($dbh,"element","element_data",$tableid);
-	my @fieldlist = split /;/,$table_data;
+	# If the Form table exists
 	
-	unless (@fieldlist) {					# Backup in case the table hasn't been defined in Element
+	if (&db_table_exist($dbh,"form")  && !defined($vars->{raw_data})) {
+	
+		# Find the record for the current $table 
+		my $tableid = &db_locate($dbh,"form",{form_title=>$table});
+				
+		# If the $table record exists
+		if ($tableid) { 
+			
+			# Get the 'data' from the record, and split it into fields
+			my $table_data = &db_get_single_value($dbh,"form","form_data",$tableid);
+			@fieldlist = split /;/,$table_data;
+		}
+	
+	}
+	
+	# If the form table doesn't exist, or doesn't have a record for $table, or is over-ridden in options...
+	
+	unless (@fieldlist) {	
+		
+		# Push headings into the @Fieldlist data
+		push @fieldlist,"Name,Type,Size,Default";	
+		
+		# Get the list of columns from the database			
 		my @columns = (); my $coltypes = ();			 
 		my $showstmt = "SHOW COLUMNS FROM $table";
 		my $sth = $dbh -> prepare($showstmt);
 		$sth -> execute();
+		
+		# For each column...
 		while (my $showref = $sth -> fetchrow_hashref()) { 
-push @columns,$showref->{Field}; 
-$coltypes->{$showref->{Field}} = $showref->{Type};
+			
+			# Add it to the list of coluymns in @columns
+			push @columns,$showref->{Field}; 
+
+			# Save type information to the $coltypes hash
+			$coltypes->{$showref->{Field}} = $showref->{Type};
+
+			# Normalize the column name
+			my $fullfieldname = $showref->{Field};
 			my $prefix = $table."_"; $showref->{Field} =~ s/$prefix//; 
+			
+			# Extract column type and length values
 			my ($fieldtype,$fieldsize) = split /\(|\)/,$showref->{Type};
+			if ($fieldsize+0 == 0) { $fieldsize = 10; }  # Prevent 0 fieldsize
+			
+			# Some defaults fieldtypes for important fields
+
+			if ($table eq "form" && $showref->{Field} eq "data") { $fieldtype = "data"; }
+			if ($table eq "optlist" && $showref->{Field} eq "data") { $fieldtype = "text"; }
+			if ($showref->{Field} eq "description") { $fieldtype = "text"; }
+			if ($showref->{Field} eq "data") { $fieldtype = "data"; }
+			if ($fullfieldname =~ /_file/) { $fieldtype = "file"; }
+			if (&db_get_record($dbh,"optlist",{optlist_title=>$fullfieldname})) { $fieldtype = "optlist"; }
+			if ($table eq "post" && ($showref->{Field} eq "author" || $showref->{Field} eq "feed")) { $fieldtype = "keylist"; } # Temporary
+
+			# Push the column information into the new @fieldlist array 
+			# (which will now look just like the comma-delimited data if it were retrieved from the Form table
 			push @fieldlist,"$showref->{Field},$fieldtype,$fieldsize,$showref->{Default}";
 		}	
 	
 	}
 	
-	# Process each field in turn
+	# Process each field in @fieldlist in turn
 	
+	my $rowcounter = 0;
 	foreach my $f (@fieldlist) {
+		
+		# Skip headings in Form data table
+		$rowcounter++; next if ($rowcounter == 1);
 
 		# get field name, type, size and default value
 
@@ -4601,23 +4643,18 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 		$sc = $col;
   		$col = $table."_".$col;	
  
- 
+
  		
   		#$col = $table ."_" . $fieldlist_items[0];
 
 ######################
 
-		# Test for canonical vocabulary
-		my $opts = &db_get_record($dbh,"optlist",{optlist_title=>$col});
-		if ($opts->{optlist_data} || $opts->{optlist_list}) { 
-			$form_text .=  &form_select($dbh,$table,$col,$record,$opts);  
-			next; 
-		}
 
-		if ( $col eq "view_text" || $col eq "template_description" ||  $col eq "page_code") {	
-			$form_text .= &form_textarea($col,80,15,$record->{$col});
-			next;
-		}
+
+
+
+
+
 						# Find the Size, if specified
 		my $size;
 		if ($coltypes->{$col} =~ /\((.*?)\)/) {
@@ -4632,14 +4669,39 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 
 		my $keylist=0; foreach my $tab (@db_tables) { if ($tab eq $sc) { $keylist=1; last; } }
 
-#$form_text .= qq|<tr><td colspan="4"> $col,$fieldtype,$fieldsize,$fielddefault </td></tr>|;
+
+
+
+		# Print Input Fields
+						
+		# Keylist				
+		if ($fieldtype eq "keylist") { $form_text .= &form_keylist($table,$id_value,$sc); }			
 		
-						# Print Input Fields
-		if ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "post")) {			
+		# Varchar
+		elsif ($fieldtype eq "varchar") { $form_text .=  &form_textinput($record,$col,4); }
+		
+		# HTML text  (wysihtml)
+		elsif ($fieldtype eq "html") { $form_text .= &form_wysihtml($record,$col,4); }
+		
+		# Text       (textarea)
+		elsif ($fieldtype eq "text") { $form_text .= &form_textarea($record,$col,$fieldsize); }
+		
+		# Rules       (textarea)
+		elsif ($fieldtype eq "rules") { $form_text .= &form_rules($record,$col,$fieldsize); }
+		
+		# Option List (Selections defined in the'optlist' table; defaults to varchar if options are missing)
+		elsif ($fieldtype eq "optlist") { $form_text .=  &form_select($record,$col); }
+		
+		# Data  - each line ; delimited  and individual items , delimited. First line is data headers 
+		elsif ($fieldtype eq "data") { $form_text .=  &form_data($col,$record->{$col},$id_number,$table); }		
+		
+		# File			
+		elsif ($fieldtype eq "file") { $form_text .=  &form_file_select($dbh,$table,$id_number); }
+						
+		elsif ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "post")) {			
 			$form_text .= &form_keylist($table,$id_value,$sc);
 			# $form_text .=  &form_keyinput($col,$record->{$col},2);
-		} elsif ( $col eq /view_text/) {	
-			$form_text .= "Hello". &form_textarea($col,80,15,$record->{$col});	
+	
 		}  elsif ($fieldstem eq "twitter") {
 			$form_text .=  &form_twitter($record,2);		
 		} elsif (($table eq "media") && ($fieldstem eq "link")) {
@@ -4656,7 +4718,7 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 		} elsif ($col =~ /_date/) {
 			$form_text .=  &form_date_select($col,$record->{$col});
 		} elsif ($col =~ /_data/) {
-			$form_text .=  &form_data($col,$record->{$col},$table);
+			$form_text .=  &form_data($col,$record->{$col},$id_number,$table);
 		} elsif ($col =~ /_start|_finish/) {
 			$form_text .=  &form_date_time_select($col,$record->{$col},$table,$record);
 		} elsif ($col =~ /_timezone/) {
@@ -4673,9 +4735,9 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 		} elsif ( $coltypes->{$col} =~ /varchar/ ) {
  			$form_text .=  &form_textinput($record,$col,4);
 		} elsif ( $coltypes->{$col} eq "text") {	
-			$form_text .=  &form_textarea($col,80,15,$record->{$col});
+			$form_text .=  &form_textarea($record,$col,$fieldsize);
 		} elsif ( $coltypes->{$col} eq "longtext") {
-			$form_text .=  &form_textarea($col,80,30,$record->{$col});
+			$form_text .=  &form_textarea($record,$col,$fieldsize);
 		} elsif ($sc eq "submit") {
 			$form_text .=  &form_submit();
 		} else {
@@ -4685,10 +4747,17 @@ $coltypes->{$showref->{Field}} = $showref->{Type};
 
 	}
 
-$form_text .=  &form_submit();
+	$form_text .=  &form_submit();
 	$form_text .=  "</table>\n";
 
 
+	# link to Edit Raw Data
+	
+	$form_text .= qq|<span class="small_nav">[<a href="|.$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit&raw_data">Edit Raw Data</a>]</span>|;
+
+	
+	# Some Autoblog Code; fix later
+	
 	if ($autoblog) {
 		my $link = db_get_record($dbh,"link",{link_id=>$autoblog});
 		$form_text .= qq|	 
@@ -4720,16 +4789,16 @@ sub form_wysihtml {
 	my ($record,$col,$colspan,$advice) = @_;
 	my ($table,$title) = split /_/,$col;
 	my $id = $record->{$table."_id"};
-	my $value = $record->{$col} || "Enter $table $title here";
+	my $value = $record->{$col} || "";
 
 return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
 <div id="$col" data-type="wysihtml5" data-pk="1">$value</div>
 <script>
 \$(function(){
     \$('#$col').editable({
-		mode: 'inline',
+	mode: 'inline',
         url: 'http://www.downes.ca/cgi-bin/api.cgi',
-        title: 'Enter comments',
+        title: 'Enter Text',
         params: function (params) {  
             var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"wysihtml5"};
             return data;
@@ -4744,7 +4813,65 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
 }
 
 
+# -------  Textarea -----------------------------------------------------------
 
+sub form_textarea {
+	
+	my ($record,$col,$colspan,$advice) = @_;
+	
+	# Make a nice title
+	my $title = $col;
+	$title =~ s/(.*?)_(.*?)/$2/;
+	$title = ucfirst($title);
+	
+	# Escape markup
+	$record->{$col} =~ s/</&lt;/sig;
+	$record->{$col} =~ s/>/&gt;/sig;
+
+	# Get table name and id
+	my ($table,$title) = split /_/,$col;
+	my $id = $record->{$table."_id"};
+	my $value = $record->{$col} || "";
+	
+return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+<style>.mytextarea { width: 40em; }</style>
+<div id="$col" data-type="textarea" data-pk="1">$value</div>
+<script>
+\$(function(){
+    \$('#$col').editable({
+        url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        title: '$title',
+       	mode: 'inline',
+        inputclass: 'mytextarea',
+        rows: $colspan,
+        params: function (params) {  
+            var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"textarea"};
+            return data;
+        },
+    });
+});
+</script></div>$advice</td></tr>
+
+|;
+
+}
+
+# -------  Textarea -----------------------------------------------------
+#
+# Creates Textarea Form Field
+
+sub form_rules {
+
+
+	my ($record,$col,$colspan,$advice) = @_;
+
+
+	my $rulesinfo = qq|<span class="small_nav">[<a href="http://grsshopper.downes.ca/rules.htm" target="_new">Rules Help</a></span>]|;
+	$output .= &form_textarea($record,$col,$colspan,$advice.$rulesinfo);
+	
+	return $output;
+
+}
 
 # -------  Text Input -----------------------------------------------------
 #
@@ -4754,7 +4881,7 @@ sub form_textinput {
 	my ($record,$col,$colspan,$advice) = @_;
 	my ($table,$title) = split /_/,$col;
 	my $id = $record->{$table."_id"};
-	my $value = $record->{$col};
+	my $value = $record->{$col} || "";
 
 return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
    <div>
@@ -4808,7 +4935,7 @@ sub form_keylist {
 	$keylist_text ||= "None";
 
 return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
-   <div>$key_title List: <a href="#" id="$col">Enter $key name</br></a><br> 
+   <div>$key_title List: <a href="#" id="$col"></br></a><br> 
    <div id="|.$col.qq|_extra">$keylist_text</div>
    <script>
    \$(function(){
@@ -4818,10 +4945,10 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
          url: 'http://www.downes.ca/cgi-bin/api.cgi',    
          pk: 1,  
          placement: 'top',
-         title: 'Enter $key name',
+         title: '',
          display: function(value, response) {
             //render response into element
-            \$(this).html('Enter $key name:');
+            \$(this).html('Enter $key name');
          },
          params: function (params) {  
             var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:'keylist'};
@@ -4836,77 +4963,6 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
    </div></td></tr>
 |;
 
-
-
-
-
-	my ($record,$col,$colspan,$advice) = @_;
-	my ($table,$title) = split /_/,$col;
-	my $id = $record->{$table."_id"};
-	my $value = $record->{$col};
-
-	
-	my ($table,$id,$key,$more) = @_;
- 
-	my $suggform = "";	
-
-
-
-	# Create Title
-	my $content = qq|<tr><td>"<hr>$table,$id,$key,$more<hr>";</td></tr><tr><td valign="top">|.ucfirst($key).qq|(s)</td><td colspan="3">|;
-	
-	# Get Existing List of names from $key
-	my $sugglist = &form_graph_list($table,$id,$key);
-	
-    # Find how many items there are in the $key table
-	my $count = &db_count($dbh,$key);
-
-	# Get the list of names for an autofill if the list is short enough
-	if ($count < 100000) {
-
-		my $arr_ref = &get_key_name_array($key);
-		my $suggstr = "";
-
-		# for each name	put in JSON list format (remove quotes nd line feeds, put within single quotes)		
-		foreach my $ar (@$arr_ref) { 
-			if ($suggstr) { $suggstr .= ","; }
-			$ar =~ s/('|&#39;)/&apos;/g;$ar=~s/(\n|\r)//g;		
-			$suggstr .= qq|'$ar'|;
-
-		}
-
-		$suggstr = qq|source: [ $suggstr ]|;
-	
-		# Place into Input script
-		$suggform = qq|<input name="keyname_$key" value="" id="autocomplete_$key" >
-			<script>
-			\$( "#autocomplete_$key" ).autocomplete({$suggstr});
-			</script>|;
-
-	# Just create the form if the list is too long, and provide a search option
-	} else {
-
-		$suggform = qq|<input name="keyname_$key" value=""> Search |;
-
-	}
-
-		
-	
-		
-		$content .= qq|
-			$sugglist
-			$suggform
-			<input type="submit" value="Submit new $key">
-		|;
-		
-
-
-
-
-	$content .= qq| </td></tr>|;	
-	
-
-	return $content;
 }
 
 
@@ -5105,42 +5161,95 @@ sub form_boolean {
 	
 }
 
+# Form Data
+#
+# Displayes in editable form data that is stored in a single field
+# as follows:  value1a,value1b,value1c,...;value2a,value2b,value2c,...
+
 sub form_data {
 	
 	
-	my ($col,$data,$table,$record) = @_;
+	my ($col,$data,$id,$table) = @_;
 
-	my $output = ""; my $rows=0;
-
+	my $output = qq|
+	</form><form id="$col" action="$Site->{st_cgi}api.cgi" method="post">
+	<input type="hidden" name="table_name" value="$table">
+	<input type="hidden" name="table_id" value="$id">
+	<input type="hidden" name="field_name" value="$col">
+	<input type="hidden" name="type" value="data">
+	<input type="hidden" name="updated" value="1">
+	<table border=0>|;
 	
-	$output .= qq|<table border="1" padding="2"|;
-	my @data_items = split /;/,$data;
-	foreach my $data_item (@data_items) {
-		$output .= "<tr>"; $rows++;
-		@data_bits = split /,/,$data_item;
-		foreach my $data_bit (@data_bits) {
-			$output .= qq|<td>$data_bit</td>|;
-		}
-		$output .= "</td>";
+	# Assign default data to initialize the grid
+	unless ($data) {
+		$data = qq|fieldname1,fieldname2,fieldname3;value1,value2,value3;value1,value2,value3|;
 	}
-	$output .= "</table><br>";
-	$data =~ s/;/;\n/g;
-	$output .= qq|<textarea name="$col" rows="$rows" cols=60>$data</textarea>|;
+	
+	my $rows=0; my $maxcols=0;
+
+	# For each row (delimited by ; in storage)
+	my @data_items = split /;/,$data; 
+	foreach my $data_item (@data_items) {
+		
+		# For each column (delimeted by , in storage)
+		$output .= "<tr>"; my $cols=0;
+		@data_bits = split /,/,$data_item; my $datacol = 0;
+		foreach my $databit (@data_bits) {
+
+
+		
+			
+			# Create an input form
+			$cols++; if ($cols > $maxcols) { $maxcols = $cols; }
+			if ($rows) { $output .= qq|<td style="padding-top: 12px;"><input name="$rows-$cols" type="text" value="$databit" style="width:15em"></td>\n|; }
+			else {  $output .= qq|<td style="border-bottom: 1px solid black;"><input name="$rows-$cols" type="text" value="$databit"  style="width:15em"></td>\n|; }
+			
+		}
+		$output .= "</tr>"; $rows++;
+	}
+	
+	# Add an extra row for new data
+	$output .= "<tr>";
+	for (my $i=0; $i < $maxcols; $i++) { $output .= qq|<td style="padding-top: 12px;"><input name="$rows-$i" type="text" value="" style="width:15em"></td>\n|; }
+	
+	$output .= qq|</tr><tr><td><input type="Submit"> <span id="|.$col.qq|_okindicator"></span></form></td></tr></table>|;
+			
+$output .= qq|	
+
+<script type="text/javascript">
+    var frm = \$('#$col');
+
+    frm.submit(function (e) {
+
+        e.preventDefault();
+
+        \$.ajax({
+            type: frm.attr('method'),
+            url: frm.attr('action'),
+            data: frm.serialize(),
+            success: function (data) {
+                alert('Submission was successful.');
+                alert(data);
+            },
+            error: function (data) {
+                alert('An error occurred.');
+                alert(data);
+            },
+        });
+    });
+ 
+ </script>\n\n|;
+	
+	
+	#$output .= qq|<textarea style="font-family: Courier;" name="$col" rows="$rows" cols=60>$data</textarea>|;
 	
 			
-	my $open = ""; my $close = "";
-	if ($Site->{newrow} eq "1") {
-		$Site->{newrow} = 0;
-		$close = "</tr>";
-	} else {
-		$Site->{newrow} = 1;
-		$open = "<tr>";
-	}
 
-	my $cname = $col; $cname =~ s/$table//; $cname =~s/_//; $cname=ucfirst($cname);
-	return qq|$open<td>$cname</td><td>$output</td>$close|;	
+
+	return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"><div>$output</div></td></tr><form>|;	
 	
 }
+
 
 
 sub form_graph_list {
@@ -5309,16 +5418,23 @@ sub date_time_find {
 
 sub form_select {
 
-
-
-	my ($dbh,$table,$col,$record,$opts) = @_;	
+	# Organize field data
+	my ($record,$col) = @_;	
 	my ($table,$title) = split /_/,$col;
 	my $id = $record->{$table."_id"};
-	my $value = $record->{$col};
+	my $selected_value = $record->{$col};
 
-    my $selected_value = $record->{$col};
+	# Find eligible options
+	my $opts = &db_get_record($dbh,"optlist",{optlist_title=>$col});
+
+	# Default to varchar if we can't find eligible options
+	unless ($opts->{optlist_data} || $opts->{optlist_list}) { 
+		$output .= &form_textarea($record,$col,40);
+		return $output;
+	}
+
+	# Create list of options
 	my $options = "";
-
 	my @opts = split ";",$opts->{optlist_data};
 	foreach my $opt (@opts) {
 		my ($oname,$ovalue) = split ",",$opt;
@@ -5584,40 +5700,7 @@ sub form_keyinput {
 
 
 
-# -------  Textarea -----------------------------------------------------
-#
-# Creates Textarea Form Field
 
-sub form_textarea {
-	my ($name,$cols,$rows,$content) = @_;
-
-	my $title = $name;
-	$title =~ s/(.*?)_(.*?)/$2/;
-	$title = ucfirst($title);
-
-	my $rulesinfo; if ($name =~ /rules/) { 
-		$rulesinfo = qq|<br>[<a href="http://grsshopper.downes.ca/rules.htm" target="_new">Rules Help</a>]|;
-		$rows=5;
-	}
-
-
-	my $output = qq|<tr><td align="right" valign="top">$col $rulesinfo</td><td colspan=3 width=800 valign="top">|;
-
-
-	$content =~ s/</&lt;/sig;
-	$content =~ s/>/&gt;/sig;
-
-	$output .= qq |
-		<textarea name="$name" cols="79" rows="$rows">$content</textarea><br/>
-		<input type="submit" value="Update Record" class="button">
-		|;
-		
-	
-	$output .= qq|</td></tr>|;
-	
-	return $output;
-
-}
 
 # -------  Page Options -----------------------------------------------------
 #
@@ -6287,7 +6370,122 @@ return $ret;
 
 }
 
+# -------   Drop Table -------------------------------------------------------------
+#
+#  db_drop_table($dbh,$table)
+#
+#  Disabled by default, because bthe consequences of accidental call are too extreme
+#
 
+sub db_drop_table {
+
+	my $dbh = shift || die "Database handler not initiated";
+	my $table = shift || die "Table not specified on drop table";
+
+	my $sql = qq|DROP TABLE IF EXISTS `$table`|;
+	
+	my $sth = $dbh->prepare($sql);
+    	$sth->execute();
+}
+	
+
+# -------   Create Table -------------------------------------------------------------
+#
+#  db_create_table($dbh,$table,$data)
+#
+#  Create a new table, if the table does not yet exist (die otherwise)
+#  $data defines the table elements
+#
+#  Table fields are defined with the table name and the field name
+#
+
+
+
+sub db_create_table {
+
+	my $dbh = shift || die "Database handler not initiated";
+	my $table = shift || die "Table not specified on drop table";
+	my $data = shift;
+	
+#  Do not create if the table already exists
+
+	return 0 if (&db_table_exist($dbh,$table));
+
+#  All tables *must* have the following fields:
+#      $table_id  int(11) NOT NULL auto_increment
+#      $table_creator int(15) which is set to the current $Person->{person_id} when a record is created
+#      $table_crdate int(15) which is set to time when a record is created
+#
+
+	my @fieldlist = ($table."_id", $table."_crdate", $table."_creator");
+	my $sql = qq|
+CREATE TABLE `|.$table.qq|` (
+  `|.$table.qq|_id` int(11) NOT NULL auto_increment,
+  `|.$table.qq|_crdate` int(15) default NULL,  
+  `|.$table.qq|_creator` varchar(250) default NULL,|;
+  
+
+#  Data provides table elements, in order
+#  Each element as an array or comma-delimited string:  name,type,length,default,extra
+#  List of table elements as array, or semi-colon delimited string: 
+#  name,type,length,default,extra;name,type,length,default,extra;name,type,length,default,extra...
+
+	my @fields;
+	if (ref($data) eq "ARRAY") { @fields = @$data; }
+	else { @fields = split /;/,$data; }
+
+	foreach my $field (@fields) {
+		
+		my @values;
+		if (ref($field) eq "ARRAY") { @values = @$field; }
+		else { @values = split /,/,$field; }
+		foreach my $v (@values) { $v =~ s/[^a-zA-Z0-9,_]+//g;} # No unusual characters or sql injection
+		unless ($values[0] =~ /^$table/) { $values[0] = $table."_".$values[0]; } # Normalize field names
+		next unless (&index_of($values[0],\@fieldlist) < 0);  # No duplicate field names 
+		push @fieldlist,$values[0];
+		
+		$sql .= qq|`$values[0]` |.$values[1].qq||;
+		if ($values[2]) { $sql .= qq|(|.$values[2].qq|)|; }
+		if ($values[3]) { $sql .= qq| |.$values[2].qq||; }
+		if ($values[4]) { $sql .= qq| |.$values[2].qq||; }
+		$sql .= ",\n";
+		
+	}
+   
+    
+  
+	$sql .= qq|
+  PRIMARY KEY  (`|.$table.qq|_id`)
+) ENGINE=MyISAM AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;|;
+
+print "Content-type: text/html\n\n";
+print qq|<pre>
+$sql
+</pre>|;
+
+	my $sth = $dbh->prepare($sql);
+    	$sth->execute() 
+    		or die "Can't execute SQL statement in db_create_table : ", $sth->errstr(), "\n";
+    	
+    	print "Table $table created<p>";
+}
+
+# -------   Delete -------------------------------------------------------------
+#
+#  Does a table exist?
+#
+#  Uses table_info()
+#  Returns 1 if it does, 0 otherwise
+#
+
+sub db_table_exist {
+    my ($dbh,$table_name) = @_;
+    
+    my @tables = &db_tables($dbh);
+    if (&index_of($table_name,\@tables) < 0) { return 0; }
+    else { return 1; }
+    
+}
 
 # -------   Delete -------------------------------------------------------------
 
@@ -6498,7 +6696,7 @@ sub db_update {
 
 	if ($diag eq "on") { print "DB Update ($table $input $where)<br/>\n"; }
 	die "Unsupported data type specified to update" unless (ref $input eq 'HASH' || ref $input eq 'Link' || ref $input eq 'Feed' || ref $input eq 'gRSShopper::Record' || ref $input eq 'gRSShopper::Feed');
-	#print "Updating $table $input $where <br>";
+#	print "Updating $table $input $where <br>";
 	my $data = &db_prepare_input($dbh,$table,$input);
 	#print "Data: $data <br>";
 	#return "No data" unless ($data);
@@ -7993,7 +8191,7 @@ sub feed_cache_filename  {
 
 
 sub printlang {						# Print in current language
-							# languages loaded in get_site()
+							# languages loaded in gRSShopper::Site::__load_languages()
 
 	@vars = @_; $counter = 1;
 	$langstring = $vars[0];
@@ -9459,28 +9657,31 @@ package gRSShopper::Temp;
 
   sub new {
   	
-  	my($class, $args) = @_;								# Load Site object
+  	# Load Site object
+  	my($class, $args) = @_;								
    	my $self = bless({}, $class);
 
    	
-
-   	while (my ($ax,$ay) = each %$args) {						# Assign default values when Site created
-		$self->{$ax} = $ay;
-   	}
+	# Assign default values when Site created
+   	while (my ($ax,$ay) = each %$args) { $self->{$ax} = $ay; }
    	
-  	$self->{process} = time;							# Make process name
+   	
+   	# Make process name
+  	$self->{process} = time;							
 
 
-  	$self->__home();								# Define Site home URL from $ENV data
-											# (Used to find database info in multisite.txt)
+	# Define Site home URL from $ENV data
+	# (Used to find database info in multisite.txt)
+  	$self->__home();								
 
 
+	# Find db info from multisite.txt
+	unless ($self->{no_db}) { $self->__dbinfo();}				
 
-	unless ($self->{no_db}) { 
-		
-		$self->__dbinfo(); 								# Find db info from multisite.txt
+ 	
+ 	# Load language translation packages
+ 	$self->__load_languages();
 
-	}				
  	
  	return $self;
   }
@@ -9500,21 +9701,26 @@ package gRSShopper::Temp;
  	
   	my ($self,$args) = @_;
 
-											# Open the multisite configuration file,
-											# Initialize if file can't be found or opened
+	# Open the multisite configuration file,
+	# Initialize if file can't be found or opened
+	
   	my $data_file = $self->{data_dir} . "multisite.txt";							
 	open IN,"$data_file" or $self->__initialize("file");
 
+	
+	# Find the line beginning with site URL
+	# and read site database information from it
+	
 	my $url_located = 0;							
   	while (<IN>) {
-		my $line = $_; $line =~ s/(\s|\r|\n)$//g;			# Find the line beginning with site URL
-		if ($line =~ /^$self->{st_home}/) {				# and read site database information from it
+		my $line = $_; $line =~ s/(\s|\r|\n)$//g;			
+		if ($line =~ /^$self->{st_home}/) {				
 			( $self->{st_home},
 			  $self->{database}->{name},
 			  $self->{database}->{loc},
 			  $self->{database}->{usr},
 			  $self->{database}->{pwd},
-			  $self->{st_lang},
+			  $self->{site_language},
 			  $self->{st_urlf},
 			  $self->{st_cgif} ) = split "\t",$line;
 			$url_located = 1;
@@ -9523,17 +9729,52 @@ package gRSShopper::Temp;
 	}
 	close IN;
 
-											# Initialize if line beginning with site URL can't be found
 
+	# Initialize if line beginning with site URL can't be found										
 	unless ($url_located) { $self->__initialize("url"); }
 
-	$self->{st_lang}  ||= 'en';						# Assign or override defaults
+
+	# Assign or override defaults
+	$self->{st_lang}  ||= 'en';						
 	$self->{st_urlf}  ||= '/var/www/html';
 	$self->{st_cgif}  ||= '/var/www/cgi-bin/';	
 	return;
   }
 
+  # load_languages - gets list of comma-delimited languages from multisite.txt
+  #    - cycles though the list and runs the related language file eg. en.pl
+  #    - thus storing language strings in a language hash
+  #    - which is used by printlang() to print text in the right language
 
+
+
+  sub __load_languages {
+  	
+  	my ($self,$args) = @_;
+  	
+  	# Set default language
+  	$self->{site_language} ||= "en";
+  	
+  	# Cycle through list of languages from multisite.txt (separated by commas)							
+  	my @languages = split /,/,$self->{site_language};
+	foreach my $lang (@languages) {
+		
+		# Set current site and user defaults (the first language in the list)(
+		unless ($self->{lang_default}) { $self->{lang_default} = $lang; }
+		unless ($self->{lang_user}) { $self->{lang_user} = $lang; }
+
+		# Determine language file name, this is where translations are stored
+		my $lang_filename = $self->{st_cgif} . "/languages/".$lang . ".pl";
+			
+		# Execute the language file (stores translations into a hash)
+		if (-e $lang_filename) { 	
+			do $lang_filename; 
+		} else { 
+			die "<p>Was expecting to find $lang_filename but it was not found<.";	
+		}		
+	}
+  	
+  }
   
 
 #  __home()  - determines a 'site url' given a script request

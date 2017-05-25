@@ -408,6 +408,7 @@ $Site->{en} = {
 	'Jul' => "Jul",
 	'Aug' => "Aug",
 	'Sep' => "Sep",
+	'Sept' => "Sept",
 	'Oct' => "Oct",
 	'Nov' => "Nov",
 	'Dec' => "Dec",
