@@ -4617,6 +4617,8 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 			if ($showref->{Field} eq "description") { $fieldtype = "text"; }
 			if ($showref->{Field} eq "data") { $fieldtype = "data"; }
 			if ($fullfieldname =~ /_file/) { $fieldtype = "file"; }
+			if ($fullfieldname =~ /_date/) { $fieldtype = "date"; }
+			if ($fullfieldname =~ /_start/ || $fullfieldname =~ /_finish/) { $fieldtype = "datetime"; }			
 			if (&db_get_record($dbh,"optlist",{optlist_title=>$fullfieldname})) { $fieldtype = "optlist"; }
 			if ($table eq "post" && ($showref->{Field} eq "author" || $showref->{Field} eq "feed")) { $fieldtype = "keylist"; } # Temporary
 
@@ -4669,7 +4671,9 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 
 		my $keylist=0; foreach my $tab (@db_tables) { if ($tab eq $sc) { $keylist=1; last; } }
 
-
+		# Generate form element variables
+		
+		my $value = $record->{$col} || "";
 
 
 		# Print Input Fields
@@ -4678,7 +4682,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		if ($fieldtype eq "keylist") { $form_text .= &form_keylist($table,$id_value,$sc); }			
 		
 		# Varchar
-		elsif ($fieldtype eq "varchar") { $form_text .=  &form_textinput($record,$col,4); }
+		elsif ($fieldtype eq "varchar") { $form_text .=  &form_textinput($table,$id_value,$col,$value,4); }
 		
 		# HTML text  (wysihtml)
 		elsif ($fieldtype eq "html") { $form_text .= &form_wysihtml($record,$col,4); }
@@ -4690,13 +4694,19 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		elsif ($fieldtype eq "rules") { $form_text .= &form_rules($record,$col,$fieldsize); }
 		
 		# Option List (Selections defined in the'optlist' table; defaults to varchar if options are missing)
-		elsif ($fieldtype eq "optlist") { $form_text .=  &form_select($record,$col); }
+		elsif ($fieldtype eq "optlist") { $form_text .=  &form_optlist($record,$col); }
 		
 		# Data  - each line ; delimited  and individual items , delimited. First line is data headers 
 		elsif ($fieldtype eq "data") { $form_text .=  &form_data($col,$record->{$col},$id_number,$table); }		
 		
 		# File			
 		elsif ($fieldtype eq "file") { $form_text .=  &form_file_select($dbh,$table,$id_number); }
+		
+		# Date
+		elsif ($fieldtype eq "date") { $form_text .=  &form_date_select($record,$col,$colspan,$advice); }
+		
+		# DateTime
+		elsif ($fieldtype eq "datetime") { $form_text .=  &form_date_time_select($record,$col,$colspan,$advice); }
 						
 		elsif ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "post")) {			
 			$form_text .= &form_keylist($table,$id_value,$sc);
@@ -4707,33 +4717,31 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		} elsif (($table eq "media") && ($fieldstem eq "link")) {
 			$form_text .=  &form_keyinput($col,$record->{$col},2);		
 		} elsif ( $table eq "link" && $col =~ /_category/ ) {
-			$form_text .=  &form_textinput($record,$col,4);
-		} elsif ( $col =~ /_type|_catdetails|_active|_status|_category/ ) {
-			$form_text .=  &form_option_select($dbh,$col,$record->{$col});
+			$form_text .=  &form_textinput($table,$id_value,$col,$value,4);
 		} elsif ( $col =~ /_content/ || $col =~ /_description/) {
 			#$form_text .=  &form_textarea($col,80,30,$record->{$col});
 			$form_text .=  &form_wysihtml($record,$col,4);
 		} elsif ($col =~ /_file/) {
 			$form_text .=  &form_file_select($dbh,$table,$id_number);
 		} elsif ($col =~ /_date/) {
-			$form_text .=  &form_date_select($col,$record->{$col});
+			$form_text .=  &form_date_select($record,$col,$colspan,$advice);
 		} elsif ($col =~ /_data/) {
 			$form_text .=  &form_data($col,$record->{$col},$id_number,$table);
 		} elsif ($col =~ /_start|_finish/) {
-			$form_text .=  &form_date_time_select($col,$record->{$col},$table,$record);
+			$form_text .=  &form_date_time_select($record,$col,$colspan,$advice);
 		} elsif ($col =~ /_timezone/) {
 			$form_text .=  &form_timezone($col,$record->{$col},$table,$record);	
 		} elsif ($col =~ /_edit|_show/) {
 			$form_text .= &form_boolean($col,$record->{$col},$table,$record);
 		} elsif ( $coltypes->{$col} =~ /int/ ||
 		     ($coltypes->{$col} =~ /varchar/ && $size <60)) {	
-			$form_text .=  &form_textinput($record,$col);
+			$form_text .=  &form_textinput($table,$id_value,$col,$value);
 		} elsif ( $col =~ /_current|_updated|_refresh|_textsize|_tag|_srefresh|_supdated/) {	
-			$form_text .=  &form_textinput($record,$col);
+			$form_text .=  &form_textinput($table,$id_value,$col,$value);
 		} elsif ( $col =~ /_creatorname|_source/ ) {
- 			$form_text .=  &form_textinput($record,$col,4);
+ 			$form_text .=  &form_textinput($table,$id_value,$col,$value,4);
 		} elsif ( $coltypes->{$col} =~ /varchar/ ) {
- 			$form_text .=  &form_textinput($record,$col,4);
+ 			$form_text .=  &form_textinput($table,$id_value,$col,$value,);
 		} elsif ( $coltypes->{$col} eq "text") {	
 			$form_text .=  &form_textarea($record,$col,$fieldsize);
 		} elsif ( $coltypes->{$col} eq "longtext") {
@@ -4741,7 +4749,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		} elsif ($sc eq "submit") {
 			$form_text .=  &form_submit();
 		} else {
-			$form_text .=  &form_textinput($record,$col,3);		
+			$form_text .=  &form_textinput($table,$id_value,$col,$value);		
 		}
 
 
@@ -4878,9 +4886,8 @@ sub form_rules {
 # Creates Text Input Form Field
 
 sub form_textinput {
-	my ($record,$col,$colspan,$advice) = @_;
+	my ($table,$id,$col,$value,$size,$advice) = @_;
 	my ($table,$title) = split /_/,$col;
-	my $id = $record->{$table."_id"};
 	my $value = $record->{$col} || "";
 
 return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
@@ -4891,9 +4898,10 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
 		<script>
 		\$(function(){
 		    \$('#$col').editable({
- 				mode: 'inline',
+ 			mode: 'inline',
         		url: 'http://www.downes.ca/cgi-bin/api.cgi',
-        		title: 'Enter $table $title',
+        		title: 'Enter $col',
+        		emptytext: '[$col]', 
        			params: function (params) {  
         			var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"text"};
         			return data;
@@ -5288,31 +5296,24 @@ sub form_graph_list {
 
 sub form_date_select {
 
+	my ($record,$col,$colspan,$advice) = @_;
+	my ($table,$title) = split /_/,$col;
+	my $id = $record->{$table."_id"};
+	my $value = $record->{$col} || "";
 
-	my ($name,$value) = @_;
-	my $title = $name;
-	$title =~ s/(.*?)_(.*?)/$2/;
-	$title = ucfirst($title);
+	#my ($name,$value) = @_;
+
 
 	unless ($value) { # Default to today's date
 		$value = &cal_date(time);
 	}
 	
-	return qq |
-		<tr><td>$title</td><td colspan="3">
-<input class="span2" name="$name" value="$value" data-date-format="yyyy/mm/dd" id="dp|.$name.qq|" type="text" style="height:1.8em;">
-		<script>
-			\$('#dp|.$name.qq|').datepicker();
-			\$('#dp|.$name.qq|').datepicker( "option", "dateFormat", "yy/mm/dd" );
-			\$('#dp|.$name.qq|').datepicker( "setDate", "$value");
-</script>
-
-		</td>
-		</tr>
-		|;
-		
+	my $dateformat = 'yyyy/mm/dd';
+	my $datetype = "date";
+	
+	my $output = &form_dates_general($table,$id,$title,$col,$value,$dateformat,$datetype);
+	return $output;
 }
-
 
 # -------  Date-Time Select -----------------------------------------------------
 #
@@ -5321,45 +5322,77 @@ sub form_date_select {
 
 sub form_date_time_select {
 
-	my ($name,$value,$table,$record) = @_;
-	my $title = $name;
-	$title =~ s/(.*?)_(.*?)/$2/;
-	$title = ucfirst($title);
+	my ($record,$col,$colspan,$advice) = @_;
+	my ($table,$title) = split /_/,$col;
+	my $id = $record->{$table."_id"};
+	my $value = $record->{$col} || "";
+
 
 	# Time Zone - default to site defined time zone
 	my $tzkey = $table."_timezone";
 	unless ($record->{$tzkey}) { $record->{$tzkey} = $Site->{st_timezone};	}
 	
-	# Date-time - default to today
-	if ($value) { $value = &cal_date($value,"min",$record->{$tzkey}); } else { $value = &cal_date(time,"min",$record->{$tzkey}); }
+	# Date-time - convert epoch into date-time
+	if ($value =~ /^[0-9,.E]+$/) { $value = &cal_date($value,"min",$record->{$tzkey}); } 
 	
+	my $dateformat = 'yyyy/mm/dd hh:ii';
+	my $datetype = "datetime";
+	
+	my $output = &form_dates_general($table,$id,$title,$col,$value,$dateformat,$datetype);
+	return $output .$value;
+}
 
+# -------  Dates General -----------------------------------------------------
+
+# Implementation of x-editables plus datetimepicker 
+# and requires additional datetimepicker.css and datetimepicker.js
+# from https://github.com/smalot/bootstrap-datetimepicker
+# Select format and formtype to toggle between date and datetime
+
+sub form_dates_general {
 	
-	
+	my ($table,$id,$title,$col,$value,$dateformat,$datetype) = @_;
 	
 	return qq |
-		<tr><td valign="top">$title</td><td colspan="3">
-		<input class="span4" name="$name" value="$value" id="dp|.$name.qq|" type="text">
-		<script>
-        \$('#dp|.$name.qq|').datetimepicker({
-            controlType: 'select',	
-            dateFormat: "yy/mm/dd",
-            timeFormat: "HH:mm",
-            stepMinute: 5
-        });		
+		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+   <div>
+   <a href="#" id="$col" data-type="$datetype" data-pk="1" data-title="Select date">$value</a>
+   <span id="|.$col.qq|_okindicator"></span>
 		
-		</script>
-
-
-
-
-		</td>
-		</tr>
-		|;
-
-
-# 
+		
+		<script>
+		\$(function(){
+		    \$('#$col').editable({
+ 				mode: 'inline',
+        		url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        		title: 'Enter $table $title',
+       			params: function (params) {  
+        			var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"text"};
+        			return data;
+       			},
+       			format: '$dateformat',    
+                        viewformat: '$dateformat',
+     			success: function(response) {
+					\$('#|.
+					$col.
+					qq|_okindicator').html(response);
+				},
+			error: function (data) {
+				alert('An error occurred.');
+				alert(data);
+			}	
+    		});
+		});
+		</script></div></td></tr>
+   
+|;	
+	
+	
 }
+
+
+
+# -------  Form Timezone -----------------------------------------------------
 
 
 sub form_timezone {
@@ -5416,7 +5449,17 @@ sub date_time_find {
 }
 
 
-sub form_select {
+
+#--------  Select ----------------------------------------------------------
+#
+#  Various Select Forms
+#
+
+
+
+# -------  Form Select -----------------------------------------------------
+
+sub form_optlist {
 
 	# Organize field data
 	my ($record,$col) = @_;	
@@ -5443,7 +5486,16 @@ sub form_select {
 		$options .= qq|{value: '$ovalue', text: '$oname'},|;
 	}
 	
+return form_select_general($table,$id,$title,$col,$options,$selected_value);
+	
+}
 
+
+sub form_select_general {
+	
+	my ($table,$id,$title,$col,$options,$selected_value) = @_;
+	
+	
 return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
 <div><a href="#" id="$col"></a></div>
 
@@ -5471,166 +5523,13 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
     });
 });
 </script>
-</div></td></tr>|;
-
-
-
-
-
-
-
-
-
-}
-
-
-# -------  Optlist Select ----------------------------------------------------
-
-sub form_optlist_select {
+</div></td></tr>|;	
 	
-	my ($dbh,$table,$name,$opted,$record) = @_;	
-	my $options = "";
-
-
-		my @opts = split ";",$record->{optlist_data};
-		foreach my $opt (@opts) {
-			my ($oname,$ovalue) = split ",",$opt;
-			next unless ($oname && $ovalue);
-			my $selected; if ($opted eq $ovalue) { $selected = " selected"; } else { $selected=""; }
-			$options .= qq|    <option value="$ovalue"$selected>$oname</option>\n|;				
-		}
 	
-		if ($options) { $options = qq|<select name="$name" style="width:12em;">$options</select>|; }
-		else { $options = "$record $record->{optlist_data} Options for $name not found"; }
-
-	
-	my $open="";my$close="";
-	if ($Site->{newrow} eq "1") {
-		$Site->{newrow} = 0;
-		$close = "</tr>";
-	} else {
-		$Site->{newrow} = 1;
-		$open = "<tr>";
-	}
-	
-	my $cname=$name;$cname =~ s/_/ /g; $cname =~ s/(\w+)/\u\L$1/g; 		
-	return qq|$open<td>$cname</td><td>$options</td>$close|;	
-}
-
-# -------  Option Select -----------------------------------------------------
-#
-# Creates Option Select Form Field
-
-sub form_option_select {
-
-	my ($dbh,$name,$value) = @_;
-
-
-	my ($table,$title) = split /_/,$name;
-	$title = ucfirst($title);
-	
-
-	my $options = "TABLE $table <p>";
-	if ($table eq "graph") {
-		$options =  qq|<input type="text" name="$name" size="10" value="$value">|;
-	} else {
-	
-
-		my $stmt = "SELECT optlist_list FROM optlist WHERE optlist_title='$name'";
-		my $ary_ref = $dbh->selectcol_arrayref($stmt);
-		my $list = $ary_ref->[0]; 
-
-		my $astmt = "SELECT optlist_default FROM optlist WHERE optlist_title='$name'";
-		my $ay_ref = $dbh->selectcol_arrayref($astmt);
-		my $deft = $ay_ref->[0];
-
-		my @List = split /;/,$list;
-
-		foreach my $o (@List) {
-			my $sel = "";
-			my ($tit,$val) = split /,/,$o;
-			$tit =~ s/^\s+//; $tit =~ s/\s+$//;			# Remove leading and trailing spaces
-			$val =~ s/^\s+//; $val =~ s/\s+$//;			# Allows for nice formatting of data
-			unless ($val) { $val = $tit; }
-
-			if ($value) {
-				if ($val eq $value) { $sel = " selected"; }
-			} else {
-				if ($val eq $deft) { $sel = " selected"; }
-			}
-			
-			$options .= qq|<option value="$val"$sel>$tit</option>\n|;
-		}
-		if ($options) { $options = qq|<select name="$name">$options</select>|; }
-		else { $options = "$stmt $ary_ref Options for $name not found"; }
-	}
-	
-	return qq|<tr><td>$title</td><td colspan="3">$options</td></tr>|;
-
-}
+}	
 
 
 
-
-
-
-# -------  form keylist list --------------------------------------------
-#
-#   generates the list of authors (with edit links) ised by keylist
-
-sub form_keylist_list {
-
-	my ($table,$id,$key,$more) = @_;
- 
-	my $suggform = "";	
-
-
-
-	# Create Title
-	my $content = qq|<tr><td>"<hr>$table,$id,$key,$more<hr>";</td></tr><tr><td valign="top">|.ucfirst($key).qq|(s)</td><td colspan="3">|;
-	
-
-	
-	# Get Existing List of names from $key
-	my $sugglist = &form_graph_list($table,$id,$key);
-
-return $sugglist;
-	
-    # Find how many items there are in the $key table
-	my $count = &db_count($dbh,$key);
-
-
-
-		my $arr_ref = &get_key_name_array($key);
-		my $suggstr = "";
-
-
-	
-		# Place into Input script
-		$suggform = qq|<input name="keyname_$key" value="" id="autocomplete_$key" >
-			<script>
-			\$( "#autocomplete_$key" ).autocomplete({$suggstr});
-			</script>|;
-
-
-
-		
-	
-		
-		$content .= qq|
-			$sugglist
-			$suggform
-			<input type="submit" value="Submit new $key">
-		|;
-		
-
-
-
-
-	$content .= qq| </td></tr>|;	
-	return $content;
-
-}
 
 
 # -------  get Key Name --------------------------------------------
@@ -7263,7 +7162,9 @@ sub autotimezones {
 
 	while ($$text_ptr =~ /<timezone epoch="(.*?)">/sg) {
 		my $epoch = $1; my $tz = $vars->{timezone};
-		my $replace = &tz_date($query,$epoch,$tz);
+		my $replace;
+		if ($epoch+0 > 0) { $replace = &tz_date($epoch,"min",$tz); }
+		else { $replace = "Non epoch: ".$epoch; }
 		my $original = qq|<timezone epoch="|.$epoch.qq|">|;
 		$$text_ptr =~ s/$original/$replace/sig;
 	}
@@ -7581,7 +7482,7 @@ sub tz_date {
 	my $dt = &set_dt($time,$tz);
 	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
 	my @months = &month_array();
-	my @days = &day_array();
+	my @weekdays = &day_array();
 	
 	if ($h eq "min") {
 		return "$year/$month/$day $hour:$minute";
@@ -7602,14 +7503,17 @@ sub set_dt {
 	
 	my ($time,$tz) = @_;
 	
-	unless ($time > 0) { $time = 0; }						# Fail silently if text sent instead of epoch
+	# Fail silently and return text if text sent instead of epoch
+	unless ($time =~ /^[0-9]+$/) { return; }
+
+					
 	
 	
 	unless (&new_module_load($query,"DateTime")) {				
 		return "DateTime module not available in sub set_dt"; 
 	}
 		
-	my $dt = DateTime->from_epoch( epoch => $time );			# Convert to DateTime
+	my $dt = DateTime->from_epoch( epoch => $time );				# Convert to DateTime
 	my $tz = $tz || $Site->{st_timezone} || "America/Toronto";					# Allows input to specify timezone
 	unless (DateTime::TimeZone->is_valid_name($tz)) { 
 		print "Content-type: text/html\n\n"; print "Invalid time zone in set_dt(): $tz <p>"; return; }

@@ -133,7 +133,7 @@ sub api_keylist_update {
 	# For each member of the list...
 	foreach my $keyname (@keynamelist) {			
 
-		# Trim leading, trailing white space
+		# Trim leading, trailing white space 
 		$keyname =~ s/^ | $//g;	 			
 
 		# Are we looking for _name, _title ...?
