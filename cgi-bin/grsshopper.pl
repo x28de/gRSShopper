@@ -4613,14 +4613,15 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 			# Some defaults fieldtypes for important fields
 
 			if ($table eq "form" && $showref->{Field} eq "data") { $fieldtype = "data"; }
-			if ($table eq "optlist" && $showref->{Field} eq "data") { $fieldtype = "text"; }
-			if ($showref->{Field} eq "description") { $fieldtype = "text"; }
-			if ($showref->{Field} eq "data") { $fieldtype = "data"; }
-			if ($fullfieldname =~ /_file/) { $fieldtype = "file"; }
-			if ($fullfieldname =~ /_date/) { $fieldtype = "date"; }
-			if ($fullfieldname =~ /_start/ || $fullfieldname =~ /_finish/) { $fieldtype = "datetime"; }			
-			if (&db_get_record($dbh,"optlist",{optlist_title=>$fullfieldname})) { $fieldtype = "optlist"; }
-			if ($table eq "post" && ($showref->{Field} eq "author" || $showref->{Field} eq "feed")) { $fieldtype = "keylist"; } # Temporary
+			elsif ($table eq "optlist" && $showref->{Field} eq "data") { $fieldtype = "text"; }
+			elsif ($showref->{Field} eq "description") { $fieldtype = "text"; }
+			elsif ($showref->{Field} eq "data") { $fieldtype = "data"; }
+			elsif ($fullfieldname =~ /_file/) { $fieldtype = "file"; }
+			elsif ($fullfieldname =~ /_date/) { $fieldtype = "date"; }
+			elsif ($fullfieldname =~ /_start/ || $fullfieldname =~ /_finish/) { $fieldtype = "datetime"; }			
+			elsif (&db_get_record($dbh,"optlist",{optlist_title=>$fullfieldname})) { $fieldtype = "optlist"; }
+			elsif ($table eq "post" && ($showref->{Field} eq "author" || $showref->{Field} eq "feed")) { $fieldtype = "keylist"; } # Temporary
+			else { $fieldtype = "text"; } 
 
 			# Push the column information into the new @fieldlist array 
 			# (which will now look just like the comma-delimited data if it were retrieved from the Form table
