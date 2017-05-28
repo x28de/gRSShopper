@@ -67,8 +67,8 @@ print "Content-type: text/html\n\n";
 
 
 
-#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-#&send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
+my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+&send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
 
 
 	
@@ -82,7 +82,7 @@ if ($vars->{updated}) {
 	
 	elsif ($vars->{type} eq "data") { &api_data_update();  }
 
-	elsif ($vars->{file_name}) { &api_file_upload();
+	elsif ($vars->{type} eq "file") { &api_file_upload();
 
 
 
@@ -244,7 +244,8 @@ sub api_file_upload {
 
 			
 						
-
+my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+&send_email('stephen@downes.ca','stephen@downes.ca', 'api file_upload',$str); 
 
 
 

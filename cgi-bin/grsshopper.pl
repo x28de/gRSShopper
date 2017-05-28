@@ -5006,7 +5006,52 @@ sub form_submit {
 sub form_file_select {
 
 	my ($dbh,$table,$id,$name) = @_;
+	
+	$col = "post_file";
+	# my ($table,$id,$col,$value,$size,$advice) = @_;
+	
+	
 	my $admin = 1 if ($Person->{person_status} eq "admin");	
+
+
+	return qq|
+	
+<link href="http://hayageek.github.io/jQuery-Upload-File/4.0.10/uploadfile.css" rel="stylesheet">
+
+<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+   <div>
+   	
+<script>
+\$(document).ready(function()
+{
+ var extraObj = \$("#extraupload").uploadFile({
+	url:"http://www.downes.ca/cgi-bin/api.cgi",
+	fileName:"myfile",
+	formData: {"pk":"1","graph_table":"post","graph_id":1423,"type":"file","updated":1},
+	extraHTML:function()
+	{
+		var html = "<div><b>File Tags:</b><input type='text' name='tags' value='' /> <br/>";
+		html += "<b>Category</b>:<select name='category'><option value='1'>ONE</option><option value='2'>TWO</option></select>";
+		html += "</div>";
+		return html;    		
+	},
+	autoSubmit:false
+	});
+
+	\$("#extrabutton").click(function()
+	{
+	extraObj.startUpload();
+	}); 
+});	
+</script>
+Output:
+<div id="extraupload"></div>
+
+<div id="extrabutton" class="ajax-file-upload-green">Start Upload</div>
+	
+</div></td></tr>	
+	
+	|;
 
 	# Images
 
@@ -5225,29 +5270,32 @@ sub form_data {
 			
 $output .= qq|	
 
-<script type="text/javascript">
-    var frm = \$('#$col');
-
-    frm.submit(function (e) {
-
-        e.preventDefault();
-
-        \$.ajax({
-            type: frm.attr('method'),
-            url: frm.attr('action'),
-            data: frm.serialize(),
-            success: function (data) {
-                alert('Submission was successful.');
-                alert(data);
-            },
-            error: function (data) {
-                alert('An error occurred.');
-                alert(data);
-            },
-        });
-    });
+<link href="http://hayageek.github.io/jQuery-Upload-File/4.0.10/uploadfile.css" rel="stylesheet">
+$(document).ready(function()
+{
+	var extraObj = $("#extraupload").uploadFile({
+	url:"upload.php",
+	fileName:"myfile",
+	extraHTML:function()
+    {
+	    	var html = "<div><b>File Tags:</b><input type='text' name='tags' value='' /> <br/>";
+    		html += "<b>Category</b>:<select name='values'><option value='1'>ONE</option><option value='2'>TWO</option></select>";
+			html += "</div>";
+			return html;    		
+    },
+    autoSubmit:false
+	});
+	
+	$("#extrabutton").click(function()
+	{
+	
+		extraObj.startUpload();
+	});
+ });
+ </script>\n\n
  
- </script>\n\n|;
+ 
+ </td></tr></div>|;
 	
 	
 	#$output .= qq|<textarea style="font-family: Courier;" name="$col" rows="$rows" cols=60>$data</textarea>|;
