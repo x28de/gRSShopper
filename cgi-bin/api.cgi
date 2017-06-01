@@ -76,24 +76,27 @@ my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
 
 if ($vars->{updated}) { 
 
+
 	if ($vars->{type} eq "text" || $vars->{type} eq "textarea"  || $vars->{type} eq "wysihtml5" || $vars->{type} eq "select") {  &api_textfield_update(); }
 
 	elsif ($vars->{type} eq "keylist") { &api_keylist_update();  }
 	
 	elsif ($vars->{type} eq "data") { &api_data_update();  }
 
-	elsif ($vars->{type} eq "file") { &api_file_upload();
+	elsif ($vars->{type} eq "file") { &api_file_upload(); }
 
+	elsif ($vars->{type} eq "file_url") { &api_url_upload(); }
+	
+	elsif ($vars->{type} eq "publish") { &api_publish(); }
 
-
-
+	elsif ($vars->{type} eq "commit") { &api_commit(); }
 
     # Identify, Save and Associate File
 
 #	my $file;
 #	if ($query->param("file_name")) { $file = &upload_file($query); }		# Uploaded File
 #	elsif ($vars->{file_url}) { $file = &upload_url($vars->{file_url}); }		# File from URL
-	}
+	
 
 
 #my $return = &form_graph_list("post","60231","author");
@@ -187,6 +190,128 @@ sub api_textfield_update {
 
 }
 
+sub api_publish {
+
+	die "Field $vars->{table_name},$vars->{name} does not exist" unless (&__check_field($vars->{table_name},$vars->{name})); 
+	#my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id});
+	$vars->{twitter} = &twitter_post($dbh,"post",$vars->{table_id});
+	print $vars->{twitter}; exit;
+	if ($id_number) { &api_ok();   } else { &api_error(); }
+	die "api failed to update $vars->{table_name}  $vars->{table_id}" unless ($id_number);	
+	
+}
+
+#
+#             API Commit
+#
+#             Commits changes saved in the 'Form' table to the database
+#             - creates table if necessary
+#             - creates columns if necessary
+#             - alters column to new type if necessary
+#
+
+
+sub api_commit {
+
+	# Get the Form record from database
+	my $record = &db_get_record($dbh,$vars->{table_name},{$vars->{table_name}."_id" => $vars->{table_id}});
+	unless ($record) { print "<span style='color:red;'>Error: API failed to update $vars->{table_name}  $vars->{table_id}</span>"; exit; }		
+	
+	# Standardize form names to lower case (because some operations are case insensitive)
+	$record->{form_title} = lc($record->{form_title});
+	
+	
+	# Create table if table doesn't exist
+	&db_create_table($dbh,$record->{form_title});
+
+	# Get the existing columns from the table
+	my $columns;
+	my $showstmt = qq|SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = ? AND table_schema = ? ORDER BY column_name|;
+	my $sth = $dbh -> prepare($showstmt)  or die "Cannot prepare: $showstmt FOR $record->{form_title} in $Site->{db_name} " . $dbh->errstr();
+	$sth -> execute($record->{form_title},$Site->{db_name})  or die "Cannot execute: $showstmt " . $dbh->errstr();
+	while (my $showref = $sth -> fetchrow_hashref()) {
+
+		# Stash Columkn Data for future reference
+		$columns->{$showref->{COLUMN_NAME}}->{type} = $showref->{DATA_TYPE};
+		$columns->{$showref->{COLUMN_NAME}}->{size} = $showref->{CHARACTER_MAXIMUM_LENGTH};
+	
+	}
+	
+	# Go though the table structure defined in $record->{form_data}
+	my @fcols = split /;/,$record->{form_data};
+	my $titles = 0;
+	
+	# For each of the columns defined in the form data 
+	foreach my $fcol (@fcols) {
+		my ($fname,$ftype,$fsize) = split /,/,$fcol; 	# This assumes an order which could be a problem
+		if ($titles == 0) { 
+								# Fix that problem here
+			$titles = 1; next; 			# Skip past titles
+		}	
+		
+		# Does the column exist?
+		my $columntitle = $record->{form_title}."_".$fname;
+		
+		# No
+		unless ($columns->{$columntitle}) {  
+		
+			next if (&__map_field_types($ftype) eq "none"); 
+		
+			# Create New Column as per the Form Data
+			my $sql;
+			if (&__map_field_types($ftype) eq "text") { 
+				$sql = qq|alter table |.$record->{form_title}.qq| add column $columntitle text;|; 
+			} elsif (&__map_field_types($ftype) eq "int") { 
+				unless ($fsize) { $fsize=15; }
+				$sql = qq|alter table |.$record->{form_title}.qq| add column $columntitle int ($fsize);|; 
+			} elsif (&__map_field_types($ftype) eq "varchar") { 
+				unless ($fsize) { $fsize = 256; }
+				$sql = qq|alter table |.$record->{form_title}.qq| add column $columntitle varchar ($fsize);|; 
+			}
+						
+			$dbh->do($sql) or die "error creating $fname";	
+			
+		
+		# Yes
+		} else {		       		
+		
+			# Check for increased varchar size
+			if (&__map_field_types($ftype) eq "varchar") {   		
+				if ($columns->{$columntitle}->{size} < $fsize) {
+					
+					# And alter column size if necessary
+					
+					my $sql = qq|alter table |.$record->{form_title}.qq| modify $columntitle VARCHAR($fsize);|;
+					$dbh->do($sql) or die "error embiggening $fname";	
+	
+				}
+				
+			}
+		
+		}
+		
+ 	
+	}
+
+
+	my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{name} => 1}, $vars->{table_id});
+	if ($id_number) { &api_ok();   } else { &api_error(); }
+	die "api failed to update $vars->{table_name}  $vars->{table_id}" unless ($id_number);	
+	
+}
+
+sub __map_field_types {
+	
+	my ($field) = @_;
+	if ($field eq "select" || $field eq "date" || $field eq "varchar") { return "varchar"; }
+	elsif ($field eq "text" || $field eq "textarea" || $field eq "wysihtml5" || $field eq "data") { return "text"; }
+	elsif ($field eq "commit" || $field eq "publish" || $field eq "int") { return "int"; }	
+	else { return "none"; }	
+		
+}
+
+
+	
 sub api_data_update {
 
 
@@ -211,6 +336,11 @@ sub api_data_update {
 
 #my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
 #&send_email('stephen@downes.ca','stephen@downes.ca', 'data  update',$str.$data);    
+
+	# Reset commit flag in case the table is 'form'
+	if ($vars->{table_name} eq "form") {
+#		&db_update($dbh,$vars->{table_name}, {form_commit => 0}, $vars->{table_id});		
+	}
     
     if ($id_number) { &api_ok();   } else { &api_error(); }
 
@@ -226,8 +356,7 @@ sub api_data_update {
 
 sub api_ok {
 
-
-	print "&nbsp;&nbsp;&nbsp;&nbsp;ok!";
+	print qq|&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:green;">ok!</a>|;
 	exit;
 
 }
@@ -243,22 +372,40 @@ sub api_error {
 sub api_file_upload {
 
 			
-						
-my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-&send_email('stephen@downes.ca','stephen@downes.ca', 'api file_upload',$str); 
 
 
 
-    # Upload the file
+	# Upload the file
 
-    my $file = &upload_file($query); 
+	my $file = &upload_file(); 
+	&api_save_file($file);
 
-    $str .= "Uploaded<br>";
-    while (my ($x,$y) = each %$file) 	{ $str .= "$x = $y <br>\n"; }
+	# Return new graph output for the form		
+	print &form_graph_list($vars->{graph_table},$vars->{graph_id},"file");
 
-	# Save file data in database
 
-	api_save_file($file);
+
+	
+
+	
+}
+
+
+sub api_url_upload {
+
+			
+#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+#&send_email('stephen@downes.ca','stephen@downes.ca', 'url upload '.$vars->{value},$str); 
+
+
+	# Upload the file
+
+	my $file = &upload_url($vars->{value}); 
+	&api_save_file($file);
+
+	# Return new graph output for the form	
+	if ($vars->{msg}) { print $vars->{msg}; }	
+	print &form_graph_list($vars->{graph_table},$vars->{graph_id},"file");
 
 
 
@@ -267,6 +414,7 @@ my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
 
 	
 }
+
 
 sub api_save_file {
 
@@ -277,52 +425,36 @@ sub api_save_file {
 
 	# Save the file
 	my $file_record = &save_file($file);
-	die "Error saving file" unless ($file_record);
+	if ($file_record) { $vars->{msg} .= qq|&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:green;">ok!</a><br><br>|; }
+	else { $vars->{msg} .= qq|<span style="color:red;">Error saving file. $!</span>|; die "Error saving file $!"; }
+	
 
 	# Set up Graph Data
-
 	return unless ($vars->{graph_id} && $vars->{graph_table});
 	my $urltwo = $Site->{st_url}.$vars->{graph_table}."/".$vars->{graph_id};
-
 	my $graph_typeval = "";
 	if ($file_record->{file_type} eq "Illustration") { $graph_typeval = $vars->{file_align} . "/" . $vars->{file_width}; } 
 	else { $graph_typeval = $file_record->{file_mime}; }
 
 	# Save Graph Data
-
 	my $graphid = &db_insert($dbh,$query,"graph",{
 		graph_tableone=>'file', graph_idone=>$file_record->{file_id}, graph_urlone=>$file_record->{file_url},
 		graph_tabletwo=>$vars->{graph_table}, graph_idtwo=>$vars->{graph_id}, graph_urltwo=>$urltwo,
 		graph_creator=>$Person->{person_id}, graph_crdate=>time, graph_type=>$file_record->{file_type}, graph_typeval=>$graph_typeval}); 
 
-
-#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-#while (my ($x,$y) = each %$file) 	{ $str .= "$x = $y <br>\n"; }
-#$str .= "Graph: $graphid <p>"; 
-
-
-#&send_email('stephen@downes.ca','stephen@downes.ca', 'file upload',$str);
-
-
-
-
-	
-
-return;
-
 	# Make Icon (from smallest uploaded image thus far)
 	
-		if ($file_record->{file_type} eq "Illustration") { 
+	if ($file_record->{file_type} eq "Illustration") { 
 		
-			my $icon_image = &item_images($table,$new_record->{$table."_id"},"smallest");
-			
-			my $filename = $icon_image->{file_title};
-			my $filedir = $Site->{st_urlf}."files/images/";
-			my $icondir = $Site->{st_urlf}."files/icons/";
-			my $iconname = $table."_".$new_record->{$table."_id"}.".jpg";
+		my $icon_image = &item_images($vars->{graph_table},$vars->{graph_id},"smallest");
 		
-			my $tmb = &make_thumbnail($filedir,$filename,$icondir,$iconname);
-		}
+		my $filename = $icon_image->{file_title};
+		my $filedir = $Site->{st_urlf}."files/images/";
+		my $icondir = $Site->{st_urlf}."files/icons/";
+		my $iconname = $vars->{graph_table}."_".$vars->{graph_id}.".jpg";
+		
+		my $tmb = &make_thumbnail($filedir,$filename,$icondir,$iconname);
+	}
 
 
 
@@ -384,8 +516,6 @@ sub save_file {
 		
 	# Create File Record
 	$file_record->{file_id} = &db_insert($dbh,$query,"file",$file_record);
-	$vars->{msg} .= "File $upload_filename inserted as file number $file_id <br>";	
-	
 	
 	if ($file_record->{file_id}) { return $file_record; }
 	else { &error($dbh,"","","File save failed: $! <br>"); }

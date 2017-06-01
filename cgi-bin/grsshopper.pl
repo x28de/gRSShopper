@@ -2112,6 +2112,7 @@ sub twitter_post {
 	);	
 
         my $result = eval {$nt->update({ status => $tweet})};
+
 	if ( my $err = $@ ) {
 		die $@ unless blessed $err && $err->isa('Net::Twitter::Lite::Error');
 		$vars->{twitter} = "<p><b>Twitter posting error</b><br>Attempted to tweet: $tweet <br>HTTP Response Code: ". $err->code. "<br>".
@@ -2124,7 +2125,8 @@ sub twitter_post {
 	my $smfield = $table."_social_media";								# Update Record	
 	my $smstring = $record->{$smfield}."twitter ";
 	&db_update($dbh,$table,{$smfield => $smstring},$id);
-			
+	&db_update($dbh,$table,{$table."_twitter" => 1},$id);
+				
 	if ($result) { $vars->{twitter} .= "Twitter: OK" }
 
 	return $vars->{twitter};
@@ -3834,18 +3836,19 @@ sub footer {
 # -------   Upload File --------------------------------------------------------------                          
 #
 #
-#	      Edited: 21 January 2013
+#	      Edited: 21 January 2013, 30 May 2017
 #
 #----------------------------------------------------------------------
 
 sub upload_file {
 	
+	# Assumes global input variable $query from CGI
 	
-	my ($query) = @_;
-	
+
 	my $file = gRSShopper::File->new();
-	$file->{file_title} = $query->param("file_name");
-	
+	$file->{file_title} = $query->param("myfile");
+
+
 	$file->{file_dir} = $Site->{st_urlf} . "uploads";
 	unless (-d $file->{file_dir}) { mkdir $upload_dir, 0755 or die "Error 1857 creating upload directory $file->{file_dir} $!"; }
 	unless ($file->{file_title}) { $vars->{msg} .= " No file was uploaded."; }
@@ -3861,11 +3864,101 @@ sub upload_file {
 	unless (-d $fulluploaddir) { mkdir $fulluploaddir, 0755 or die "Error 1867 creating upload directory $fulluploaddir $!"; }
 	
 	# Store the File
-	my $upload_filehandle = $query->upload("file_name");
+	my $upload_filehandle = $query->upload("myfile");
 	$upload_filedirname = $file->{file_dir}.$file->{file_title};
 	$upload_fullfilename = $Site->{st_urlf}.$upload_filedirname;
+
+
 	
 	# Prevent Duplicate File Names  (creates filename.n.ext where n is the increment number)
+	
+	
+	my ($upload_fulldirname,$upload_fullfilename,$upload_filedirname) = &unique_filename($file,$upload_fullfilename);
+		
+
+	open ( UPLOADFILE, ">$upload_fullfilename" ) or &error($dbh,"","","Failed to upload $upload_fullfilename $!");  
+	binmode UPLOADFILE;  
+	while ( <$upload_filehandle> ) { print UPLOADFILE; } 
+	close UPLOADFILE;
+
+	$file->{fullfilename} = $upload_fullfilename;
+
+		
+	return $file;
+
+
+}
+
+
+# -------   Upload URL ---------------------------------------------------------------                                          
+#
+#
+#	      Edited: 21 January 2013, 30 May 2017
+#
+#----------------------------------------------------------------------
+
+sub upload_url {
+	
+	my ($url) = @_;
+
+	$vars->{msg} .= "<br>Downloading $url...  ";	
+	return unless ($url);
+	
+	# Chop seo and such (if there are exceptions to these I'll fix them in the future)
+	$ url =~ s/\?(.*?)$//;
+	$ url =~ s/#(.*?)$//;
+
+	my $file = gRSShopper::File->new();
+	
+	
+	
+	# Prepare Filename 
+	my @parts = split "/",$url; 										
+	$file->{file_title} = pop @parts;
+	$file->{file_title} = &sanitize_filename($dbh,$file->{file_title});
+
+	# Set File Upload Directory
+	my @pparts = split /\./,$file->{file_title};
+	my $ffextension = "." . pop @pparts;			
+	($file->{filetype},$file->{file_dir}) = &file_upload_dir($ffextension);
+	my $fulluploaddir = $Site->{st_urlf} . $file->{file_dir};
+	unless (-d $fulluploaddir) { mkdir $fulluploaddir, 0755 or die "Error 1892 creating upload directory $upload_dir $!"; }
+	$file->{filedirname} = $file->{file_dir}.$file->{file_title};
+	$file->{fullfilename} = $Site->{st_urlf}.$file->{filedirname};
+
+
+	# Prevent Duplicate File Names  (creates filename.n.ext where n is the increment number)
+	my ($upload_fulldirname,$upload_fullfilename,$upload_filedirname) = &unique_filename($file,$file->{fullfilename});
+
+	$file->{filedirname} = $upload_fulldirname;
+	$file->{fullfilename} = $upload_fullfilename;
+
+		
+	# Get and Store the File
+	
+	my $result = getstore($url,$file->{fullfilename});
+	
+	unless ($result eq "200") {   
+		$vars->{msg} .= qq|<span style="color:red;">
+			<br>Error $result while trying to download<br><a href="$url">$url</a> <br> 
+			Try saving manually and uploading from your computer</span><br><br>|;
+		$file->{fullfilename} = ""; $file->{file_title} = "";
+		return 0;
+	}
+
+	return $file;
+
+}
+
+# ---- Unique Filename ---------------------
+#
+# Used by upload_url and upload_file
+
+
+sub unique_filename {
+	
+	my ($file,$upload_fullfilename,$upload_filedirname) = @_;
+	
 	my $ccnt = 0;		
 	while (-e $upload_fullfilename) {
 
@@ -3889,81 +3982,12 @@ sub upload_file {
 		# Set the new file name variables
 		$upload_filedirname = $file->{file_dir}.$file->{file_title};
 		$upload_fullfilename = $Site->{st_urlf}.$upload_filedirname;	
-		$ccnt++; last if ($ccnt > 100000);			
-	}	
-		
-
-	open ( UPLOADFILE, ">$upload_fullfilename" ) or &error($dbh,"","","Failed to upload $upload_fullfilename $!");  
-	binmode UPLOADFILE;  
-	while ( <$upload_filehandle> ) { print UPLOADFILE; } 
-	close UPLOADFILE;
-
-	$file->{fullfilename} = $upload_fullfilename;
-		
-	return $file;
-
-
-}
-
-
-# -------   Upload URL ---------------------------------------------------------------                                          
-#
-#
-#	      Edited: 21 January 2013
-#
-#----------------------------------------------------------------------
-
-sub upload_url {
-
-	my ($url) = @_;
-	return unless ($url);
-
-	my $file = gRSShopper::File->new();
-
-	
-	# Prepare Filename 
-	my @parts = split "/",$url; 										
-	$file->{file_title} = pop @parts;
-	$file->{file_title} = &sanitize_filename($dbh,$file->{file_title});
-
-	# Set File Upload Directory
-	my @pparts = split /\./,$file->{file_title};
-	my $ffextension = "." . pop @pparts;			
-	($file->{filetype},$file->{file_dir}) = &file_upload_dir($ffextension);
-	my $fulluploaddir = $Site->{st_urlf} . $file->{file_dir};
-	unless (-d $fulluploaddir) { mkdir $fulluploaddir, 0755 or die "Error 1892 creating upload directory $upload_dir $!"; }
-	$file->{filedirname} = $file->{file_dir}.$file->{file_title};
-	$file->{fullfilename} = $Site->{st_urlf}.$file->{filedirname};
-
-	# Prevent Duplicate File Names  (creates filename.n.ext where n is the increment number)
-	my $ccnt = 0;	
-	while (-e $file->{fullfilename}) {
-		my @farr = split /\./,$file->{file_title};
-		my $ext = pop @farr;
-		my $incr = pop @farr;
-		$incr++;
-		push @farr,$incr;
-		push @farr,$ext;
-		$file->{file_title} = join ".",@farr;	
-		$file->{filedirname} = $file->{file_dir}.$file->{file_title};
-		$file->{fullfilename} = $Site->{st_urlf}.$file->{filedirname};	
-		$ccnt++; last if ($ccnt > 100000);	
+		$ccnt++; last if ($ccnt > 100000);		
+			
 	}
 	
-	# Get and Store the File
+	return ($upload_fulldirname,$upload_fullfilename);
 	
-	my $result = getstore($url,$file->{fullfilename});
-	
-	unless ($result eq "200") {   
-		$vars->{msg} .= qq|
-			Error $result while trying to download <a href="$url">$url</a> <br> 
-			Try saving manually and uploading from your computer|;
-		$file->{fullfilename} = ""; $file->{file_title} = "";
-		return 0;
-	}
-
-	return $file;
-
 }
 
 
@@ -4248,8 +4272,8 @@ sub publish_post {
 	my ($dbh,$table,$id,$msg) = @_;
 
 
-	if ($vars->{post_twitter}) { $vars->{twitter} = &twitter_post($dbh,"post",$id); }
-	if ($vars->{post_facebook}) { $vars->{facebook} = &facebook_post($dbh,"post",$id);	}
+	if ($vars->{post_twitter} eq "yes") { $vars->{twitter} = &twitter_post($dbh,"post",$id); }
+	if ($vars->{post_facebook} eq "yes") { $vars->{facebook} = &facebook_post($dbh,"post",$id);	}
 	
 	return $vars->{twitter}.$vars->{facebook};
 }
@@ -4481,8 +4505,8 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		&format_content($dbh,$query,$options,$wp);
 		$form_text .= qq|	 
 		 	<br><i>&nbsp;&nbsp;Preview:</i><br/><table border=1 cellpadding=10 cellspacing=0 width="600">
-			<tr><td>
-			$wp->{page_content}
+			<tr><td><div id="record_summary">
+			$wp->{page_content}</div>
 			</td></tr></table></form><br>|;
 	}
 }
@@ -4621,6 +4645,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 			elsif ($fullfieldname =~ /_start/ || $fullfieldname =~ /_finish/) { $fieldtype = "datetime"; }			
 			elsif (&db_get_record($dbh,"optlist",{optlist_title=>$fullfieldname})) { $fieldtype = "optlist"; }
 			elsif ($table eq "post" && ($showref->{Field} eq "author" || $showref->{Field} eq "feed")) { $fieldtype = "keylist"; } # Temporary
+			elsif ($table eq "publication" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary
 			else { $fieldtype = "text"; } 
 
 			# Push the column information into the new @fieldlist array 
@@ -4708,6 +4733,15 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		
 		# DateTime
 		elsif ($fieldtype eq "datetime") { $form_text .=  &form_date_time_select($record,$col,$colspan,$advice); }
+
+		# Publish
+		elsif ($fieldtype eq "publish") { $form_text .=  &form_publish($table,$id_value,$col,$value); }
+				
+		# Heading
+		elsif ($fieldtype eq "heading") { $form_text .=  &form_heading($sc,$fieldsize); }
+		
+		# Commit 
+		elsif ($fieldtype eq "commit") { $form_text .=  &form_commit($table,$col,$id_number,$record); }		
 						
 		elsif ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "post")) {			
 			$form_text .= &form_keylist($table,$id_value,$sc);
@@ -4812,6 +4846,9 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
             var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"wysihtml5"};
             return data;
         },
+        success: function() {
+        	\$('#record_summary').load("admin.cgi?post=$id&format=summary");
+        },
     });
 });
 </script></div></td></tr>
@@ -4857,6 +4894,9 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
             var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"textarea"};
             return data;
         },
+                success: function() {
+        	\$('#record_summary').load("admin.cgi?post=$id&format=summary");
+        }
     });
 });
 </script></div>$advice</td></tr>
@@ -4882,6 +4922,22 @@ sub form_rules {
 
 }
 
+# ----------- Form Heading -----------------------------------------------
+#
+# No data sumbission, just a heading
+#
+
+sub form_heading {
+
+	my ($col,$size) = @_;
+	
+	return qq|<tr><td align="left" valign="top"  colspan=4 >
+   <div>
+   <h$size>|.ucfirst($col).qq|</h$size>
+   </div></td></tr>|;
+	
+}
+
 # -------  Text Input -----------------------------------------------------
 #
 # Creates Text Input Form Field
@@ -4889,7 +4945,7 @@ sub form_rules {
 sub form_textinput {
 	my ($table,$id,$col,$value,$size,$advice) = @_;
 	my ($table,$title) = split /_/,$col;
-	my $value = $record->{$col} || "";
+
 
 return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
    <div>
@@ -4911,6 +4967,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
 					\$('#|.
 					$col.
 					qq|_okindicator').html(response);
+					\$('#record_summary').load("admin.cgi?post=$id&format=summary");
 				}
     		});
 		});
@@ -4965,6 +5022,8 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
          },
          success: function(response) {
             \$('#|.$col.qq|_extra').html(response);
+            \$('#record_summary').load("admin.cgi?post=$id&format=summary");
+
          }
       });
    });
@@ -4973,7 +5032,6 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
 |;
 
 }
-
 
 # -------  Form Submit -----------------------------------------------------
 #
@@ -5013,6 +5071,29 @@ sub form_file_select {
 	
 	my $admin = 1 if ($Person->{person_status} eq "admin");	
 
+	# Find eligible options defining the association between the file and the record
+	# Stored in optlist table under the heading $table_file
+	my $opts = &db_get_record($dbh,"optlist",{optlist_title=>$col});
+
+
+	# Create list of options for the form
+	my $options = ""; 
+	my $select = qq|File type: <select name='category'>|;
+	my @opts = split ";",$opts->{optlist_data};
+	foreach my $opt (@opts) {
+		$opt =~ s/\n|\r//g;
+		my ($oname,$ovalue) = split ",",$opt;
+		next unless ($oname && $ovalue);
+		$options .= qq|<option value='$ovalue'>$oname</option>|;
+	}
+	$select = $select . $options . qq|</select>|;
+	
+
+	# Create list of already associated files
+	my $keylist_text = &form_graph_list($table,$id,"file");
+	$keylist_text ||= "None";	
+
+
 
 	return qq|
 	
@@ -5020,21 +5101,65 @@ sub form_file_select {
 
 <tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
    <div>
-   	
+   
+<!-- Existing Uploaded Files -->
+  <span id="file_url_okindicator"></span>
+  <span id="|.
+		$col
+	.qq|_okindicator">$keylist_text</span><br>
+	
+	 
+	 
+ <!-- URL Input -->
+ 
+<a href="#" id="file_url" data-type="text" data-pk="1"></a>
+ 
+ <script>
+	\$(function(){
+	    \$('#file_url').editable({
+ 		mode: 'inline',
+        	url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        	title: 'Enter file_url',
+        	emptytext: '[Enter file URL here, or upload using the button below]', 
+       		params: function (params) {  
+        		var data = {graph_table:'$table',graph_id:$id,name:params.name,value:params.value,updated:1,type:"file_url"};
+        		return data;
+       		},
+     		success: function(response) {
+			\$('#|.
+			$col.
+		qq|_okindicator').html(response);
+			\$('#record_summary').load("admin.cgi?post=$id&format=summary");
+			\$('#file_url').value(null);
+		},
+
+	     });
+	});
+</script>
+
+
+<!-- File Upload -->		
+		  	
 <script>
 \$(document).ready(function()
 {
  var extraObj = \$("#extraupload").uploadFile({
 	url:"http://www.downes.ca/cgi-bin/api.cgi",
 	fileName:"myfile",
-	formData: {"pk":"1","graph_table":"post","graph_id":1423,"type":"file","updated":1},
+	formData: {"pk":"1","graph_table":"$table","graph_id":$id,"type":"file","updated":1},
 	extraHTML:function()
 	{
-		var html = "<div><b>File Tags:</b><input type='text' name='tags' value='' /> <br/>";
-		html += "<b>Category</b>:<select name='category'><option value='1'>ONE</option><option value='2'>TWO</option></select>";
+		var html = "<div>";
+		html += "$select";
 		html += "</div>";
 		return html;    		
 	},
+	onSuccess: function(e, data) {
+		\$('#|.
+			$col.
+		qq|_okindicator').html(data);
+		\$( "#record_summary" ).load( "admin.cgi?post=$id&format=summary" );
+            },
 	autoSubmit:false
 	});
 
@@ -5044,11 +5169,9 @@ sub form_file_select {
 	}); 
 });	
 </script>
-Output:
-<div id="extraupload"></div>
 
+<div id="extraupload"></div>
 <div id="extrabutton" class="ajax-file-upload-green">Start Upload</div>
-	
 </div></td></tr>	
 	
 	|;
@@ -5220,6 +5343,7 @@ sub form_boolean {
 # Displayes in editable form data that is stored in a single field
 # as follows:  value1a,value1b,value1c,...;value2a,value2b,value2c,...
 
+
 sub form_data {
 	
 	
@@ -5238,6 +5362,7 @@ sub form_data {
 	unless ($data) {
 		$data = qq|fieldname1,fieldname2,fieldname3;value1,value2,value3;value1,value2,value3|;
 	}
+	
 	
 	my $rows=0; my $maxcols=0;
 
@@ -5269,33 +5394,29 @@ sub form_data {
 	$output .= qq|</tr><tr><td><input type="Submit"> <span id="|.$col.qq|_okindicator"></span></form></td></tr></table>|;
 			
 $output .= qq|	
-
-<link href="http://hayageek.github.io/jQuery-Upload-File/4.0.10/uploadfile.css" rel="stylesheet">
-$(document).ready(function()
-{
-	var extraObj = $("#extraupload").uploadFile({
-	url:"upload.php",
-	fileName:"myfile",
-	extraHTML:function()
-    {
-	    	var html = "<div><b>File Tags:</b><input type='text' name='tags' value='' /> <br/>";
-    		html += "<b>Category</b>:<select name='values'><option value='1'>ONE</option><option value='2'>TWO</option></select>";
-			html += "</div>";
-			return html;    		
-    },
-    autoSubmit:false
-	});
-	
-	$("#extrabutton").click(function()
-	{
-	
-		extraObj.startUpload();
-	});
- });
- </script>\n\n
+<script type="text/javascript">
+    var frm = \$('#$col');
+    frm.submit(function (e) {
+        e.preventDefault();
+        \$.ajax({
+            type: frm.attr('method'),
+            url: frm.attr('action'),
+            data: frm.serialize(),
+            success: function (data) {
+		\$("#form_commit_button_text").show();
+		\$("#form_commit_button_done").hide();
+		\$('#|.$col.qq|_okindicator').show();		
+		\$('#|.$col.qq|_okindicator').html(data);
+		\$('#|.$col.qq|_okindicator').hide(4000);
+            },
+            error: function (data) {
+                alert('An error occurred.');
+                alert(data);
+            },
+        });
+    });
  
- 
- </td></tr></div>|;
+ </script>\n\n|;
 	
 	
 	#$output .= qq|<textarea style="font-family: Courier;" name="$col" rows="$rows" cols=60>$data</textarea>|;
@@ -5304,6 +5425,8 @@ $(document).ready(function()
 
 
 	return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"><div>$output</div></td></tr><form>|;	
+	
+	
 	
 }
 
@@ -5425,6 +5548,7 @@ sub form_dates_general {
 					\$('#|.
 					$col.
 					qq|_okindicator').html(response);
+					\$('#record_summary').load("admin.cgi?post=$id&format=summary");
 				},
 			error: function (data) {
 				alert('An error occurred.');
@@ -5567,7 +5691,11 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
        
         //for some reason data doesn't submit if you remove pk, so don't remove it
         ,pk: 1
-        ,url: 'http://www.downes.ca/cgi-bin/api.cgi'
+        ,url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        success: function() {
+        	
+        \$('#record_summary').load("admin.cgi?post=$id&format=summary");	
+        },
         
     });
 });
@@ -5785,6 +5913,99 @@ sub form_opt_multiple {
 	return $output;
 }
 
+sub form_publish {
+
+	my ($table,$id_value,$col,$value) = @_;
+	
+	my $button_text;
+	if ($value == 1) { $button_text = "Published"; }
+	else { $button_text = qq|<button id="|.$col.qq|_button" value="val_1" class="ajax-file-upload-green" style="line-height: normal;" name="but1">Publish</button>|; }
+	
+	return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+<div>
+<div id="|.$col.qq|">
+$button_text
+</div>
+<script>
+\$(document).ready(function(){
+	\$("#|.$col.qq|_button").click(function(e) {
+		e.preventDefault();
+		\$.ajax({
+			type: "POST",
+			url: "http://www.downes.ca/cgi-bin/api.cgi",
+			data: {
+				table_name:'$table',
+				table_id:$id_value,
+				updated:1,
+				type:"publish",
+				name:"$col",
+			},
+			success: function(result) {
+				\$("#|.$col.qq|").html("Published");
+			},
+			error: function(result) {
+				\$("#|.$col.qq|").html("<span style='color:red;'>Error Publishing</span>");
+			}
+		});
+	});
+});
+
+</script>
+</div></td></tr>
+|;
+		
+}
+
+sub form_commit {
+	
+	my ($table,$col,$id_value,$record) = @_;
+	
+	return unless ($table eq "form");
+	
+	my $button_text = qq|<div id="form_commit_button_text"><form><span style="color:red;">Database changes must be committed to take effect...</span>
+		<button id="|.$col.qq|_button" value="val_1" class="ajax-file-upload-green" style="line-height: normal;" name="but1">Commit</button></form></div>
+		<div id="form_commit_button_done">Committed</div>
+		<span id="|.$col.qq|_okindicator"></span>|; 
+	
+	return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+<div>
+<div id="|.$col.qq|">
+$button_text
+</div>
+<script>
+\$(document).ready(function(){
+	\$("#form_commit_button_done").hide();
+	\$("#|.$col.qq|_button").click(function(e) {
+		e.preventDefault();
+		\$.ajax({
+			type: "POST",
+			url: "http://www.downes.ca/cgi-bin/api.cgi",
+			data: {
+				table_name:'$table',
+				table_id:$id_value,
+				updated:1,
+				type:"commit",
+				name:"$col",
+			},
+			success: function(result) {
+				alert(result);
+				\$("#form_commit_button_text").hide();
+				\$("#form_commit_button_done").show();
+				\$('#|.$col.qq|_okindicator').html(result);
+			},
+			error: function(result) {
+				\$("#|.$col.qq|").html("<span style='color:red;'>Error Commiting</span>");
+			}
+		});
+	});
+});
+
+</script>
+</div></td></tr>
+|;
+			
+	
+}
 
 sub form_twitter {
 
@@ -5792,7 +6013,7 @@ sub form_twitter {
 	
 	my $return_text = qq|<tr><td>Publish</td><td colspan="3">|;
 	
-	my @socialmedias = qw(twitter facebook);				# List of supported social media sites
+	my @socialmedias = qw(twitter facebook web);				# List of supported social media sites
 	foreach my $socialmedia (@socialmedias) {
 		$return_text .= ucfirst($socialmedia).": ";
 	
@@ -6201,6 +6422,60 @@ sub db_cache_check {
 	
 }
 
+# --------- Back Up Database -------------------------------------------------------
+
+# Note - uses mysqldump - won't work for different db
+
+sub db_backup {
+	
+	my ($table) = @_;
+	print qq|"$table"|;
+	if ($table eq "all") { $table = ""; }
+	
+
+  	my $data_file = $Site->{data_dir} . "multisite.txt";							
+	open IN,"$data_file" or die "Couldn't open $data_file $!";
+	my $dbinfo;
+
+	
+	# Find the line beginning with site URL
+	# and read site database information from it
+	
+	my $url_located = 0;							
+  	while (<IN>) {
+		my $line = $_; $line =~ s/(\s|\r|\n)$//g;			
+		if ($line =~ /^$Site->{st_home}/) {				
+			( $dbinfo->{st_home},
+			  $dbinfo->{database}->{name},
+			  $dbinfo->{database}->{loc},
+			  $dbinfo->{database}->{usr},
+			  $dbinfo->{database}->{pwd},
+			  $dbinfo->{site_language},
+			  $dbinfo->{st_urlf},
+			  $dbinfo->{st_cgif} ) = split "\t",$line;
+			$url_located = 1;
+			last;
+		}
+	}
+	close IN;
+	
+
+	
+	$table =~ s/$dbinfo->{database}->{name}\.//;
+	unless (-d $Site->{st_urlf}."files/backup/") { mkdir $Site->{st_urlf}."files/backup/"; }
+	my $backup_filename = $Site->{st_urlf}."files/backup/".$dbinfo->{database}->{name}."-".$table."-".time.".sql";
+	$backup_filename =~ s/--/-/;
+	my $result = `mysqldump --user=$dbinfo->{database}->{usr} --password=$dbinfo->{database}->{pwd} $dbinfo->{database}->{name} $table > $backup_filename`;
+	print $result;
+	
+	$Site->{database}="";							# Clear site database info so it's not available later				
+	$_ = "";								# Prevent accidental (or otherwise) print of config file.
+
+	return $backup_filename;
+		
+	
+}
+
 
 
 # -------   Get Record Cache --------------------------------------------------------
@@ -6329,6 +6604,8 @@ sub db_drop_table {
 
 	my $dbh = shift || die "Database handler not initiated";
 	my $table = shift || die "Table not specified on drop table";
+	
+	&db_backup($table);
 
 	my $sql = qq|DROP TABLE IF EXISTS `$table`|;
 	
@@ -6352,7 +6629,7 @@ sub db_drop_table {
 sub db_create_table {
 
 	my $dbh = shift || die "Database handler not initiated";
-	my $table = shift || die "Table not specified on drop table";
+	my $table = shift || die "Table not specified on create table";
 	my $data = shift;
 	
 #  Do not create if the table already exists
@@ -6370,7 +6647,8 @@ sub db_create_table {
 CREATE TABLE `|.$table.qq|` (
   `|.$table.qq|_id` int(11) NOT NULL auto_increment,
   `|.$table.qq|_crdate` int(15) default NULL,  
-  `|.$table.qq|_creator` varchar(250) default NULL,|;
+    `|.$table.qq|_tst` int(2) default NULL, 
+  `|.$table.qq|_creator` int(15) default NULL,|;
   
 
 #  Data provides table elements, in order

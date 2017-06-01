@@ -100,10 +100,13 @@ print "Content-type: text/html\n\n";
 
 
 
-#my $psql = "SELECT * FROM publication";
+#my $psql = "SELECT * FROM post";
 #my $psth = $dbh->prepare($psql);
 #$psth->execute();
-#while (my $pub = $psth -> fetchrow_hashref()) { 
+#while (my $post = $psth -> fetchrow_hashref()) { 
+#	&db_update($dbh,"post",{post_facebook => 1},$post->{post_id});
+#	&db_update($dbh,"post",{post_web => 1},$post->{post_id});	
+#}
 
 #	my $graphid = &db_insert($dbh,$query,"graph",{
 #		graph_tableone=>'publication', graph_idone=>$pub->{publication_id}, graph_urlone=>'',
@@ -219,7 +222,6 @@ if ($action) {
 		/config/ && do { &admin_update_config($dbh,$query); last;	};		#	- Update config data
 		/export_table/ && do { &admin_db_export($dbh,$query); last;	};		#	- export a table
 		/db_pack/ && do {&admin_db_pack($dbh,$query); last;		};		#	- Make a new pack
-		/showcolumns/ && do { &showcolumns($dbh,$query); last; };			#	- Show the columns in a table
 		/addcolumn/ && do { &addcolumn($dbh,$query); last; };				#	- Add new column to a table
 		/removecolumnwarn/ && do { &removecolumnwarn($dbh,$query); last; };		#	- Remove column - warn user			
 		/removecolumndo/ && do { &removecolumndo($dbh,$query); last; };			#	- Remove column - remove it
@@ -245,6 +247,10 @@ if ($action) {
 		/remove_key/ && do { &remove_key($dbh,$query,$table,$id); 
 			&edit_record($dbh,$query,$table,$id); last;};	
 
+												#		# Database Functions
+												
+		/backup_db/ && do { &admin_db_backup($vars->{backup_table}); last; };		#	- Back up database
+		/showcolumns/ && do { &showcolumns($dbh,$query); last; };			#	- Show the columns in a table
 
 
 		/fixmesubs/ && do { &fixmesubs($dbh,$query,$table); last;		};
@@ -1248,11 +1254,24 @@ sub admin_database {
 	$content .= "</div>";
 
 
-	# Clear Cache
+	# Back Up Database
+	my $table_dropdown;
+	foreach my $t (@tables) {
+		$table_dropdown .= qq|<option value="$t">$t</option>|;
+	}
+		
 	$content .= qq|	
-		<br/><h3>Clear Cache</h3>
+		<br/><h3>Back Up Database</h3>
 		<div class="adminpanel">
-			<p>[<a href="$Site->{st_cgi}admin.cgi?action=cache_clear&days=1">Clear Cache</a>]</p>
+		<form method="post" action="admin.cgi">
+		<input type="hidden" value="backup_db" name="action">
+		<select name="backup_table">
+		<option value="all">All Tables</option>
+		$table_dropdown
+		</select>
+		
+		<input type="submit" value="Back Up Database">
+		</form>
 		</div>|;	
 	
 
@@ -1446,6 +1465,20 @@ sub admin_db_pack {
 	$vars->{dbmsg} .= "$systring<br>Data Pack a <b>$vars->{pack}</b> Created";
 	&admin_database($dbh,$query);
 } 
+
+sub admin_db_backup {
+
+	my ($table) = @_;
+	
+	print "Content-type: text/html\n\n";
+	print "Backing up $table";
+	if ($table eq "all") { print " tables"; }
+	print "<br>";
+	my $savefile = &db_backup($table);
+	
+	print "Saved to $savefile <br>";
+
+}
 
 # --------------------------------------   Update Config -----------------------------------------------
 #
