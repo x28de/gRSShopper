@@ -1,6 +1,6 @@
 #    gRSShopper 0.7  Common Functions  0.81  -- 
 
-#    10 May 2017
+#    05 June 2017
 
 #    Copyright (C) <2013>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -4402,11 +4402,8 @@ sub api_receive_rest {
 # 	General Editing Form Function
 #
 # 	Reqireds table and id numbers as inputs
-# 	Also requires $showcols which identifies which columns to allow edit
-# 	for and in which order. Sample:
-# 	$showcols={table1 => ["column","column2"], table2 => ["column1","column2"] };
 #
-#	      Edited: 15 July 2010
+#	      Edited: 15 July 2010, 6 June 1027
 #
 #-------------------------------------------------------------------------------
 
@@ -4416,16 +4413,14 @@ sub api_receive_rest {
 
 sub form_editor() {
 	
-	my ($dbh,$query,$table,$showcols,$id_number,$data) = @_;
+	my ($dbh,$query,$table,$id_number,$data) = @_;
 
 
-	
 	my $form_text = "";
 	my $autoblog = $vars->{autoblog};
 	my $id; my $id_value;						# Not needed, but let's wipe out the value
 										# in case they're used accidentally. Heh
 	
-
 
 	# Check Starting Data
 

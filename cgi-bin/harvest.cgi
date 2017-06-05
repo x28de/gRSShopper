@@ -1,38 +1,70 @@
 #!/usr/bin/env perl
+
+
+
+#    gRSShopper 0.7  Harvester  0.5  -- gRSShopper harvester module
+#    05 June 2017 - Stephen Downes
+
+#    Copyright (C) <2011>  <Stephen Downes, National Research Council Canada>
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+#-------------------------------------------------------------------------------
+#
+#	    gRSShopper 
+#           Harvester 
+#
+#-------------------------------------------------------------------------------
+
+
+
 use strict;
 
 print "Content-type: text/html; charset=utf-8\n\n";
 use CGI::Carp qw(warningsToBrowser fatalsToBrowser); 
 our $DEBUG = 1;							# Toggle debug
 
-## use padre_syntax_check
 
-# Forbid agents
+# Forbid bots
 
-if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/) { 
-  	print "Content-type: text/html; charset=utf-8\n";
-	print "HTTP/1.1 403 Forbidden\n\n";
-	print "403 Forbidden\n"; 
-	exit; 
-}
+	die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);	
+						
+
+# Load gRSShopper
+
+	use File::Basename;												
+	use CGI::Carp qw(fatalsToBrowser);
+	my $dirname = dirname(__FILE__);								
+	require $dirname . "/grsshopper.pl";	
+								
+
+
+# Load modules
+
+	our ($query,$vars) = &load_modules("admin");
+	$vars->{msg} = "Messages<p>";
 
 
 
 
-# Initialize gRSShopper Library
 
-# FindBin doesn't work on ModCGI
-#use FindBin qw($Bin);
-#require "$Bin/grsshopper.pl";
 
-use File::Basename;
-my $basepath = dirname(__FILE__);
-require $basepath . "/grsshopper.pl";
+# Load Site
 
-our ($query,$vars) = &load_modules("admin");			# Request Variables
-our ($Site,$dbh) = &get_site("admin");				# Site
-#$Site->{feed_cache_dir} = "/var/www/feeds/";
-$Site->{diag_level} = 5;					# Diagnostics level 0-10
+	our ($Site,$dbh) = &get_site("admin");									
+	if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
+
+
+	$Site->{diag_level} = 5;				# Diagnostics level 0-10
 								# 1 - save item
 								# 2 - save media, author
 								# 3 - save link
@@ -40,19 +72,27 @@ $Site->{diag_level} = 5;					# Diagnostics level 0-10
 								# 7 - graph
 								# 8 - new gRSShopper record
 
-our $Person = {}; bless $Person;				# Person  (still need to make this an object)
-&get_person($dbh,$query,$Person);		
-my $person_id = $Person->{person_id};
 
-$vars->{msg} = "Messages<p>";
+# Get Person  (still need to make this an object)
+
+	our $Person = {}; bless $Person;				
+	&get_person($dbh,$query,$Person);		
+	my $person_id = $Person->{person_id};
+	
+
+# Initialize system variables
+
+	my $options = {}; bless $options;		
+	our $cache = {}; bless $cache;	
+
+
+# Restrict to Admin
+
+	if ($vars->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }		
+	
 
 
 
-							
-							# Only Admin Harvest
-
-my $msg = "Permission Denied<br/><a href='$Site->{st_cgi}login.cgi?refer=$Site->{script}'?Login</a>";
-&error($dbh,$query,"",$msg) unless (($Person->{person_status} eq "admin") || ($vars->{person_status} eq "cron"));
 
 # Analyze Request --------------------------------------------------------------------
 

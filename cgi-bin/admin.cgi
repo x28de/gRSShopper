@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 
-#    gRSShopper 0.7  Admin  0.61  -- gRSShopper administration module
-#    27 April 2017 - Stephen Downes
+#    gRSShopper 0.7  Admin  0.62  -- gRSShopper administration module
+#    05 June 2017 - Stephen Downes
 
 #    Copyright (C) <2011>  <Stephen Downes, National Research Council Canada>
 #    This program is free software: you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 #           Admin Functions 
 #
 #-------------------------------------------------------------------------------
-print "Content-type: text/html\n\n";
+#print "Content-type: text/html\n\n";
 
 
 # Diagnostics
@@ -2973,69 +2973,21 @@ sub file_upload_dir {
 
 sub edit_record {
 
-						# Get variables
-					
+	# Get variables
 						
 	my ($dbh,$query,$table,$id_number,$viewer) = @_;
-	my $id; my $id_value;						# Not needed, but let's wipe out the value
-										# in case they're used accidentally. Heh
-	my $vars = $query->Vars;
 	$vars->{force} = "yes";	# Never use cache on edit
 
 	# print "Content-type: text/html; charset=utf-8\n\n";
 
 
+	# Define Form Contents
 
-
-	
-						# Define Form Contents
-
-
-
- 						
-	my $showcols = {
-		author => ["name","nickname","link","description","image_file","submit"],
-                badge => ["name","description","image","criteria","issuer","submit"],
-		box => ["title","description","content","submit"],
-		chat => ["description","signature","shown","creator","crip","crdate","thread"],
-		element => ["title","edit","show","data","submit","view"],
-		event => ["title","link","start","finish","timezone","location","status","section","description","submit","image_file"],
-		field => ["title","type","size","submit"],
-		file => ["title","dir","dirname","link","mime","type","size","align","width","height","crdate","post","description","submit"],
-		feed => ["title","link","html","type","author","section","submit","genre","language","status","rules","description","image_file","add_entry","authoremail","authorname","authorurl","autocats","baseurl","blogroll","category","compression","copyright","country","crdate","creatoremail","creatorname","creatorurl","docs","etag","explicit","feedburnerhost","feedburnerid","feedburnerurl","genname",,"genurl","genver","granularity","guid","hub","od","identifier","imgcreator","issued","journal","keywords","lastBuildDate","lastharvest","links","managingEditor","modified","pubDate","publisher","rating","rights","tagline","timezone","topic","updateBase","updated","ipdateFrequency","updatePeriod","version","webMaster","submit"],
-		graph => ["type","typeval","tableone","idone","urlone","tabletwo","idtwo","urltwo","crdate","submit"],
-		journal => ["title","link","description","submit"],
-		link => ["title","link","description","content","author","feed","section","genre","language","status","type","hits","total","post","copyright","crdate","issued","modified","submit","orig","content"],
-		lookup => ["taba","ida","tabb","idb","type","submit"],
-		media => ["title","url","type","mimetype","link","feed","medialink","size","width","height","description","submit"],
-		person => ["name","photo","title","password","openid","status","email","description","submit"],
-		optlist => ["title","table","field","data","list","default","type","submit"],
-		page => ["title","header","footer","feed","type","update","submit","code","description"],
-		person => ["name","photo","title","password","openid","status","email","socialnet","description","submit"],
-		post => ["title","link","twitter","description","submit","author","feed","pub_date","crdate","section","genre","language","type","comments","icon","image_file","submit","content"],
-		publication => ["title","link","author_name","journal_name","volume","pages","publisher_name","type","category","catdetails","crdate","nrc_number","post","submit","description"],
-		presentation => ["category","catdetails","title","link","author","conference","location","crdate","attendees","cattendees","slides","slideshare","youtube","audio","video","org","description","submit","audio_player","slide_player","video_player"],
-		project => ["title","crdate","completion","description"],		
-		task => ["title","due","length","priority","project","status","completed","description","submit"],		
-		template => ["title","description","submit"],
-		theme => ["title","submit"],
-		thread => ["title","description","tag","refresh","textsize","updated","current","srefresh","supdated","active","status","submit"],
-		topic => ["title","where","reindex","type","description","submit"],
-		view => ["title","text","submit"]
-	};
-
-
-
-	my $form_text = &form_editor($dbh,$query,$table,$showcols,$id_number);
-	
-#	my $output = $Site->{header}.$form_text.$Site->{footer};
-#	$form_text =~ s/&apos;/'/mig;					
+	my $form_text = &form_editor($dbh,$query,$table,$id_number);
 	$form_text =~ s/&#39;/'/mig;					
-#	&clean_up(\$form_text,"html");
 	if ($viewer) { return $form_text; }							# Send form text to viewer, or
 	else { &admin_frame($dbh,$query,"Edit $table",$form_text); } 				# Print Output
 
-	
 	
 }
 
