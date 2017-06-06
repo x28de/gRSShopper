@@ -67,8 +67,8 @@ print "Content-type: text/html\n\n";
 
 
 
-my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-&send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
+#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+#&send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
 
 
 	

@@ -4835,7 +4835,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
 \$(function(){
     \$('#$col').editable({
 	mode: 'inline',
-        url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        url: '|.$Site->{st_cgi}.qq|api.cgi',
         title: 'Enter Text',
         params: function (params) {  
             var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"wysihtml5"};
@@ -4874,13 +4874,15 @@ sub form_textarea {
 	my $id = $record->{$table."_id"};
 	my $value = $record->{$col} || "";
 	
+	#return qq|<textarea name="$col">$value</textarea>|;
+	
 return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
 <style>.mytextarea { width: 40em; }</style>
 <div id="$col" data-type="textarea" data-pk="1">$value</div>
 <script>
 \$(function(){
     \$('#$col').editable({
-        url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        url: '|.$Site->{st_cgi}.qq|api.cgi',
         title: '$title',
        	mode: 'inline',
         inputclass: 'mytextarea',
@@ -4951,7 +4953,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
 		\$(function(){
 		    \$('#$col').editable({
  			mode: 'inline',
-        		url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        		url: '|.$Site->{st_cgi}.qq|api.cgi',
         		title: 'Enter $col',
         		emptytext: '[$col]', 
        			params: function (params) {  
@@ -5003,7 +5005,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
       \$('#$col').editable({
          type: 'text',
 		 mode: 'inline',
-         url: 'http://www.downes.ca/cgi-bin/api.cgi',    
+         url: '|.$Site->{st_cgi}.qq|api.cgi',    
          pk: 1,  
          placement: 'top',
          title: '',
@@ -5113,7 +5115,7 @@ sub form_file_select {
 	\$(function(){
 	    \$('#file_url').editable({
  		mode: 'inline',
-        	url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        	url: '|.$Site->{st_cgi}.qq|api.cgi',
         	title: 'Enter file_url',
         	emptytext: '[Enter file URL here, or upload using the button below]', 
        		params: function (params) {  
@@ -5139,7 +5141,7 @@ sub form_file_select {
 \$(document).ready(function()
 {
  var extraObj = \$("#extraupload").uploadFile({
-	url:"http://www.downes.ca/cgi-bin/api.cgi",
+	url:"|.$Site->{st_cgi}.qq|api.cgi",
 	fileName:"myfile",
 	formData: {"pk":"1","graph_table":"$table","graph_id":$id,"type":"file","updated":1},
 	extraHTML:function()
@@ -5531,7 +5533,7 @@ sub form_dates_general {
 		\$(function(){
 		    \$('#$col').editable({
  				mode: 'inline',
-        		url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        		url: '|.$Site->{st_cgi}.qq|api.cgi',
         		title: 'Enter $table $title',
        			params: function (params) {  
         			var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"text"};
@@ -5686,7 +5688,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
        
         //for some reason data doesn't submit if you remove pk, so don't remove it
         ,pk: 1
-        ,url: 'http://www.downes.ca/cgi-bin/api.cgi',
+        ,url: '|.$Site->{st_cgi}.qq|api.cgi',
         success: function() {
         	
         \$('#record_summary').load("admin.cgi?post=$id&format=summary");	
@@ -5927,7 +5929,7 @@ $button_text
 		e.preventDefault();
 		\$.ajax({
 			type: "POST",
-			url: "http://www.downes.ca/cgi-bin/api.cgi",
+			url: "|.$Site->{st_cgi}.qq|api.cgi",
 			data: {
 				table_name:'$table',
 				table_id:$id_value,
@@ -5974,7 +5976,7 @@ $button_text
 		e.preventDefault();
 		\$.ajax({
 			type: "POST",
-			url: "http://www.downes.ca/cgi-bin/api.cgi",
+			url: "|.$Site->{st_cgi}.qq|api.cgi",
 			data: {
 				table_name:'$table',
 				table_id:$id_value,
@@ -5983,7 +5985,6 @@ $button_text
 				name:"$col",
 			},
 			success: function(result) {
-				alert(result);
 				\$("#form_commit_button_text").hide();
 				\$("#form_commit_button_done").show();
 				\$('#|.$col.qq|_okindicator').html(result);
@@ -8812,7 +8813,7 @@ sub show_status_message {
 	print "<h2>Login Required</h2>";
 	print "<p>$msg</p>";
 	print $Site->{footer};
-	my $adr = 'stephen@downes.ca';
+#	my $adr = 'stephen@downes.ca';
 
 #	&send_email($adr,$adr,
 #		"Error on Website",
@@ -8888,28 +8889,6 @@ sub send_email {
     $msg->send;
 
 return;
-
-
-
-use Email::Stuffer;
-use Email::Sender::Transport::SMTP;
-
-
-
-
-Email::Stuffer
-    ->text_body($page_text)
-    ->html_body($page)
-    ->subject($subj)
-    ->from($from)
-    ->transport(Email::Sender::Transport::SMTP->new({
-        host => 'www.downes.ca',
-    }))
-    ->to($to)
- 
-    ->send;
-
-
 
 
 
