@@ -6424,7 +6424,7 @@ sub db_cache_check {
 sub db_backup {
 	
 	my ($table) = @_;
-	print qq|"$table"|;
+	my $output =  qq|"$table"|;
 	if ($table eq "all") { $table = ""; }
 	
 
@@ -6460,8 +6460,8 @@ sub db_backup {
 	unless (-d $Site->{st_urlf}."files/backup/") { mkdir $Site->{st_urlf}."files/backup/"; }
 	my $backup_filename = $Site->{st_urlf}."files/backup/".$dbinfo->{database}->{name}."-".$table."-".time.".sql";
 	$backup_filename =~ s/--/-/;
-	my $result = `mysqldump --user=$dbinfo->{database}->{usr} --password=$dbinfo->{database}->{pwd} $dbinfo->{database}->{name} $table > $backup_filename`;
-	print $result;
+	`mysqldump --user=$dbinfo->{database}->{usr} --password=$dbinfo->{database}->{pwd} $dbinfo->{database}->{name} $table > $backup_filename`;
+	
 	
 	$Site->{database}="";							# Clear site database info so it's not available later				
 	$_ = "";								# Prevent accidental (or otherwise) print of config file.
@@ -6606,6 +6606,7 @@ sub db_drop_table {
 	
 	my $sth = $dbh->prepare($sql);
     	$sth->execute();
+    	return "Table '$table' dropped.";
 }
 	
 
@@ -6626,10 +6627,14 @@ sub db_create_table {
 	my $dbh = shift || die "Database handler not initiated";
 	my $table = shift || die "Table not specified on create table";
 	my $data = shift;
+	my $return = "";
 	
 #  Do not create if the table already exists
 
-	return 0 if (&db_table_exist($dbh,$table));
+	if (&db_table_exist($dbh,$table)) {
+		$vars->{msg} = "Table '$table' already exists.";
+		return 0;
+	}
 
 #  All tables *must* have the following fields:
 #      $table_id  int(11) NOT NULL auto_increment
@@ -6679,16 +6684,13 @@ CREATE TABLE `|.$table.qq|` (
   PRIMARY KEY  (`|.$table.qq|_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;|;
 
-print "Content-type: text/html\n\n";
-print qq|<pre>
-$sql
-</pre>|;
+	$return .=qq|<pre>$sql</pre>|;
+	my $sth = $dbh->prepare($sql) or  $return .= "Can't prepare SQL statement in db_create_table : ", $sth->errstr(), "\n"; 
+	
+    	if ($sth->execute()) { $return .= "Table $table created<p>"; }
+	else { $return .= "Can't execute SQL statement in db_create_table : ", $sth->errstr(), "\n"; }
 
-	my $sth = $dbh->prepare($sql);
-    	$sth->execute() 
-    		or die "Can't execute SQL statement in db_create_table : ", $sth->errstr(), "\n";
-    	
-    	print "Table $table created<p>";
+    	$return;
 }
 
 # -------   Delete -------------------------------------------------------------

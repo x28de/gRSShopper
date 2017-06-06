@@ -154,6 +154,7 @@ my $str;
 	my $courseinfo;
 	foreach my $course (@courses) { 
 print "$course <hr>";
+
 		# Parse the JSON Data
 		my $coursedata = parse_json ("{$course}");
 		
@@ -196,9 +197,9 @@ sub save_course {
 	# Save the Course
 	my $courseid = &db_insert($dbh,$query,"course",$fr);
 	print $courseid;
-exit;	
+	
 	# Search for Provider
-	my $providerid = &db_locate($dbh,$query,"provider",{provider_title=>$fr->{course_provider}});
+	my $providerid = &db_locate($dbh,"provider",{provider_title=>$fr->{course_provider}});
 	
 	# Create provider if not found
 	unless ($providerid) {
@@ -216,16 +217,18 @@ exit;
 }
 
 
+
 sub save_provider {
 	
 	
-	my ($pr) = @_;
+	my ($provider_title) = @_;
+	my $pr;
 	
 	# Initialize Provider Data
-	$pr->{provider_title} = $pr;
+	$pr->{provider_title} = $provider_title;
 	$pr->{provider_crdate} = time;
 	$pr->{provider_creator} = $Person->{person_id};	
-	
+		
 	# Save Provider Data
 	my $providerid = &db_insert($dbh,$query,"provider",$pr);	
 	

@@ -249,9 +249,10 @@ if ($action) {
 
 												#		# Database Functions
 												
-		/backup_db/ && do { &admin_db_backup($vars->{backup_table}); last; };		#	- Back up database
+		/backup_db/ && do { &admin_db_backup($vars->{backup_table},"verbose"); last; };	#	- Back up database
 		/showcolumns/ && do { &showcolumns($dbh,$query); last; };			#	- Show the columns in a table
-
+		/add_table/ && do { admin_db_add_table($vars->{add_table}); last; };		#	- Add table
+		/drop_table/ && do { admin_db_drop_table($vars->{drop_table}); last; };		#	- Drop table
 
 		/fixmesubs/ && do { &fixmesubs($dbh,$query,$table); last;		};
 
@@ -1216,37 +1217,46 @@ sub admin_database {
 	my ($dbh,$query,$sst,$columns) = @_;
 
 
-	return unless (&is_viewable("admin","database")); 		# Permissions
+	# Permissions
+	return unless (&is_viewable("admin","database")); 		
 	my $adminlink = $Site->{st_cgi}."admin.cgi";
 
-	if ($vars->{dbmsg}) { $vars->{dbmsg} = qq|<p class="notice">$vars->{dbmsg}</p>|; }
+	if ($vars->{dbmsg}) { $vars->{dbmsg} = qq|<p class="notice"><br>$vars->{dbmsg}</p>|; }
 	my $content = qq|$vars->{dbmsg}<h2>Database</h2><p>Get database information and manage database tables.</p>|;
 
 
 	# Manage Database
 	
+	# Create generic tables dropdown
 	my @tables = $dbh->tables();
+	my $table_dropdown;
+	foreach my $table (@tables) {
+		$table=~s/`//g;
+		
+		# Remove database name from specification of table name
+		if ($table =~ /\./) {
+			my ($db,$dt) = split /\./,$table;
+			$table = $dt;
+		}
+		my $sel; if ($table eq $sst) { $sel = " selected"; } else {$sel = ""; } 
+		$table_dropdown  .= qq|		<option value="$table"$sel>$table</option>\n|;
+	}
+	
+	
+	
 	$content .= qq|	
 		<h3>Manage Database</h3>
 		<div class="adminpanel">
 		<form method="post" action="admin.cgi">Select table:
-		<select name="stable">|;
-	foreach my $t (@tables) { 
-		$t=~s/`//g;
-		my $sel; if ($t eq $sst) { $sel = " selected"; } else {$sel = ""; } 
-		$content  .= qq|		<option value="$t"$sel>$t</option>\n|;
-
-	}
-	$content .= "</select><br>\n";
-	$content .= qq|<select name="action">\n
+		<select name="stable">$table_dropdown</select><br>\n
+		<select name="action">\n
 		<option value="showcolumns">Show Columns</option>\n
 		<option value="addcolumn">Add Column</option>\n
 		<option value="removecolumnwarn">Remove Column</option>\n
 		</select>\n
 		<input type="text" name="col" value="" size="12"  style="height:1.8em;"/>\n
 		<input type="submit" value="Submit" class="button">\n
-	|;
-	$content .= "</select></form></ul>\n";
+		</select></form></ul>\n|;
 
 	# Display results from previous processing
 	if ($columns) { $content .= $columns; }
@@ -1255,10 +1265,7 @@ sub admin_database {
 
 
 	# Back Up Database
-	my $table_dropdown;
-	foreach my $t (@tables) {
-		$table_dropdown .= qq|<option value="$t">$t</option>|;
-	}
+
 		
 	$content .= qq|	
 		<br/><h3>Back Up Database</h3>
@@ -1273,6 +1280,32 @@ sub admin_database {
 		<input type="submit" value="Back Up Database">
 		</form>
 		</div>|;	
+	
+
+	# Add and Drop Tables
+	
+	$content .= qq|	
+		<br/><h3>Add Table</h3>
+		<div class="adminpanel">
+		<form method="post" action="admin.cgi">
+		<input type="hidden" value="add_table" name="action">
+		<input type="text" name="add_table">
+		<input type="submit" value="Add Table">
+		</form>
+		</div>|;	
+		
+	$content .= qq|	
+		<br/><h3>Drop Table</h3>
+		<div class="adminpanel">
+		<form method="post" action="admin.cgi">
+		<input type="hidden" value="drop_table" name="action">
+		<select name="drop_table">
+		$table_dropdown
+		</select>
+		<input type="submit" value="Drop Table"><br>
+		<span style="color:red;">Warning</span>: dropping a table will eliminate all data in the table. Table data will be saved in a backup file.
+		</form>
+		</div>|;
 	
 
 	# Import from File
@@ -1342,13 +1375,7 @@ sub admin_database {
 		<td><input type="submit" value="Create Data Pack"></td></tr></table></form>
 		</ul>|;		
 		
-	$content .= qq|		
-		<h3>Initialize Website</h3><ul>
-		<b>WARNING</b>: This will <i>wipe out</i> your existing database. Do not run this command
-		unless you <i>really really</i> want to start over. Initialize will clear out your database 
-		and then let you start over on the website with one of the Data Packs you've created and 
-		saved.<br/><br/>Click here to initialize: [<a href="initialize.cgi?ignit=manual">Initialize Website</a>]
-		</ul>|;				
+			
 		
 	$Site->{ServerInfo}  =  $dbh->{'mysql_serverinfo'};
 	$Site->{ServerStat}  =  $dbh->{'mysql_stat'};
@@ -1468,17 +1495,63 @@ sub admin_db_pack {
 
 sub admin_db_backup {
 
+	my ($table,$p) = @_;
+	
+	my $output = "Backing up $table";
+	if ($table eq "all") { print " tables"; }
+	my $savefile = &db_backup($table);
+	my $saveurl = $savefile; 
+	$saveurl =~ s/$Site->{st_urlf}/$Site->{st_url}/;
+	
+	my $output .= qq|Table '$table' backed up to <a href="$saveurl">$savefile</a>|;
+	
+	if ($p) { $vars->{dbmsg} .= $output; &admin_database($dbh,$query,$table,""); }
+	else { return $output; }
+		
+}
+
+
+sub admin_db_add_table {
+
 	my ($table) = @_;
 	
 	print "Content-type: text/html\n\n";
-	print "Backing up $table";
-	if ($table eq "all") { print " tables"; }
-	print "<br>";
-	my $savefile = &db_backup($table);
+
+	# Normalize table names 
+	$table =~ s/[^a-zA-Z0-9_]//g;
+	$table = lc($table);
 	
-	print "Saved to $savefile <br>";
+	# Create the table
+	my $content = "<h3>Create Table</h3>";
+	$vars->{dbmsg} .= &db_create_table($dbh,$table) || $vars->{msg};
+	
+	# Print Output	
+	&admin_database($dbh,$query,$table,"");					
+
+	# Done
+	
 
 }
+
+
+sub admin_db_drop_table {
+
+	my ($table) = @_;
+	
+	print "Content-type: text/html\n\n";
+	
+	# Back up table
+	my $savemsg = &admin_db_backup($table);
+	
+	# Drop table 
+	my $dropmsg = &db_drop_table($dbh,$table);
+	
+	# Print Output	
+	$vars->{dbmsg} .= "$savemsg <br>$dropmsg";
+	&admin_database($dbh,$query,$table,"");	
+
+}
+
 
 # --------------------------------------   Update Config -----------------------------------------------
 #
@@ -2548,18 +2621,6 @@ sub list_records {
                 my @abbr = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
                                                 
                                                 
-                # Print raw list for key things                                
-		if ($table eq "page" || $table eq "link" || $table eq "post" || $table eq "element" || $table eq "form" ) {
-			$output .= qq|
-			[<a href="$Site->{st_cgi}admin.cgi?action=edit&$table=$rid">Edit</a>]
-			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Delete&$table=$rid')">Delete</a>]
-			<a href="$Site->{st_url}$table/$rid">$list_record->{$table."_title"}</a>, $mday $abbr[$mon] $year<br/>
-			|;
-			next;
-
-				
-		}
-	
 	
 #print "<hr>";while (my($lx,$ly) = each %$list_record) { print "$lx = $ly <br>"; }
 
@@ -2572,9 +2633,22 @@ sub list_records {
 						
 		if ($list_record->{page_type} eq "course") { $format = "page_course_list"; }
 		my $record_text = &format_record($dbh,$query,$table,$format,$list_record,1);
+		
 		&autodates(\$record_text);
 		&autotimezones($query,\$record_text); 	# Fill timezone dates
 
+
+                # Print raw list if there's no list format                                
+		unless ($record_text) {
+			my $record_title = $list_record->{$table."_title"} || $list_record->{$table."_name"} || $list_record->{$table."_id"};
+			$output .= qq|
+			[<a href="$Site->{st_cgi}admin.cgi?action=edit&$table=$rid">Edit</a>]
+			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Delete&$table=$rid')">Delete</a>]
+			<a href="$Site->{st_url}$table/$rid">$record_title</a>, $mday $abbr[$mon] $year<br/>
+			|;
+			next;				
+		}
+	
 
 		# Print record to output string
 

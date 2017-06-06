@@ -267,6 +267,8 @@ sub api_commit {
 			} elsif (&__map_field_types($ftype) eq "varchar") { 
 				unless ($fsize) { $fsize = 256; }
 				$sql = qq|alter table |.$record->{form_title}.qq| add column $columntitle varchar ($fsize);|; 
+			} else {
+				$sql = qq|alter table |.$record->{form_title}.qq| add column $columntitle varchar ($fsize);|;
 			}
 						
 			$dbh->do($sql) or die "error creating $fname";	
