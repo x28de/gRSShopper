@@ -2640,7 +2640,10 @@ sub list_records {
 
                 # Print raw list if there's no list format                                
 		unless ($record_text) {
-			my $record_title = $list_record->{$table."_title"} || $list_record->{$table."_name"} || $list_record->{$table."_id"};
+			my $record_title = $list_record->{$table."_title"} 
+				|| $list_record->{$table."_name"} 
+				|| $list_record->{$table."_noun"} 
+				|| $list_record->{$table."_id"};
 			$output .= qq|
 			[<a href="$Site->{st_cgi}admin.cgi?action=edit&$table=$rid">Edit</a>]
 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Delete&$table=$rid')">Delete</a>]

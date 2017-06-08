@@ -60,42 +60,31 @@ if ($vars->{q}) {
 
 
 
-
 # Analyze Request --------------------------------------------------------------------
+	
+# Determine Action ( assumes admin.cgi?action=$action&id=$id )
 
-my $table; my $id; my $format; my $action;
-
-
-
-$action = $vars->{action};			# Determine Action
-
-
+	my $action = $vars->{action};
+	my $id = $vars->{id};
+				
 
 
-						# Determine Request Table, ID number
-foreach my $req ("link",
-		"post",
-		"page",
-		"chat",
-		"file",
-		"journal",
-		"media",
-		"presentation",
-		"publication",
-		"topic",
-		"author",
-		"person",
-		"event",
-		"feed",
-		"thread") {
-	if ($vars->{$req}) { 
-		$table = $req; 
-		$id = $vars->{$req}; 
-		last; 
+# Determine Request Table, ID number ( assumes admin.cgi?$table=$id and not performing action other than list, edit or delete)
+
+	my @tables = &db_tables($dbh);
+	foreach $t (@tables) { 
+	
+		if ((!$action || $action =~ /^edit$/i || $action =~ /^list$/i || $action =~ /^Delete$/i) && $vars->{$t}) { 
+			$table = $t;	
+			$id = $vars->{$t}; 
+			$vars->{id} = $id;
+			last; 	
+		}
 	}
-}
 
-						# Direct DB and list requests
+
+# Direct Request Table, ID number, and list requests ( required for most actions, assumes admin.cgi?db=$table&id=$id or admin.cgi?table=$table&id=$id , no $id for action=list )
+				
 if ($vars->{db} || $vars->{table}) {
 	$table = $vars->{table} || $vars->{db};
 	if ($vars->{id}) {
@@ -107,11 +96,11 @@ if ($vars->{db} || $vars->{table}) {
 	}
 }
 
-				
+# Determine Output Format  ( assumes admin.cgi?format=$format )
 
-
-$format ||= $vars->{format} || "html";			# Determine Output Format
-
+if ($vars->{format}) { 	$format = $vars->{format};  }
+if ($action eq "list") { $format = "list"; }
+$format ||= "html";		# Default to HTML
 
 
 

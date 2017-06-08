@@ -443,7 +443,7 @@ sub output_record {
 	my $output = "";
 
 	
-																										# Check Request
+	# Identify record to output																									# Check Request
 	$table ||= $vars->{table}; die "Table not specified in output record" unless ($table);			#   - table
 	$id_number ||= $vars->{id_number};  
 	unless ($table) { my $err = ucfirst($table)." ID not specified in output record" ; die "$err"; } 	#   - ID number
@@ -451,21 +451,35 @@ sub output_record {
 	$format ||= $vars->{format} || "html";									#   - format
 	
 						
-						
+	# Permissions					
 	return unless (&is_allowed("view",$table,$wp));								# Permissions
 	
-
+	# Get Record
 	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id_number});					# Get Record
 	unless ($record) { die "Looking for $table number $id_number, but it was not found, sorry."; }		#     - catch get record error
 #	my ($hits,$total) = &record_hit($table,$id_number);							#     - Increment record hits counter
 
-	$record->{page_title} = $record->{$table."_title"} || $record->{$table."_name"} || "Untitled";		# Page Title
+	# Create Page Title
+	$record->{page_title} = $record->{$table."_title"} 
+		|| $record->{$table."_name"} 
+		|| $record->{$table."_noun"} 
+		|| ucfirst($table)." ".$record->{$table."_id"} 
+		|| "Untitled";		# Page Title
 	unless ($table eq "page") { $record->{page_title} = $Site->{st_name} . " ~ " .
 		$record->{page_title}; }
 
+	# Create Page Content (from formatted record)
 	$record->{page_content} = &format_record($dbh,$query,$table,$format,$record);				# Page Content = Formated Record content
 
+	# Default Page Content (Incase the appropriate format isn't found)
+	unless ($record->{page_content}) {
+		$record->{page_content} = qq|<h1>|.$record->{$table."_title"}.
+				$record->{$table."_name"}.
+				qq|</h1> |.$record->{$table."_description"}.
+				qq|<admin $table,|.$record->{$table."_id"}.qq|>|;
+	}
 
+	# Define geader and footer templates
 	$header_template = $record->{page_header} || lc($format) . "_header";					# Add headers and footers
 	$footer_template = $record->{page_footer} || lc($format) . "_footer";					#     - pages can override default templates
 
@@ -475,7 +489,7 @@ sub output_record {
 	}
 	
 
-
+	# Add headers and footers
 	unless ($table eq "page") {
 	$record->{page_content} =
 		&db_get_template($dbh,$header_template,$record->{page_title}) .
@@ -483,9 +497,10 @@ sub output_record {
 		&db_get_template($dbh,$footer_template,$record->{page_title});
 	}
 
+	# Format Page Content
 	&format_content($dbh,$query,$options,$record);								# Format Page content
 	
-	&make_pagedata($query,\$record->{page_content});								# Fill special Admin links and post-cache content
+	&make_pagedata($query,\$record->{page_content});							# Fill special Admin links and post-cache content
 	&make_admin_links(\$record->{page_content});
 	&make_login_info($dbh,$query,\$record->{page_content},$table,$id_number);
 						
@@ -4632,6 +4647,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 			# Some defaults fieldtypes for important fields
 
 			if ($table eq "form" && $showref->{Field} eq "data") { $fieldtype = "data"; }
+			elsif ($table eq "presentation" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary			
 			elsif ($table eq "optlist" && $showref->{Field} eq "data") { $fieldtype = "text"; }
 			elsif ($showref->{Field} eq "description") { $fieldtype = "text"; }
 			elsif ($showref->{Field} eq "data") { $fieldtype = "data"; }
@@ -4640,7 +4656,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 			elsif ($fullfieldname =~ /_start/ || $fullfieldname =~ /_finish/) { $fieldtype = "datetime"; }			
 			elsif (&db_get_record($dbh,"optlist",{optlist_title=>$fullfieldname})) { $fieldtype = "optlist"; }
 			elsif ($table eq "post" && ($showref->{Field} eq "author" || $showref->{Field} eq "feed")) { $fieldtype = "keylist"; } # Temporary
-			elsif ($table eq "publication" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary
+			elsif ($table eq "publication" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary			
 			else { $fieldtype = "text"; } 
 
 			# Push the column information into the new @fieldlist array 
