@@ -4473,21 +4473,26 @@ sub form_editor() {
 
 	my $record; my $quotationtext; my $link; my $feed;	
 	$record = &db_get_record($dbh,$table,{$table."_id" => $id_number});
+	
+	# Remove spacings
+	$record->{$table."_description"} =~ s/<br\/>/\n/g;
+	$record->{$table."_content"} =~ s/<br\/>/\n/g;
 
 
-						# Permissions
+	# Permissions
 	if ($id_value =~ /new/i) {	return unless (&is_allowed("create",$table,"","$Person->{person_id} form editor")); } 
 	else { return unless (&is_allowed("edit",$table,$record,"$Person->{person_id} form editor")); }
 	
 
-						# Create Titles
+	# Create Titles
 
 	$form_text .= "<h3>Edit ".ucfirst($table)."</h3>";
 
 	if ($vars->{msg}) { $form_text .=  qq|<p class="notice">$vars->{msg}</p>|; }
 
 
-						# Navigation
+	# Navigation
+	
 	unless ($vars->{autoblog}) {
 		my $scripturl = $Site->{st_url}.$ENV{'REQUEST_URI'};
 		$form_text .= qq|<p class="nav"> [<a href="$Site->{st_url}$table/$id_number">View |.ucfirst($table).qq|</a>] |;
@@ -4497,102 +4502,57 @@ sub form_editor() {
 		$form_text .= qq|</p>|;
 	}
 
-						# Create Preview Version 
+	# Create Preview Version 
+	$form_text .= qq|<script>\$(document).ready(function(){\$('#record_summary').load("admin.cgi?$table=$id_number&format=summary");});</script>
+	 	<br><i>&nbsp;&nbsp;Preview:</i><br/><table id="record_preview" border=1 cellpadding=10 cellspacing=0 width="600">
+		<tr><td><div id="record_summary"></div></td></tr></table><br>|;
 
-if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary - posts for now
-	if ($id_number && $id_number ne "new") { 
+	# Create Form Heading for Old-Style (Raw) Form
 
-		my $wp = {}; 
-		$vars->{comments} = "no";
-		$wp->{table} = $table;
-		$wp->{page_content} = &format_record($dbh,
-				$query,
-				$table,
-				"summary",
-				$record);
-
-
-		&format_content($dbh,$query,$options,$wp);
-		$form_text .= qq|	 
-		 	<br><i>&nbsp;&nbsp;Preview:</i><br/><table border=1 cellpadding=10 cellspacing=0 width="600">
-			<tr><td><div id="record_summary">
-			$wp->{page_content}</div>
-			</td></tr></table></form><br>|;
-	}
-}
-
-
-
-
-						# Create thread options
-				
-
-	$form_text .= &form_thread_options($table,$id_number,$record->{$table."_location"});
-
-						# Stuff for courses
-					
-						
-	if ($record->{page_type} eq "course") {
-		$form_text .=  qq|[<a href="course.cgi?action=review&page=$record->{page_id}">Review Entire Course</a>]<br/><br/>|;
-	} elsif ($record->{post_type} eq "course") {
-		$form_text .=  qq|[<a href="course.cgi?action=review&page=$record->{post_thread}">Review Entire Course</a>]<br/><br/>|;
-	}
-
-
-
-						# Create Form Heading
-	$form_text .=  qq|
+	if (defined($vars->{raw_form})) {
+		
+		# Table and ID values
+		$form_text .=  qq|
  		 <form method="post" id="contenteditor" action="$Site->{script}" enctype="multipart/form-data">
 		 <input type="hidden" name="table" value="$table">
 		 <input type="hidden" name="id" value="$id_value">
-		 <input type="hidden" name="action" value="update">|;
+		 <input type="hidden" name="action" value="update">
+		 <input type="hidden" name="raw_form" value="1">|; 
+		 
+		if ($vars->{autoblog}) {
+			$form_text .=  qq|
+			<input type="hidden" name="newautoblog" value="$vars->{autoblog}">|;
+		}
 
-	if ($vars->{autoblog}) {
-		$form_text .=  qq|
-		 <input type="hidden" name="newautoblog" value="$vars->{autoblog}">|;
-	}
-
-						# Preserve AntiSpam Codes
-	my $spam_code = $vars->{code};
-	if ($spam_code) { $form_text .=  qq|
-		 <input type="hidden" name="code" value="$vars->{code}">
-		 <input type="hidden" name="post_thread" value="$record->{post_thread}">|; }
+		# Preserve AntiSpam Codes
+		my $spam_code = $vars->{code};
+		if ($spam_code) { $form_text .=  qq|
+			<input type="hidden" name="code" value="$vars->{code}">
+			<input type="hidden" name="post_thread" value="$record->{post_thread}">|; }
 	
 		 
-		 				# Add hidden values from $data
-	while (my($dx,$dy) = each %$data) {
-		$form_text .=  qq|		 
-		<input type="hidden" name="$dx" value="$dy">
-		|
- 	}
+		# Add hidden values from $data
+		while (my($dx,$dy) = each %$data) {
+			$form_text .=  qq|
+			<input type="hidden" name="$dx" value="$dy">|;
+		}
+	}
+
+
 		 
- 
-		 
+ 		 
 	if ($autoblog) {
 		$form_text .= qq|<table border=0 cellpadding=10 cellspacing=0><tr><td>
 			<i>Full text of the link you are commenting on is located below the form</i></td></tr></table>|;
 	}
+	
+	
+
 	$form_text .= qq|	 
 		 <table border=1 cellpadding=10 cellspacing=0 style="color:#888888;">\n|;
 	
-						# Get the full list of tables, for crosslinks
-						
-
+	# Get the full list of tables, for crosslinks
 	my @db_tables = &db_tables($dbh);
-	
-	
-	#foreach my $dt (@db_tables) { print "$dt<br>";  }	
-	
-						# Init Rows (for short text inputs)
-	$Site->{newrow} = 0;
-
-
-
-	# Remove spacings
-	$record->{$table."_description"} =~ s/<br\/>/\n/g;
-	$record->{$table."_content"} =~ s/<br\/>/\n/g;
-
-	$Site->{newrow} eq "1";
 	
 	# Find the list for fields to display...
 	my @fieldlist;
@@ -4657,7 +4617,7 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 			elsif (&db_get_record($dbh,"optlist",{optlist_title=>$fullfieldname})) { $fieldtype = "optlist"; }
 			elsif ($table eq "post" && ($showref->{Field} eq "author" || $showref->{Field} eq "feed")) { $fieldtype = "keylist"; } # Temporary
 			elsif ($table eq "publication" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary			
-			else { $fieldtype = "text"; } 
+			else { $fieldtype = "varchar"; } 
 
 			# Push the column information into the new @fieldlist array 
 			# (which will now look just like the comma-delimited data if it were retrieved from the Form table
@@ -4682,27 +4642,14 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 		$sc = $col;
   		$col = $table."_".$col;	
  
-
- 		
-  		#$col = $table ."_" . $fieldlist_items[0];
-
-######################
-
-
-
-
-
-
-
-						# Find the Size, if specified
+		# Find the Size, if specified
 		my $size;
 		if ($coltypes->{$col} =~ /\((.*?)\)/) {
 			$size = $1;
 		}
 		
 		
-
-						# Isolate Field Type
+		# Isolate Field Type
 		my $fieldstem = $col; my $tabstem = $table."_";
 		$fieldstem =~ s/$tabstem//;
 
@@ -4804,11 +4751,28 @@ if ($table eq "post" || $table eq "event" || $table eq "author") {		# Temporary 
 	$form_text .=  &form_submit();
 	$form_text .=  "</table>\n";
 
-
-	# link to Edit Raw Data
 	
-	$form_text .= qq|<span class="small_nav">[<a href="|.$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit&raw_data">Edit Raw Data</a>]</span>|;
+	
+	# link to Edit Raw Data
+	if (defined($vars->{raw_data})) { 
+		$form_text .= qq|<span class="small_nav">[<a href="|.
+			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit">Predefined Form</a>]</span>|;		
+	} else {
+		$form_text .= qq|<span class="small_nav">[<a href="|.
+			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit&raw_data">Edit Raw Data</a>]</span>|;
+	}
 
+
+	# link to Use Old Style (Raw) Form
+	if (defined($vars->{raw_form})) { 	
+		$form_text .= qq|<span class="small_nav">[<a href="|.
+
+			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit">In-Line Editing</a>]</span>|;			
+	} else {
+		# link to Use Old Style (Raw) Form
+		$form_text .= qq|<span class="small_nav">[<a href="|.
+			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit&raw_data&raw_form">Form Not Working?</a>]</span>|;
+	}
 	
 	# Some Autoblog Code; fix later
 	
@@ -4844,8 +4808,11 @@ sub form_wysihtml {
 	my ($table,$title) = split /_/,$col;
 	my $id = $record->{$table."_id"};
 	my $value = $record->{$col} || "";
+	
+	# Old-Style Form Alternative
+	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="10">$value</textarea>|; }	
 
-return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
 <div id="$col" data-type="wysihtml5" data-pk="1">$value</div>
 <script>
 \$(function(){
@@ -4858,7 +4825,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
             return data;
         },
         success: function() {
-        	\$('#record_summary').load("admin.cgi?post=$id&format=summary");
+        	\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
         },
     });
 });
@@ -4889,13 +4856,15 @@ sub form_textarea {
 	my ($table,$title) = split /_/,$col;
 	my $id = $record->{$table."_id"};
 	my $value = $record->{$col} || "";
+
+	# Old-Style Form Alternative	
+	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="10">$value</textarea>|; }
 	
-	#return qq|<textarea name="$col">$value</textarea>|;
-	
-return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
-<style>.mytextarea { width: 40em; }</style>
+return qq|<tr><td class="column-name"  align="right" valign="top">$col</td><td colspan=3 valign="top">
+
 <div id="$col" data-type="textarea" data-pk="1">$value</div>
 <script>
+
 \$(function(){
     \$('#$col').editable({
         url: '|.$Site->{st_cgi}.qq|api.cgi',
@@ -4908,7 +4877,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
             return data;
         },
                 success: function() {
-        	\$('#record_summary').load("admin.cgi?post=$id&format=summary");
+        	\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
         }
     });
 });
@@ -4959,7 +4928,10 @@ sub form_textinput {
 	my ($table,$id,$col,$value,$size,$advice) = @_;
 	my ($table,$title) = split /_/,$col;
 
-
+	# Old-Style Form Alternative
+	$value =~ s/"/\\"/sg;
+	if (defined($vars->{raw_form})) { return qq|<tr><td class="column-name" align="right" width="200">$col</td><td><input type="text" name="$col" value="$value"></td></tr>|; }
+	
 return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
    <div>
 		<a href="#" id="$col" data-type="text" data-pk="1">$value</a><span id="|.
@@ -4980,7 +4952,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
 					\$('#|.
 					$col.
 					qq|_okindicator').html(response);
-					\$('#record_summary').load("admin.cgi?post=$id&format=summary");
+					\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 				}
     		});
 		});
@@ -5013,7 +4985,7 @@ sub form_keylist {
 	my $keylist_text = &form_graph_list($table,$id,$key);
 	$keylist_text ||= "None";
 
-return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
    <div>$key_title List: <a href="#" id="$col"></br></a><br> 
    <div id="|.$col.qq|_extra">$keylist_text</div>
    <script>
@@ -5035,7 +5007,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
          },
          success: function(response) {
             \$('#|.$col.qq|_extra').html(response);
-            \$('#record_summary').load("admin.cgi?post=$id&format=summary");
+            \$('#record_summary').load("admin.cgi?post=$id&$table=summary");
 
          }
       });
@@ -5052,19 +5024,9 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
 
 sub form_submit {
 
-
-# Kludge here on twitter publish checkbox, come back and fix later
-# 	<input type="radio" name="publish_post" value="twitter"> Publish to Twitter  
-#	<input type="radio" name="publish_post" value="rss"> Publish RSS  
 	
-	if ($Person->{person_status} eq "admin") {
-	return qq|<tr><td colspan="4">
-	<input type="submit" value="Update Record" class="button"></td></tr>|;
-	} else {
-
-	return qq|<tr><td colspan="4">
-  
-	<input type="submit" value="Update Record" class="button"></td></tr>|;
+	if (defined($vars->{raw_form})) { 
+		return qq|<tr><td colspan="2"><input type="submit" value="Update Record" class="button"></td></tr>|;
 	}
 
 }
@@ -5083,6 +5045,22 @@ sub form_file_select {
 	
 	
 	my $admin = 1 if ($Person->{person_status} eq "admin");	
+	
+	# Old Style Form
+	if (defined($vars->{raw_form})) { 
+		
+		my $content = qq|<tr><td>|.$table.qq|_file</td><td>Upload an image or a file...<br/><br/>
+		By URL: <input type="text" name="file_url" size="40"><br />
+		Or Select: <input type="file" accept="image/*;capture=camera" name="file_name" />
+		<input type="hidden" name="$countname" value="$value"><br>
+		File(s)... <br>|;	
+		$content .= &form_graph_list($table,$id,"file");
+		$content .= qq|</td></tr>\n\n\n|;
+
+		return $content;
+	}
+
+
 
 	# Find eligible options defining the association between the file and the record
 	# Stored in optlist table under the heading $table_file
@@ -5112,7 +5090,7 @@ sub form_file_select {
 	
 <link href="http://hayageek.github.io/jQuery-Upload-File/4.0.10/uploadfile.css" rel="stylesheet">
 
-<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
    <div>
    
 <!-- Existing Uploaded Files -->
@@ -5142,7 +5120,7 @@ sub form_file_select {
 			\$('#|.
 			$col.
 		qq|_okindicator').html(response);
-			\$('#record_summary').load("admin.cgi?post=$id&format=summary");
+			\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 			\$('#file_url').value(null);
 		},
 
@@ -5171,7 +5149,7 @@ sub form_file_select {
 		\$('#|.
 			$col.
 		qq|_okindicator').html(data);
-		\$( "#record_summary" ).load( "admin.cgi?post=$id&format=summary" );
+		\$( "#record_summary" ).load( "admin.cgi?$table=$id&format=summary" );
             },
 	autoSubmit:false
 	});
@@ -5188,133 +5166,10 @@ sub form_file_select {
 </div></td></tr>	
 	
 	|;
-
-	# Images
-
-	my $content = qq|<tr><td valign="top">Image(s)</td><td colspan="3">|;	
-	$content .= &form_graph_list($table,$id,"file","Illustration");
-	$content .= qq| </td></tr>|;	
-		
-	# Enclosures
-	
-	$content .= qq|<tr><td valign="top">File(s)</td><td colspan="3">|;	
-	$content .= &form_graph_list($table,$id,"file","Enclosure");
-	$content .= qq| </td></tr><tr><td colspan="4">|;			
-	
-	# <input type="file" name="file_name" />
-	if ($admin) {
-		my $lunch = qq|
-				<table>
-		<td colspan="4">Upload an image or a file...</td></tr>
-		<tr><td colspan=2>By URL: <input type="text" name="file_url" size="40"><br />
-		<input type="file" accept="image/*;capture=camera" name="file_name" />
-		Or Select: 
-		</td><td colspan="2" style="padding-left:20px;">
-		<input type="radio" name="file_rel" value="icon"> Icon <br/>
-		<input type="radio" name="file_rel" value="display"> Display <br />
-		Width: <input type="text" name="file_width" style="width:5em;"> 
-		Align: <select name="file_align"  style="width:5em;">		
-		<option value="left">left</option>
-		<option value="right">right</option>
-		<option value="top">top</option>
-		<option value="bottom">bottom</option>
-		</select></td></tr>
-		<input type="hidden" name="$countname" value="$value"></td></tr>
-		</table>
-		|;
-		
-		$content .= &make_lunchbox($lunch,"image","Add an image or a file...");	
-
-	}
-
-	
-	$content .= qq| </td></tr>|;	
-	
-
-	
-	return $content;
-	
-	
-	# Old
-	
-	my @files = &find_graph_of($table,$id,"file");	
-	
-	foreach my $file (@files) {
-		my $name = &get_key_name($key,$connection);
-		my $alink = "$Site->{st_cgi}admin.cgi?".lc($key)."=".$connection;
-		my $blink = "$Site->{st_cgi}admin.cgi?table=$table&id=$id&remove=".lc($key)."/".$connection;
-		my $editlink; my $removelink;
-		if ($admin) {
-			$editlink = qq|[<a href="$alink&action=edit">Edit</a>]|;
-			$removelink = qq|[<a href="$blink&action=remove_key">Remove</a>]|;	
-		}
-		$content .= qq|<a href="$Site->{st_url}$key/$connection">$name</a> $editlink $removelink<br/>|;
-	}
-	
-	my $urlname = $name;
-	$urlname =~ s/file$/url/;
-	my $countname = $name;
-	$countname =~ s/file$/count/;
-	unless ($value) { $value=0; } 
-	my $table = $vars->{table};
-	$value++;
-
-	# Create Filelist
-	my $stmt = qq|SELECT * FROM file where file_post='$id_number'|;
-	my $file_list = "";
-	my $sth = $dbh->prepare($stmt);
-	$sth->execute();
-	while (my $file = $sth -> fetchrow_hashref()) {
-		$file_list .= qq|$file->{file_type}: <a href="$Site->{st_url}$file->{file_dirname}">$file->{file_title}</a>
-			[<a href="?file=$file->{file_id}&action=edit">Edit</a>]<br/>|;
-	}
-
-
-
-		
-
-	
-	# Add More
-
-	
 	
 	
 
-	return $content;
-	
-	return qq |
-		<tr><td colspan="4">Associated Files: <br/>
-		<div id="clasp_$name" class="clasp"><a href="javascript:lunchboxOpen('$name');">Add more...</a></div>
-		<div id="lunch_$name" class="lunchbox">
 
-		$file_list </td></tr>
-
-		<td colspan="4">Add an Image...</td></tr>
-		<tr><td colspan=2>By URL: <input type="text" name="file_url" size="40"><br />
-		Or Select: <input type="file" name="file_name" />
-		</td><td colspan="2">
-		<input type="radio" name="reltype" value="icon"> Icon <br/>
-		<input type="radio" name="reltype" value="display"> Display <br />
-		Width: <input type="text" name="file_width" size="5"> 
-		Align: <select name="file_align" width="5">		
-		<option value="left">left</option>
-		<option value="right">right</option>
-		<option value="top">top</option>
-		<option value="bottom">bottom</option>
-		</select></td></tr>
-		<input type="hidden" name="$countname" value="$value"></td></tr>
-		
-		<td colspan="4">Add a File...</td></tr>
-		<tr><td colspan=2>By URL: <input type="text" name="file_url" size="40"><br />
-		Or Select: <input type="file" name="file_name" />
-		</td><td colspan="2">
-		<input type="radio" name="reltype" value="icon"> Audio <br/>
-		<input type="radio" name="reltype" value="display"> Slides <br />
-		<input type="radio" name="reltype" value="display"> Video <br />		
-		<input type="hidden" name="$countname" value="$value">
-		</td></tr>
-		</div>
-		|;
 
 }
 
@@ -5539,7 +5394,7 @@ sub form_dates_general {
 	my ($table,$id,$title,$col,$value,$dateformat,$datetype) = @_;
 	
 	return qq |
-		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
    <div>
    <a href="#" id="$col" data-type="$datetype" data-pk="1" data-title="Select date">$value</a>
    <span id="|.$col.qq|_okindicator"></span>
@@ -5561,7 +5416,7 @@ sub form_dates_general {
 					\$('#|.
 					$col.
 					qq|_okindicator').html(response);
-					\$('#record_summary').load("admin.cgi?post=$id&format=summary");
+					\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 				},
 			error: function (data) {
 				alert('An error occurred.');
@@ -5682,7 +5537,7 @@ sub form_select_general {
 	my ($table,$id,$title,$col,$options,$selected_value) = @_;
 	
 	
-return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
 <div><a href="#" id="$col"></a></div>
 
 <script>
@@ -5707,7 +5562,7 @@ return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"
         ,url: '|.$Site->{st_cgi}.qq|api.cgi',
         success: function() {
         	
-        \$('#record_summary').load("admin.cgi?post=$id&format=summary");	
+        \$('#record_summary').load("admin.cgi?$table=$id&format=summary");	
         },
         
     });
