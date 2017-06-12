@@ -66,12 +66,18 @@ print "Content-type: text/html\n\n";
 		
 
 
+my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
+#print $str;
+&send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
 
-#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-#&send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
 
+# Verify Data
 
-	
+	die "Table name not provided" unless ($vars->{table_name});	
+	die "Table ID not provided" unless ($vars->{table_id});
+	die "Column name not provided" unless ($vars->{col_name});
+	die "Input value not provided" unless ($vars->{value});
+	die "Input type not provided" unless ($vars->{type});	
 
 
 if ($vars->{updated}) { 
@@ -124,11 +130,12 @@ if ($vars->{updated}) {
 
 sub api_keylist_update {
 
-	my ($table,$key) = split /_/,$vars->{name};
-	die "Field does not exist" unless &__check_field($table,$vars->{name}); 
+	my ($table,$key) = split /_/,$vars->{col_name};
+#	die "Field does not exist" unless &__check_field($table,$vars->{col_name}); 
 	
 	my $id = $vars->{table_id};
 	my $value = $vars->{value};
+
 
 	# Split list of input $value by ;
 	my @keynamelist = split /;/,$value;
@@ -182,8 +189,8 @@ sub api_textfield_update {
 #&send_email('stephen@downes.ca','stephen@downes.ca', 'textfield update',$str."$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id}"); 
 
 
-	die "Field does not exist" unless (&__check_field($vars->{table_name},$vars->{name})); 
-	my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id});
+	die "Field does not exist" unless (&__check_field($vars->{table_name},$vars->{col_name})); 
+	my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{col_name} => $vars->{value}}, $vars->{table_id});
 	if ($id_number) { &api_ok();   } else { &api_error(); }
 	die "api failed to update $vars->{table_name}  $vars->{table_id}" unless ($id_number);
 
@@ -192,8 +199,8 @@ sub api_textfield_update {
 
 sub api_publish {
 
-	die "Field $vars->{table_name},$vars->{name} does not exist" unless (&__check_field($vars->{table_name},$vars->{name})); 
-	#my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id});
+	die "Field $vars->{table_name},$vars->{col_name} does not exist" unless (&__check_field($vars->{table_name},$vars->{col_name})); 
+	#my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{col_name} => $vars->{value}}, $vars->{table_id});
 	$vars->{twitter} = &twitter_post($dbh,"post",$vars->{table_id});
 	print $vars->{twitter}; exit;
 	if ($id_number) { &api_ok();   } else { &api_error(); }
@@ -296,7 +303,7 @@ sub api_commit {
 	}
 
 
-	my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{name} => 1}, $vars->{table_id});
+	my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{col_name} => 1}, $vars->{table_id});
 	if ($id_number) { &api_ok();   } else { &api_error(); }
 	die "api failed to update $vars->{table_name}  $vars->{table_id}" unless ($id_number);	
 	
@@ -374,7 +381,8 @@ sub api_error {
 sub api_file_upload {
 
 			
-
+	$vars->{graph_table} = $vars->{table_name};
+	$vars->{graph_id} = $vars->{table_id};
 
 
 	# Upload the file
@@ -399,6 +407,9 @@ sub api_url_upload {
 #my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
 #&send_email('stephen@downes.ca','stephen@downes.ca', 'url upload '.$vars->{value},$str); 
 
+			
+	$vars->{graph_table} = $vars->{table_name};
+	$vars->{graph_id} = $vars->{table_id};
 
 	# Upload the file
 
@@ -425,6 +436,9 @@ sub api_save_file {
 	# Reject unless there's a full file name
 	return unless ($file->{fullfilename});
 
+	die "Graph table name not provided" unless ($vars->{graph_table});
+	die "Graph table name not provided" unless ($vars->{graph_id});	
+
 	# Save the file
 	my $file_record = &save_file($file);
 	if ($file_record) { $vars->{msg} .= qq|&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:green;">ok!</a><br><br>|; }
@@ -437,6 +451,7 @@ sub api_save_file {
 	my $graph_typeval = "";
 	if ($file_record->{file_type} eq "Illustration") { $graph_typeval = $vars->{file_align} . "/" . $vars->{file_width}; } 
 	else { $graph_typeval = $file_record->{file_mime}; }
+
 
 	# Save Graph Data
 	my $graphid = &db_insert($dbh,$query,"graph",{

@@ -4669,10 +4669,10 @@ sub form_editor() {
 		elsif ($fieldtype eq "varchar") { $form_text .=  &form_textinput($table,$id_value,$col,$value,4); }
 		
 		# HTML text  (wysihtml)
-		elsif ($fieldtype eq "html") { $form_text .= &form_wysihtml($record,$col,4); }
+		elsif ($fieldtype eq "html") { $form_text .= &form_wysihtml($table,$id_number,$col,$value,$fieldsize,$advice); }
 		
 		# Text       (textarea)
-		elsif ($fieldtype eq "text") { $form_text .= &form_textarea($record,$col,$fieldsize); }
+		elsif ($fieldtype eq "text") { $form_text .= &form_textarea($table,$id_number,$col,$value,$fieldsize,$advice); }
 		
 		# Rules       (textarea)
 		elsif ($fieldtype eq "rules") { $form_text .= &form_rules($record,$col,$fieldsize); }
@@ -4687,6 +4687,7 @@ sub form_editor() {
 		elsif ($fieldtype eq "file") { $form_text .=  &form_file_select($dbh,$table,$id_number); }
 		
 		# Date
+		
 		elsif ($fieldtype eq "date") { $form_text .=  &form_date_select($record,$col,$colspan,$advice); }
 		
 		# DateTime
@@ -4713,7 +4714,7 @@ sub form_editor() {
 			$form_text .=  &form_textinput($table,$id_value,$col,$value,4);
 		} elsif ( $col =~ /_content/ || $col =~ /_description/) {
 			#$form_text .=  &form_textarea($col,80,30,$record->{$col});
-			$form_text .=  &form_wysihtml($record,$col,4);
+			$form_text .=  &form_wysihtml($table,$id_number,$col,$value,$fieldsize,$advice);
 		} elsif ($col =~ /_file/) {
 			$form_text .=  &form_file_select($dbh,$table,$id_number);
 		} elsif ($col =~ /_date/) {
@@ -4799,95 +4800,127 @@ sub form_editor() {
 }
 
 
-# -------  WYSI HTML Input -----------------------------------------------------
+# -------  Text Input -----------------------------------------------------
 #
-# Creates Formatted HTML Text Input Form Field
+# Creates Text Input Form Field for varchar and other shgort text input
 
-sub form_wysihtml {
-	my ($record,$col,$colspan,$advice) = @_;
-	my ($table,$title) = split /_/,$col;
-	my $id = $record->{$table."_id"};
-	my $value = $record->{$col} || "";
+sub form_textinput {
+	my ($table,$id,$col,$value,$size,$advice) = @_;
 	
+	$value ||= $col;
+
+
 	# Old-Style Form Alternative
-	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="10">$value</textarea>|; }	
+	$value =~ s/"/\\"/sg;
+	if (defined($vars->{raw_form})) { return qq|<tr><td class="column-name" align="right" width="200">$col</td><td><input type="text" name="$col" value="$value"></td></tr>|; }
 
-return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
-<div id="$col" data-type="wysihtml5" data-pk="1">$value</div>
-<script>
-\$(function(){
-    \$('#$col').editable({
-	mode: 'inline',
-        url: '|.$Site->{st_cgi}.qq|api.cgi',
-        title: 'Enter Text',
-        params: function (params) {  
-            var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"wysihtml5"};
-            return data;
-        },
-        success: function() {
-        	\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
-        },
-    });
-});
-</script></div></td></tr>
-
-|;
-
+	return qq|
+		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<span id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" >$value</span>
+		<span id="|.$col.qq|_button"><button>Update</button></span>
+		<span id="|.$col.qq|_result"></span>$advice
+		
+		<script>
+		\$(document).ready(function(){
+			\$('#|.$col.qq|_button').hide();
+			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
+			\$('#|.$col.qq|_button').click(function(){
+				var content = \$('#|.$col.qq|').text(); 
+				submit_function("$table","$id","$col",content,"text");
+				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
+			});
+		});
+		</script>
+		</td></tr>	
+	|;
+	
 
 }
-
 
 # -------  Textarea -----------------------------------------------------------
 
 sub form_textarea {
 	
-	my ($record,$col,$colspan,$advice) = @_;
-	
-	# Make a nice title
-	my $title = $col;
-	$title =~ s/(.*?)_(.*?)/$2/;
-	$title = ucfirst($title);
-	
+	my ($table,$id,$col,$value,$size,$advice) = @_;
+	$size ||= 10;
+	$value ||= $col;	
+		
 	# Escape markup
-	$record->{$col} =~ s/</&lt;/sig;
-	$record->{$col} =~ s/>/&gt;/sig;
+	$value =~ s/</&lt;/sig;
+	$value =~ s/>/&gt;/sig;
 
-	# Get table name and id
-	my ($table,$title) = split /_/,$col;
-	my $id = $record->{$table."_id"};
-	my $value = $record->{$col} || "";
 
 	# Old-Style Form Alternative	
 	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="10">$value</textarea>|; }
-	
-return qq|<tr><td class="column-name"  align="right" valign="top">$col</td><td colspan=3 valign="top">
 
-<div id="$col" data-type="textarea" data-pk="1">$value</div>
-<script>
-
-\$(function(){
-    \$('#$col').editable({
-        url: '|.$Site->{st_cgi}.qq|api.cgi',
-        title: '$title',
-       	mode: 'inline',
-        inputclass: 'mytextarea',
-        rows: $colspan,
-        params: function (params) {  
-            var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"textarea"};
-            return data;
-        },
-                success: function() {
-        	\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
-        }
-    });
-});
-</script></div>$advice</td></tr>
-
-|;
+	return qq|
+		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<textarea id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" rows="|.$size.qq|" cols="60">$value</textarea>
+		<span id="|.$col.qq|_button"><button>Update</button></span>
+		<span id="|.$col.qq|_result"></span>$advice
+		
+		<script>
+		\$(document).ready(function(){
+			\$('#|.$col.qq|_button').hide();
+			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
+			\$('#|.$col.qq|_button').click(function(){
+				var content = \$('#|.$col.qq|').val(); 
+				submit_function("$table","$id","$col",content,"textarea");
+				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
+			});
+		});
+		</script>
+		</td></tr>	
+	|;	
 
 }
 
-# -------  Textarea -----------------------------------------------------
+ 
+# -------  WYSI HTML Input -----------------------------------------------------
+#
+# Creates Formatted HTML Text Input Form Field
+
+sub form_wysihtml {
+	my ($table,$id,$col,$value,$size,$advice) = @_;
+
+	$size ||= 10;
+	$value ||= $col;	
+		
+	# Escape markup
+	$value =~ s/</&lt;/sig;
+	$value =~ s/>/&gt;/sig;
+	
+	# Old-Style Form Alternative
+	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="|.$colspan.qq|" cols="60">$value</textarea>|; }	
+
+
+	return qq|
+		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<textarea id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" rows="|.$size.qq|" cols="60" >$value</textarea>
+		<span id="|.$col.qq|_button"><button>Update</button></span>
+		<span id="|.$col.qq|_result"></span>$advice
+		
+		<script>
+		\$(document).ready(function(){
+			\$('#|.$col.qq|_button').hide();
+			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
+			\$('#|.$col.qq|_button').click(function(){
+				var content = \$('#|.$col.qq|').val(); 
+				submit_function("$table","$id","$col",content,"textarea");
+				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
+			});
+		});
+		</script>
+		</td></tr>	
+	|;	
+
+
+}
+
+
+
+
+# ------- Rules -----------------------------------------------------
 #
 # Creates Textarea Form Field
 
@@ -4904,64 +4937,6 @@ sub form_rules {
 
 }
 
-# ----------- Form Heading -----------------------------------------------
-#
-# No data sumbission, just a heading
-#
-
-sub form_heading {
-
-	my ($col,$size) = @_;
-	
-	return qq|<tr><td align="left" valign="top"  colspan=4 >
-   <div>
-   <h$size>|.ucfirst($col).qq|</h$size>
-   </div></td></tr>|;
-	
-}
-
-# -------  Text Input -----------------------------------------------------
-#
-# Creates Text Input Form Field
-
-sub form_textinput {
-	my ($table,$id,$col,$value,$size,$advice) = @_;
-	my ($table,$title) = split /_/,$col;
-
-	# Old-Style Form Alternative
-	$value =~ s/"/\\"/sg;
-	if (defined($vars->{raw_form})) { return qq|<tr><td class="column-name" align="right" width="200">$col</td><td><input type="text" name="$col" value="$value"></td></tr>|; }
-	
-return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
-   <div>
-		<a href="#" id="$col" data-type="text" data-pk="1">$value</a><span id="|.
-		$col
-	.qq|_okindicator"></span>
-		<script>
-		\$(function(){
-		    \$('#$col').editable({
- 			mode: 'inline',
-        		url: '|.$Site->{st_cgi}.qq|api.cgi',
-        		title: 'Enter $col',
-        		emptytext: '[$col]', 
-       			params: function (params) {  
-        			var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"text"};
-        			return data;
-       			},
-     			success: function(response) {
-					\$('#|.
-					$col.
-					qq|_okindicator').html(response);
-					\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
-				}
-    		});
-		});
-		</script>
-   </div></td></tr>
-|;
-
-
-}
 
 
 # -------  Key List --------------------------------------------
@@ -4985,9 +4960,36 @@ sub form_keylist {
 	my $keylist_text = &form_graph_list($table,$id,$key);
 	$keylist_text ||= "None";
 
-return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
-   <div>$key_title List: <a href="#" id="$col"></br></a><br> 
-   <div id="|.$col.qq|_extra">$keylist_text</div>
+
+	return qq|
+		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<span style="float:left;">Enter $col name: </span>
+		<span id="|.$col.qq|" contenteditable="true" style="float:left; width:20em;" ></span><span id="|.$col.qq|_button"><button>Update</button></span><br>
+		<span>$key_title List: <a href="#" id="$col"></a><br> 
+		<span id="|.$col.qq|_result">$keylist_text</span>$advice
+		</td></tr>
+		
+		<script>
+		\$(document).ready(function(){
+			\$('#|.$col.qq|_button').hide();
+			\$('#|.$col.qq|').click(function() { onclick_function("$col","persist");  });
+			\$('#|.$col.qq|_button').click(function(){
+				var content = \$('#|.$col.qq|').text(); 
+				submit_function("$table","$id","$col",content,"keylist");
+				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
+				\$('#|.$col.qq|').text("");
+				
+			});
+		});
+		</script>		
+		
+	|;
+	
+	
+	
+	
+	return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
+\$('#|.$col.qq|_result').show();
    <script>
    \$(function(){
       \$('#$col').editable({
@@ -5016,7 +5018,41 @@ return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td co
    </div></td></tr>
 |;
 
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 }
+
+
+
+# ----------- Form Heading -----------------------------------------------
+#
+# No data sumbission, just a heading
+#
+
+sub form_heading {
+
+	my ($col,$size) = @_;
+	
+	return qq|<tr><td align="left" valign="top"  colspan=4 >
+   <div>
+   <h$size>|.ucfirst($col).qq|</h$size>
+   </div></td></tr>|;
+	
+	
+	
+}
+
+
 
 # -------  Form Submit -----------------------------------------------------
 #
@@ -5083,13 +5119,8 @@ sub form_file_select {
 	# Create list of already associated files
 	my $keylist_text = &form_graph_list($table,$id,"file");
 	$keylist_text ||= "None";	
-
-
-
-	return qq|
 	
-<link href="http://hayageek.github.io/jQuery-Upload-File/4.0.10/uploadfile.css" rel="stylesheet">
-
+return qq|
 <tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
    <div>
    
@@ -5099,11 +5130,29 @@ sub form_file_select {
 		$col
 	.qq|_okindicator">$keylist_text</span><br>
 	
-	 
-	 
+	
  <!-- URL Input -->
  
-<a href="#" id="file_url" data-type="text" data-pk="1"></a>
+ 		<span id="|.$col.qq|" contenteditable="true" style="width:40em; float:left; line-height:1.8em;" >Enter File URL, or...</span>
+		<span id="|.$col.qq|_button" style="float:left;"><button>Update</button></span>
+		<span id="|.$col.qq|_result" style="float:left;"></span>$advice
+		
+ </td></tr>
+ 
+ 		<script>
+		\$(document).ready(function(){
+			\$('#|.$col.qq|_button').hide();
+			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
+			\$('#|.$col.qq|_button').click(function(){
+				var content = \$('#|.$col.qq|').text(); 
+				submit_function("$table","$id","$col",content,"file_url");
+				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
+			});
+		});
+		</script>
+ |;
+ 
+ return qq|
  
  <script>
 	\$(function(){
@@ -5128,47 +5177,7 @@ sub form_file_select {
 	});
 </script>
 
-
-<!-- File Upload -->		
-		  	
-<script>
-\$(document).ready(function()
-{
- var extraObj = \$("#extraupload").uploadFile({
-	url:"|.$Site->{st_cgi}.qq|api.cgi",
-	fileName:"myfile",
-	formData: {"pk":"1","graph_table":"$table","graph_id":$id,"type":"file","updated":1},
-	extraHTML:function()
-	{
-		var html = "<div>";
-		html += "$select";
-		html += "</div>";
-		return html;    		
-	},
-	onSuccess: function(e, data) {
-		\$('#|.
-			$col.
-		qq|_okindicator').html(data);
-		\$( "#record_summary" ).load( "admin.cgi?$table=$id&format=summary" );
-            },
-	autoSubmit:false
-	});
-
-	\$("#extrabutton").click(function()
-	{
-	extraObj.startUpload();
-	}); 
-});	
-</script>
-
-<div id="extraupload"></div>
-<div id="extrabutton" class="ajax-file-upload-green">Start Upload</div>
-</div></td></tr>	
-	
-	|;
-	
-	
-
+|;
 
 
 }
@@ -5261,30 +5270,7 @@ sub form_data {
 	
 	$output .= qq|</tr><tr><td><input type="Submit"> <span id="|.$col.qq|_okindicator"></span></form></td></tr></table>|;
 			
-$output .= qq|	
-<script type="text/javascript">
-    var frm = \$('#$col');
-    frm.submit(function (e) {
-        e.preventDefault();
-        \$.ajax({
-            type: frm.attr('method'),
-            url: frm.attr('action'),
-            data: frm.serialize(),
-            success: function (data) {
-		\$("#form_commit_button_text").show();
-		\$("#form_commit_button_done").hide();
-		\$('#|.$col.qq|_okindicator').show();		
-		\$('#|.$col.qq|_okindicator').html(data);
-		\$('#|.$col.qq|_okindicator').hide(4000);
-            },
-            error: function (data) {
-                alert('An error occurred.');
-                alert(data);
-            },
-        });
-    });
- 
- </script>\n\n|;
+
 	
 	
 	#$output .= qq|<textarea style="font-family: Courier;" name="$col" rows="$rows" cols=60>$data</textarea>|;
@@ -5393,40 +5379,32 @@ sub form_dates_general {
 	
 	my ($table,$id,$title,$col,$value,$dateformat,$datetype) = @_;
 	
-	return qq |
-		<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
-   <div>
-   <a href="#" id="$col" data-type="$datetype" data-pk="1" data-title="Select date">$value</a>
-   <span id="|.$col.qq|_okindicator"></span>
-		
+	
+	
+	# Old-Style Form Alternative
+	$value =~ s/"/\\"/sg;
+	if (defined($vars->{raw_form})) { return qq|<tr><td class="column-name" align="right" width="200">$col</td><td><input type="text" name="$col" value="$value"></td></tr>|; }
+
+	return qq|
+		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<span id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" >$value</span>
+		<span id="|.$col.qq|_button"><button>Update</button></span>
+		<span id="|.$col.qq|_result"></span>
 		
 		<script>
-		\$(function(){
-		    \$('#$col').editable({
- 				mode: 'inline',
-        		url: '|.$Site->{st_cgi}.qq|api.cgi',
-        		title: 'Enter $table $title',
-       			params: function (params) {  
-        			var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:"text"};
-        			return data;
-       			},
-       			format: '$dateformat',    
-                        viewformat: '$dateformat',
-     			success: function(response) {
-					\$('#|.
-					$col.
-					qq|_okindicator').html(response);
-					\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
-				},
-			error: function (data) {
-				alert('An error occurred.');
-				alert(data);
-			}	
-    		});
+		\$(document).ready(function(){
+			\$('#|.$col.qq|_button').hide();
+			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
+			\$('#|.$col.qq|_button').click(function(){
+				var content = \$('#|.$col.qq|').text(); 
+				submit_function("$table","$id","$col",content,"text");
+				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
+			});
 		});
-		</script></div></td></tr>
-   
-|;	
+		</script>
+		</td></tr>	
+	|;
+	
 	
 	
 }
@@ -5537,38 +5515,7 @@ sub form_select_general {
 	my ($table,$id,$title,$col,$options,$selected_value) = @_;
 	
 	
-return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
-<div><a href="#" id="$col"></a></div>
-
-<script>
-\$(document).ready(function() {
-  
-    
-    //make status editable
-    \$('#$col').editable({
-		mode: 'inline',
-        type: 'select',
-        title: '$table $title',
-        placement: 'right',
-        value: '$selected_value',
-		params: function (params) {  
-            var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:'select'};
-            return data;
-         },
-        source: [$options]
-       
-        //for some reason data doesn't submit if you remove pk, so don't remove it
-        ,pk: 1
-        ,url: '|.$Site->{st_cgi}.qq|api.cgi',
-        success: function() {
-        	
-        \$('#record_summary').load("admin.cgi?$table=$id&format=summary");	
-        },
-        
-    });
-});
-</script>
-</div></td></tr>|;	
+	
 	
 	
 }	
