@@ -185,8 +185,6 @@ sub api_keylist_update {
 
 sub api_textfield_update {
 
-#my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-#&send_email('stephen@downes.ca','stephen@downes.ca', 'textfield update',$str."$vars->{table_name}, {$vars->{name} => $vars->{value}}, $vars->{table_id}"); 
 
 
 	die "Field does not exist" unless (&__check_field($vars->{table_name},$vars->{col_name})); 
@@ -199,12 +197,42 @@ sub api_textfield_update {
 
 sub api_publish {
 
-	die "Field $vars->{table_name},$vars->{col_name} does not exist" unless (&__check_field($vars->{table_name},$vars->{col_name})); 
-	#my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{col_name} => $vars->{value}}, $vars->{table_id});
-	$vars->{twitter} = &twitter_post($dbh,"post",$vars->{table_id});
-	print $vars->{twitter}; exit;
-	if ($id_number) { &api_ok();   } else { &api_error(); }
-	die "api failed to update $vars->{table_name}  $vars->{table_id}" unless ($id_number);	
+	#die "Field $vars->{table_name},$vars->{col_name} does not exist" unless (&__check_field($vars->{table_name},$vars->{col_name})); 
+
+	my $table = $vars->{table_name};
+	my $id = $vars->{table_id};
+	my $value = $vars->{value};
+	my $col = $vars->{col_name};
+	
+
+	my $published = &db_get_single_value($dbh,$table,$col,$id);
+	
+	
+	
+	my $result;
+	if ($published =~ /$vars->{value}/) {	# Already Published
+		print "Was already published";
+		exit;
+	} else {				# Not yet published, so publish it
+	
+	# So now, ideally, I'd use the name of the social network service to pick a subroutine to actually do the publishing, but...
+		
+		print "Sending to Twitter<br>";
+		my $twitter = &twitter_post($dbh,"post",$id);
+		print "Twitter result: $twitter<br>";
+		$published .= ",twitter";
+		my $result = &db_update($dbh,$table, {$col => $published}, $id);
+		print "Recorded publication success $result<br>";
+		exit;
+	}
+
+	
+
+	
+	
+
+	
+	
 	
 }
 

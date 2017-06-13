@@ -483,7 +483,7 @@ sub output_record {
 	$header_template = $record->{page_header} || lc($format) . "_header";					# Add headers and footers
 	$footer_template = $record->{page_footer} || lc($format) . "_footer";					#     - pages can override default templates
 
-	if ($table eq "presentation") {
+	if ($table eq "presentation" && $format =~/htm/i) {
 		$header_template = "presentation_header";
 		$footer_template = "presentation_footer";	
 	}
@@ -2068,14 +2068,13 @@ sub facebook_access_code_submit {
 sub twitter_post {
 	
 	my ($dbh,$table,$id,$tweet) = @_;
-
 	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id});
 	
 	unless ($Site->{tw_post} eq "yes") { $vars->{twitter} .= "Twitter turned off."; return $vars->{twitter}; }
 
 	
 	
-	if ($record->{$table."_twitter"} eq "posted") { $vars->{twitter} .= "Already posted this $table to Twitter."; return; }	
+	if ($record->{$table."_social_media"} =~ "twitter") { $vars->{twitter} .= "Already posted this $table to Twitter."; return; }	
 	
 	#use Net::Twitter::Lite::WithAPIv1_1;
 	#use Scalar::Util 'blessed';
@@ -4609,10 +4608,12 @@ sub form_editor() {
 			if ($table eq "form" && $showref->{Field} eq "data") { $fieldtype = "data"; }
 			elsif ($table eq "presentation" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary			
 			elsif ($table eq "optlist" && $showref->{Field} eq "data") { $fieldtype = "text"; }
+			elsif ($table eq "view" && $showref->{Field} eq "text") { $fieldtype = "text"; }		
 			elsif ($showref->{Field} eq "description") { $fieldtype = "text"; }
 			elsif ($showref->{Field} eq "data") { $fieldtype = "data"; }
 			elsif ($fullfieldname =~ /_file/) { $fieldtype = "file"; }
 			elsif ($fullfieldname =~ /_date/) { $fieldtype = "date"; }
+			elsif ($fullfieldname =~ /_social_media/) { $fieldtype = "publish"; }			
 			elsif ($fullfieldname =~ /_start/ || $fullfieldname =~ /_finish/) { $fieldtype = "datetime"; }			
 			elsif (&db_get_record($dbh,"optlist",{optlist_title=>$fullfieldname})) { $fieldtype = "optlist"; }
 			elsif ($table eq "post" && ($showref->{Field} eq "author" || $showref->{Field} eq "feed")) { $fieldtype = "keylist"; } # Temporary
@@ -4678,7 +4679,7 @@ sub form_editor() {
 		elsif ($fieldtype eq "rules") { $form_text .= &form_rules($record,$col,$fieldsize); }
 		
 		# Option List (Selections defined in the'optlist' table; defaults to varchar if options are missing)
-		elsif ($fieldtype eq "optlist") { $form_text .=  &form_optlist($record,$col); }
+		elsif ($fieldtype eq "optlist") { $form_text .=  &form_optlist($table,$id_number,$col,$value,$fieldsize,$advice); }
 		
 		# Data  - each line ; delimited  and individual items , delimited. First line is data headers 
 		elsif ($fieldtype eq "data") { $form_text .=  &form_data($col,$record->{$col},$id_number,$table); }		
@@ -4700,14 +4701,17 @@ sub form_editor() {
 		elsif ($fieldtype eq "heading") { $form_text .=  &form_heading($sc,$fieldsize); }
 		
 		# Commit 
-		elsif ($fieldtype eq "commit") { $form_text .=  &form_commit($table,$col,$id_number,$record); }		
+		elsif ($fieldtype eq "commit") { $form_text .=  &form_commit($table,$col,$id_number,$record); }	
+		
+		# Publish
+		elsif ($fieldtype eq "publish") { $form_text .= &form_publish($table,$id_number,$col,$value,$fieldsize,$advice); }			
 						
 		elsif ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "post")) {			
 			$form_text .= &form_keylist($table,$id_value,$sc);
 			# $form_text .=  &form_keyinput($col,$record->{$col},2);
 	
-		}  elsif ($fieldstem eq "twitter") {
-			$form_text .=  &form_twitter($record,2);		
+
+		} elsif ($fieldtype eq "social_media") { $form_text .= &form_publish($table,$id_number,$col,$value,$fieldsize,$advice); 		
 		} elsif (($table eq "media") && ($fieldstem eq "link")) {
 			$form_text .=  &form_keyinput($col,$record->{$col},2);		
 		} elsif ( $table eq "link" && $col =~ /_category/ ) {
@@ -5154,6 +5158,8 @@ return qq|
  
  return qq|
  
+ 
+ 
  <script>
 	\$(function(){
 	    \$('#file_url').editable({
@@ -5481,17 +5487,14 @@ sub date_time_find {
 sub form_optlist {
 
 	# Organize field data
-	my ($record,$col) = @_;	
-	my ($table,$title) = split /_/,$col;
-	my $id = $record->{$table."_id"};
-	my $selected_value = $record->{$col};
+	my ($table,$id,$col,$selected_value,$fieldsize,$advice) = @_;	
 
 	# Find eligible options
 	my $opts = &db_get_record($dbh,"optlist",{optlist_title=>$col});
 
 	# Default to varchar if we can't find eligible options
 	unless ($opts->{optlist_data} || $opts->{optlist_list}) { 
-		$output .= &form_textarea($record,$col,40);
+		$output .= form_textinput($table,$id,$col,$value,$size,$advice);
 		return $output;
 	}
 
@@ -5502,21 +5505,34 @@ sub form_optlist {
 		my ($oname,$ovalue) = split ",",$opt;
 		next unless ($oname && $ovalue);
 		if ($opted eq $ovalue) { $selected_value = $ovalue; }
-		$options .= qq|{value: '$ovalue', text: '$oname'},|;
+		$options .= qq|\n<option value="$ovalue">$oname</option>|;
 	}
 	
-return form_select_general($table,$id,$title,$col,$options,$selected_value);
+	return form_select_general($table,$id,$col,$selected_value,$fieldsize,$advice,$options);
 	
 }
 
 
 sub form_select_general {
 	
-	my ($table,$id,$title,$col,$options,$selected_value) = @_;
+	my ($table,$id,$col,$selected_value,$fieldsize,$advice,$options) = @_;
 	
 	
-	
-	
+	return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
+	<select id="$col"><option value="">$col</option>$options</select> <span id="|.$col.qq|_result"></span>
+
+	<script>
+	\$(document).ready(function() {
+		\$('#|.$col.qq|').val("$selected_value").change();
+		\$('#|.$col.qq|').on('change', function(e) {
+			var newval = \$('#|.$col.qq|').val();
+			submit_function("$table","$id","$col",newval,"select");
+			\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
+		});
+ 	});
+	</script>
+	</div></td></tr>|;	
+
 	
 }	
 
@@ -5728,48 +5744,7 @@ sub form_opt_multiple {
 	return $output;
 }
 
-sub form_publish {
 
-	my ($table,$id_value,$col,$value) = @_;
-	
-	my $button_text;
-	if ($value == 1) { $button_text = "Published"; }
-	else { $button_text = qq|<button id="|.$col.qq|_button" value="val_1" class="ajax-file-upload-green" style="line-height: normal;" name="but1">Publish</button>|; }
-	
-	return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
-<div>
-<div id="|.$col.qq|">
-$button_text
-</div>
-<script>
-\$(document).ready(function(){
-	\$("#|.$col.qq|_button").click(function(e) {
-		e.preventDefault();
-		\$.ajax({
-			type: "POST",
-			url: "|.$Site->{st_cgi}.qq|api.cgi",
-			data: {
-				table_name:'$table',
-				table_id:$id_value,
-				updated:1,
-				type:"publish",
-				name:"$col",
-			},
-			success: function(result) {
-				\$("#|.$col.qq|").html("Published");
-			},
-			error: function(result) {
-				\$("#|.$col.qq|").html("<span style='color:red;'>Error Publishing</span>");
-			}
-		});
-	});
-});
-
-</script>
-</div></td></tr>
-|;
-		
-}
 
 sub form_commit {
 	
@@ -5821,6 +5796,134 @@ $button_text
 	
 }
 
+sub form_publish {
+
+	my ($table,$id,$col,$value,$fieldsize,$advice) = @_;
+
+	
+	# List of supported social media sites
+	my @accounts = qw(twitter facebook web rss json);			
+										# Future work - get this from the list of accounts
+	# Set up return content 
+	my $return_text = qq|<tr><td>$col</td><td colspan="3">
+	<table class="publish" style="border:0px;" border=0 width=200 cellspacing="0" cellpadding="0">|;	
+
+	foreach my $account (@accounts) {
+		
+		$return_text .= qq|<tr style="border:0px;"><td style="text-align:right; border:0px;">$account:</td>|;
+		if ($value =~ /$account/i) { $return_text .= qq|<td  id="|.$col.qq|" style="border:0px;">Published</td></tr>|; }	
+		else { 
+			
+			$return_text .= qq|		
+			<td style="border:0px;" id="|.$col."_".$account.qq|">
+			<button id="|.$col."_".$account.qq|_button" value="$account">Publish</button>
+			</td></tr>	
+			<script>
+			\$(document).ready(function(){
+				\$('#|.$col."_".$account.qq|_button').click(function(){
+					var content = \$('#|.$col."_".$account.qq|_button').val(); 
+					submit_function("$table","$id","$col",content,"publish");
+					\$('#|.$col."_".$account.qq|').text("Published");
+				});		
+			});
+			</script>
+			|;
+		
+		}		
+		
+	}
+	
+	$return_text .= qq|</table><span id="|.$col.qq|_result"></span>$advice</td></tr>|;
+	return $return_text;
+
+	
+	my $button_text;
+	if ($value == 1) { $button_text = "Published"; }
+	else { $button_text = qq|<button id="|.$col.qq|_button" value="val_1" class="ajax-file-upload-green" style="line-height: normal;" name="but1">Publish</button>|; }
+	
+	return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+<div>
+<div id="|.$col.qq|">
+$button_text
+</div>
+<script>
+\$(document).ready(function(){
+	\$("#|.$col.qq|_button").click(function(e) {
+		e.preventDefault();
+		\$.ajax({
+			type: "POST",
+			url: "|.$Site->{st_cgi}.qq|api.cgi",
+			data: {
+				table_name:'$table',
+				table_id:$id_value,
+				updated:1,
+				type:"publish",
+				name:"$col",
+			},
+			success: function(result) {
+				\$("#|.$col.qq|").html("Published");
+			},
+			error: function(result) {
+				\$("#|.$col.qq|").html("<span style='color:red;'>Error Publishing</span>");
+			}
+		});
+	});
+});
+
+</script>
+</div></td></tr>
+|;
+
+}
+sub form_socialmedia {
+	
+	my ($table,$id_number,$col,$value,$fieldsize,$advice) = @_;
+	
+	my $return_text = qq|<tr><td>Publish</td><td colspan="3">|;
+	
+	my @socialmedias = qw(twitter facebook web);				# List of supported social media sites
+	
+	foreach my $socialmedia (@socialmedias) {
+		$return_text .= ucfirst($socialmedia).": ";
+	
+		if ($record->{post_social_media} =~ /$socialmedia/i) { $return_text .= "Published&nbsp;&nbsp;&nbsp;"; }	
+		else { 
+			$return_text .= qq|<select name="post_|;
+			$return_text .= $socialmedia;
+			$return_text .= qq|"><option value="">Later</option>
+			<option value="yes">Publish Now</option>
+			</select>&nbsp;&nbsp;&nbsp;|;	}		
+	}
+	
+
+	$return_text .= qq|<input type="submit" value="Publish" class="button"></td></tr>|;
+	return $return_text;	
+	
+	return qq|
+		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<span id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" >$value</span>
+		<span id="|.$col.qq|_button"><button>Update</button></span>
+		<span id="|.$col.qq|_result"></span>$advice
+		
+		<script>
+		\$(document).ready(function(){
+			\$('#|.$col.qq|_button').hide();
+			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
+			\$('#|.$col.qq|_button').click(function(){
+				var content = \$('#|.$col.qq|').text(); 
+				submit_function("$table","$id","$col",content,"text");
+				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
+			});
+		});
+		</script>
+		</td></tr>	
+	|;
+
+
+	
+	
+}
+
 sub form_twitter {
 
 	my ($record) = @_;
@@ -5846,6 +5949,8 @@ sub form_twitter {
 	
 		
 }
+
+
 
 sub jq_panel {
 	my ($message,$content,$height) = @_;
@@ -6738,7 +6843,7 @@ sub db_update {
 
 	if ($diag eq "on") { print "DB Update ($table $input $where)<br/>\n"; }
 	die "Unsupported data type specified to update" unless (ref $input eq 'HASH' || ref $input eq 'Link' || ref $input eq 'Feed' || ref $input eq 'gRSShopper::Record' || ref $input eq 'gRSShopper::Feed');
-#	print "Updating $table $input $where <br>";
+#print "Updating $table $input $where <br>";
 	my $data = &db_prepare_input($dbh,$table,$input);
 	#print "Data: $data <br>";
 	#return "No data" unless ($data);
@@ -6754,8 +6859,8 @@ sub db_update {
 
 	$sql .= join ', ', @sqlf;
 	$sql .= " WHERE ".$table."_id = '".$where."'";
-	#print "$sql <br>";
-	#foreach $l (@sqlv) { print "$l ; "; }
+#print "$sql <br>";
+#foreach $l (@sqlv) { print "$l ; "; }
 	my $sth = $dbh->prepare($sql);
 	
 	if ($diag eq "on") { print "$sql <br/>\n @sqlv <br/>\n"; }
