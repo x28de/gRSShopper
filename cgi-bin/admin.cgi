@@ -3150,8 +3150,8 @@ sub record_delete {
     	$sth->execute($table,$id);				
     	
 						# Remove Cache 
-	&db_cache_remove($dbh,$table,$id);						
-	&db_cache_remove($dbh,$table,$wp->{$table."_thread"});    			
+#	&db_cache_remove($dbh,$table,$id);						
+#	&db_cache_remove($dbh,$table,$wp->{$table."_thread"});    			
 
 	
 	

@@ -2134,12 +2134,6 @@ sub twitter_post {
 		return $vars->{twitter};
 	}
 	
-
-	
-	my $smfield = $table."_social_media";								# Update Record	
-	my $smstring = $record->{$smfield}."twitter ";
-	&db_update($dbh,$table,{$smfield => $smstring},$id);
-	&db_update($dbh,$table,{$table."_twitter" => 1},$id);
 				
 	if ($result) { $vars->{twitter} .= "Twitter: OK" }
 
@@ -3857,11 +3851,11 @@ sub footer {
 sub upload_file {
 	
 	# Assumes global input variable $query from CGI
-	
+	# Name of input field:  myfile
+ 	
 
 	my $file = gRSShopper::File->new();
 	$file->{file_title} = $query->param("myfile");
-
 
 	$file->{file_dir} = $Site->{st_urlf} . "uploads";
 	unless (-d $file->{file_dir}) { mkdir $upload_dir, 0755 or die "Error 1857 creating upload directory $file->{file_dir} $!"; }
@@ -5081,6 +5075,7 @@ sub form_file_select {
 	my ($dbh,$table,$id,$name) = @_;
 	
 	$col = "post_file";
+	my $plugindir = $Site->{st_url}."assets/jQuery-File-Upload-master/";
 	# my ($table,$id,$col,$value,$size,$advice) = @_;
 	
 	
@@ -5132,16 +5127,17 @@ return qq|
   <span id="file_url_okindicator"></span>
   <span id="|.
 		$col
-	.qq|_okindicator">$keylist_text</span><br>
+	.qq|_okindicator">in |.$keylist_text.qq|</span><br>
 	
-	
+   </div>
+   <div>	
  <!-- URL Input -->
  
  		<span id="|.$col.qq|" contenteditable="true" style="width:40em; float:left; line-height:1.8em;" >Enter File URL, or...</span>
 		<span id="|.$col.qq|_button" style="float:left;"><button>Update</button></span>
-		<span id="|.$col.qq|_result" style="float:left;"></span>$advice
+		<span id="|.$col.qq|_result" style="float:left;"></span>$advice<br><br>
 		
- </td></tr>
+
  
  		<script>
 		\$(document).ready(function(){
@@ -5154,7 +5150,175 @@ return qq|
 			});
 		});
 		</script>
+   </div>
+		
+<!-- File Upload -->
+
+	
+<!-- CSS to style the file input field as button and adjust the Bootstrap progress bars -->
+<link rel="stylesheet" href="|.$plugindir.qq|css/jquery.fileupload.css">
+<hr size=1 width=15%>
+   <div>
+
+    <!-- The fileinput-button span is used to style the file input field as button -->
+    <span class="">
+    <!-- span class="btn btn-success fileinput-button" changed by Downes -->
+        <i class="glyphicon glyphicon-plus"></i>
+        <span>Add files...</span>
+        <!-- The file input field used as target for the file upload widget -->
+        <input id="fileupload" type="file" name="myfile" 
+		multiple data-form-data='{"table_name": "|.$table.qq|",
+			"table_id": "|.$id.qq|",		
+			"col_name": "|.$col.qq|",
+			"type": "file",		
+			"value": "json input",
+			"updated":1}'>
+    </span>
+    <br>
+    <br>
+    <!-- The global progress bar -->
+    <div id="progress" class="progress">
+        <div class="progress-bar progress-bar-success" style="height:10px;background:green;width:0%"></div>
+    </div>
+    
+    <!-- The container for the uploaded files -->
+    <div id="files" class="files"></div>
+    <br>
+
+   </div></td></tr>
+   
+
+<!-- The jQuery UI widget factory, can be omitted if jQuery UI is already included -->
+<script src="|.$plugindir.qq|js/vendor/jquery.ui.widget.js"></script>
+<!-- The Load Image plugin is included for the preview images and image resizing functionality -->
+<script src="//blueimp.github.io/JavaScript-Load-Image/js/load-image.all.min.js"></script>
+<!-- The Canvas to Blob plugin is included for image resizing functionality -->
+<script src="//blueimp.github.io/JavaScript-Canvas-to-Blob/js/canvas-to-blob.min.js"></script>
+
+<!-- The Iframe Transport is required for browsers without support for XHR file uploads -->
+<script src="|.$plugindir.qq|js/jquery.iframe-transport.js"></script>
+<!-- The basic File Upload plugin -->
+<script src="|.$plugindir.qq|js/jquery.fileupload.js"></script>
+<!-- The File Upload processing plugin -->
+<script src="|.$plugindir.qq|js/jquery.fileupload-process.js"></script>
+<!-- The File Upload image preview & resize plugin -->
+<script src="|.$plugindir.qq|js/jquery.fileupload-image.js"></script>
+<!-- The File Upload audio preview plugin -->
+<script src="|.$plugindir.qq|js/jquery.fileupload-audio.js"></script>
+<!-- The File Upload video preview plugin -->
+<script src="|.$plugindir.qq|js/jquery.fileupload-video.js"></script>
+<!-- The File Upload validation plugin -->
+<script src="|.$plugindir.qq|js/jquery.fileupload-validate.js"></script>
+<script>
+/*jslint unparam: true, regexp: true */
+/*global window, \$ */
+\$(function () {
+    'use strict';
+    // Change this to the location of your server-side upload handler:
+    var url = '|.$Site->{st_cgi}.qq|api.cgi',
+        uploadButton = \$('<button/>')
+            .addClass('')   /* changed from 'btn btn-primary' - Downes */
+            .prop('disabled', true)
+            .text('Processing...')
+            .on('click', function () {
+                var \$this = \$(this),
+                    data = \$this.data();
+                \$this
+                    .off('click')
+                    .text('Abort')
+                    .on('click', function () {
+                        \$this.remove();
+                        data.abort();
+                    });
+                data.submit().always(function () {
+                    \$this.remove();
+                });
+            });
+    \$('#fileupload').fileupload({
+        url: url,
+        dataType: 'json',   
+        autoUpload: false,
+        maxFileSize: 10000999000,
+        // Enable image resizing, except for Android and Opera,
+        // which actually support image resizing, but fail to
+        // send Blob objects via XHR requests:
+        disableImageResize: /Android(?!.*Chrome)\|Opera/
+            .test(window.navigator.userAgent),
+        previewMaxWidth: 100,
+        previewMaxHeight: 100,
+        previewCrop: true
+    }).on('fileuploadadd', function (e, data) {
+        data.context = \$('<div/>').appendTo('#files');
+        \$.each(data.files, function (index, file) {
+            var node = \$('<p/>')
+                    .append(\$('<span/>').text(file.name));
+            if (!index) {
+                node
+                    .append('<br>')
+                    .append(uploadButton.clone(true).data(data));
+            }
+            node.appendTo(data.context);
+        });
+    }).on('fileuploadprocessalways', function (e, data) {
+        var index = data.index,
+            file = data.files[index],
+            node = \$(data.context.children()[index]);
+        if (file.preview) {
+            node
+                .prepend('<br>')
+                .prepend(file.preview);
+        }
+        if (file.error) {
+            node
+                .append('<br>')
+                .append(\$('<span class="text-danger"/>').text(file.error));
+        }
+        if (index + 1 === data.files.length) {
+            data.context.find('button')
+                .text('Upload')
+                .prop('disabled', !!data.files.error);
+        }
+    }).on('fileuploadprogressall', function (e, data) {
+        var progress = parseInt(data.loaded / data.total * 100, 10);
+        \$('#progress .progress-bar').css(
+            'width',
+            progress + '%'
+        );
+    }).on('fileuploaddone', function (e, data) {
+        \$.each(data.result.files, function (index, file) {
+            if (file.url) {
+                var link = \$('<a>')
+                    .attr('target', '_blank')
+                    .prop('href', file.url);
+                \$(data.context.children()[index])
+                    .wrap(link);
+            } else if (file.error) {
+                var error = \$('<span class="text-danger"/>').text(file.error);
+                \$(data.context.children()[index])
+                    .append('<br>')
+                    .append(error);
+            }
+        });
+    }).on('fileuploadfail', function (e, data) {
+        \$.each(data.files, function (index) {
+            var error = \$('<span class="text-danger"/>').text('File upload failed.');
+            \$(data.context.children()[index])
+                .append('<br>')
+                .append(error);
+        });
+    }).prop('disabled', !\$.support.fileInput)
+        .parent().addClass(\$.support.fileInput ? undefined : 'disabled');
+});
+</script>
+
+		
  |;
+ 
+ 
+ 
+
+ 
+ 
  
  return qq|
  

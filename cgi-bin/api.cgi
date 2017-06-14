@@ -65,14 +65,8 @@ print "Content-type: text/html\n\n";
 	&admin_only();		
 		
 
-
-my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }
-#print $str;
-&send_email('stephen@downes.ca','stephen@downes.ca', 'api in',$str); 
-
-
 # Verify Data
-
+ 
 	die "Table name not provided" unless ($vars->{table_name});	
 	die "Table ID not provided" unless ($vars->{table_id});
 	die "Column name not provided" unless ($vars->{col_name});
@@ -107,7 +101,12 @@ if ($vars->{updated}) {
 
 #my $return = &form_graph_list("post","60231","author");
 
-	
+	&send_email('stephen@downes.ca','stephen@downes.ca', 'api failed',
+	qq|
+	Table ID  - |.$vars->{table_id}.qq|
+	Column  - |.$vars->{col_name}.qq|
+	Input value  - |.$vars->{value}.qq|
+	Input type  - |.$vars->{type}.qq|$return|);
 
 
 	print $return;
@@ -412,17 +411,32 @@ sub api_file_upload {
 	$vars->{graph_table} = $vars->{table_name};
 	$vars->{graph_id} = $vars->{table_id};
 
-
 	# Upload the file
 
 	my $file = &upload_file(); 
 	&api_save_file($file);
-
+ 
 	# Return new graph output for the form		
-	print &form_graph_list($vars->{graph_table},$vars->{graph_id},"file");
+	#print &form_graph_list($vars->{graph_table},$vars->{graph_id},"file");
+
+	# Return json response for JQuery
+	my $outurl = $Site->{st_url}.$file->{file_dir}.$file->{file_title};
+	my $output = qq|
+{"files": [
+  {
+    "name": "$file->{file_title}",
+    "size": 902604,
+    "url": "$outurl",
+    "deleteUrl": "http:\/\/example.org\/files\/picture1.jpg",
+    "deleteType": "DELETE"
+  }
+]}
+|;
+print $output;
 
 
 
+exit;
 	
 
 	
