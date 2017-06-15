@@ -4882,7 +4882,8 @@ sub form_wysihtml {
 	my ($table,$id,$col,$value,$size,$advice) = @_;
 
 	$size ||= 10;
-	$value ||= $col;	
+	$value ||= $col;
+	my $plugindir = $Site->{st_url}."assets/sceditor/";	
 		
 	# Escape markup
 	$value =~ s/</&lt;/sig;
@@ -4892,7 +4893,16 @@ sub form_wysihtml {
 	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="|.$colspan.qq|" cols="60">$value</textarea>|; }	
 
 
+
+
 	return qq|
+	
+		<!-- Include the default theme -->
+		<link rel="stylesheet" href="|.$plugindir.qq|minified/themes/default.min.css" media="all" />
+ 
+		<!-- Include the editors JS -->
+		<script src="|.$plugindir.qq|minified/jquery.sceditor.xhtml.min.js"></script>
+
 		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
 		<textarea id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" rows="|.$size.qq|" cols="60" >$value</textarea>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
@@ -4900,7 +4910,11 @@ sub form_wysihtml {
 		
 		<script>
 		\$(document).ready(function(){
-			\$('#|.$col.qq|_button').hide();
+			\$('#|.$col.qq|').sceditor({
+				plugins: "xhtml",
+				style: "minified/jquery.sceditor.default.min.css"
+				});
+			\$('#|.$col.qq|_button').hide();				
 			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
 			\$('#|.$col.qq|_button').click(function(){
 				var content = \$('#|.$col.qq|').val(); 
