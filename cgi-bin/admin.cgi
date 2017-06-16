@@ -105,7 +105,7 @@
 #$psth->execute();
 #while (my $post = $psth -> fetchrow_hashref()) { 
 #	&db_update($dbh,"post",{post_facebook => 1},$post->{post_id});
-#	&db_update($dbh,"post",{post_web => 1},$post->{post_id});	
+#	&db_update($dbh,"post",{post_social_media => "Twitter,Facebook,RSS,JSON,Web"},$post->{post_id});	
 #}
 
 #	my $graphid = &db_insert($dbh,$query,"graph",{
@@ -436,8 +436,9 @@ sub admin_frame {
 	my $footer = &get_template($dbh,$query,"admin_footer",$title);
 	
 	print $header;
-	print &admin_navbar();
-	print $content;
+	print qq|<div id="admin_content_area" style="width:79%; float: left;">|;
+	print &admin_navbar()."<h2>$title</h2>";
+	print qq|<div id="admin_editor_area" style="width:100%;">|.$content.qq|</div>|;
 	print $footer;
 #	exit;
 

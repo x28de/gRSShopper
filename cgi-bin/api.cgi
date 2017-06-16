@@ -177,6 +177,7 @@ sub api_keylist_update {
 	
 	# Return new graph output for the form		
 	print &form_graph_list($table,$id,$key);
+	exit;
 
 }
 
@@ -215,14 +216,27 @@ sub api_publish {
 	} else {				# Not yet published, so publish it
 	
 	# So now, ideally, I'd use the name of the social network service to pick a subroutine to actually do the publishing, but...
+	
+		if ($vars->{value} =~ /twitter/i) {
 		
-		print "Sending to Twitter<br>";
-		my $twitter = &twitter_post($dbh,"post",$id);
-		print "Twitter result: $twitter<br>";
-		$published .= ",twitter";
-		my $result = &db_update($dbh,$table, {$col => $published}, $id);
-		print "Recorded publication success $result<br>";
-		exit;
+			print "Sending to Twitter<br>";
+			my $twitter = &twitter_post($dbh,"post",$id);
+			print "Twitter result: $twitter<br>";
+			$published .= ",twitter";
+			my $result = &db_update($dbh,$table, {$col => $published}, $id);
+			print "Recorded publication success $result<br>";
+			exit;
+		
+		}
+		
+		
+		elsif ($vars->{value} =~ /web|json|rss/i) {
+			
+			$published .= ",".$vars->{value};
+			my $result = &db_update($dbh,$table, {$col => $published}, $id);
+			print "Published to ".$vars->{value}."<p>";	
+			exit;
+		}
 	}
 
 	
@@ -367,7 +381,7 @@ sub api_data_update {
     }
 
 #$data = qq|name,type,size;name,textarea,256;nickname,textarea,256|;
-    my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{field_name} => $data}, $vars->{table_id});
+    my $id_number = &db_update($dbh,$vars->{table_name}, {$vars->{col_name} => $data}, $vars->{table_id});
 
 
 #my $str; while (my ($x,$y) = each %$vars) 	{ $str .= "$x = $y <br>\n"; }

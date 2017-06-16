@@ -1745,6 +1745,24 @@ my ($text_ptr) = @_;
 #$mystring =~ s/<get_loggedin_image>/mom/;
 }
 
+sub published_on_web {
+
+	# Do not publish if record is not 'published' (ie., if $Site->{pubstatus} has a value, then fill only if the value of $table_social_media !~ /web/
+	# Triggered by creating a 'social_media' column in the table (which we test for here)
+	
+	my ($dbh,$table,$record_data,@pubcolumns) = @_;
+	
+	if ($Site->{pubstatus}) { 
+		my $smcolumn = $table."_social_media";
+		unless (@pubcolumns) { @pubcolumns = &db_columns($dbh,$table); }
+			if ( grep( /^$smcolumn$/, @pubcolumns ) ) {	
+			return 0 unless ($record_data->{$table."_social_media"} =~ /web/i); 
+		}
+	}	
+	return 1;
+	
+}
+	
 # -------  Format Record ----------------------------------------------------
 
 # Puts a single data record into its template
@@ -1757,14 +1775,13 @@ my ($text_ptr) = @_;
 sub format_record {
 
 
-	my ($dbh,$query,$table,$record_format,$filldata,$keyflag) = @_;
+	my ($dbh,$query,$table,$record_format,$filldata,$keyflag,@pubcolumns) = @_;
 	if ($diag>9) { print "Format Record  <br>"; }
 
 	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
 	my $id_number = $filldata->{$table."_id"};
 	
-
-
+	return unless (&published_on_web($dbh,$table,$filldata,@pubcolumns));
 	
 	
 									# Permissions
@@ -3447,9 +3464,17 @@ sub make_keywords {
 		$results_count=0; 
 		my $results_in = "";
 
+		# get the list of coluns in this table (used by published_on_web() 
+	
+		my @pubcolumns = &db_columns($dbh,$script->{db});
+		
 						# For Each Record
 		$Site->{keyword_counter}=0;		
 		while (my $record = $sth -> fetchrow_hashref()) {
+			
+			# If we are publishing a page, skip items that have not been published
+			next unless (&published_on_web($dbh,$script->{db},$record,@pubcolumns));
+			
 			$Site->{keyword_counter}++;
 			$results_count++; 
 			
@@ -3499,7 +3524,8 @@ sub make_keywords {
 				$script->{db},
 				$script->{format},
 				$record,
-				$keyflag);
+				$keyflag,
+				@pubcolumns);
 
 						# Add counter information
 			$record_text =~ s/<count>/$results_count/mig;
@@ -4423,11 +4449,14 @@ sub form_editor() {
 	
 	my ($dbh,$query,$table,$id_number,$data) = @_;
 
-
+	# Initialize major form elements
 	my $form_text = "";
+	my $pub_text = "";
+	
+	
 	my $autoblog = $vars->{autoblog};
 	my $id; my $id_value;						# Not needed, but let's wipe out the value
-										# in case they're used accidentally. Heh
+									# in case they're used accidentally. Heh
 	
 
 	# Check Starting Data
@@ -4477,9 +4506,9 @@ sub form_editor() {
 	else { return unless (&is_allowed("edit",$table,$record,"$Person->{person_id} form editor")); }
 	
 
-	# Create Titles
+	# Print Messages
 
-	$form_text .= "<h3>Edit ".ucfirst($table)."</h3>";
+
 
 	if ($vars->{msg}) { $form_text .=  qq|<p class="notice">$vars->{msg}</p>|; }
 
@@ -4488,7 +4517,7 @@ sub form_editor() {
 	
 	unless ($vars->{autoblog}) {
 		my $scripturl = $Site->{st_url}.$ENV{'REQUEST_URI'};
-		$form_text .= qq|<p class="nav"> [<a href="$Site->{st_url}$table/$id_number">View |.ucfirst($table).qq|</a>] |;
+		$form_text .= qq|<p class="nav">[<a href="$Site->{st_url}$table/$id_number">View |.ucfirst($table).qq|</a>] |;
 		$form_text .= qq|[<a href="$Site->{script}?db=$table&action=list">List All |.ucfirst($table).qq|s</a>] |;
 		$form_text .= qq|[<a href="$Site->{script}?db=$table&action=edit">Create New |.ucfirst($table).qq|</a>] |;
 		if ($table eq "feed") { $form_text .= qq|[<a href="$Site->{st_cgi}harvest.cgi?feed=$id_number&force=yes">Harvest Feed</a>]</p>|; }
@@ -4497,7 +4526,7 @@ sub form_editor() {
 
 	# Create Preview Version 
 	$form_text .= qq|<script>\$(document).ready(function(){\$('#record_summary').load("admin.cgi?$table=$id_number&format=summary");});</script>
-	 	<br><i>&nbsp;&nbsp;Preview:</i><br/><table id="record_preview" border=1 cellpadding=10 cellspacing=0 width="600">
+	 	<br><i>&nbsp;&nbsp;Preview:</i><br/><table id="record_preview" border=1 cellpadding=10 cellspacing=0 style="color:#888888; width:95%">
 		<tr><td><div id="record_summary"></div></td></tr></table><br>|;
 
 	# Create Form Heading for Old-Style (Raw) Form
@@ -4535,14 +4564,14 @@ sub form_editor() {
 		 
  		 
 	if ($autoblog) {
-		$form_text .= qq|<table border=0 cellpadding=10 cellspacing=0><tr><td>
+		$form_text .= qq|<table border=0 cellpadding=10 cellspacing=0 style="color:#888888; width:95%"><tr><td>
 			<i>Full text of the link you are commenting on is located below the form</i></td></tr></table>|;
 	}
 	
 	
 
 	$form_text .= qq|	 
-		 <table border=1 cellpadding=10 cellspacing=0 style="color:#888888;">\n|;
+		 <table border=1 cellpadding=10 cellspacing=0 style="color:#888888; width:95%">\n|;
 	
 	# Get the full list of tables, for crosslinks
 	my @db_tables = &db_tables($dbh);
@@ -4683,13 +4712,13 @@ sub form_editor() {
 		
 		# Date
 		
-		elsif ($fieldtype eq "date") { $form_text .=  &form_date_select($record,$col,$colspan,$advice); }
+		elsif ($fieldtype eq "date") { $form_text .=  &form_date_select($table,$id_value,$col,$value,4); }
 		
 		# DateTime
 		elsif ($fieldtype eq "datetime") { $form_text .=  &form_date_time_select($record,$col,$colspan,$advice); }
 
 		# Publish
-		elsif ($fieldtype eq "publish") { $form_text .=  &form_publish($table,$id_value,$col,$value); }
+		elsif ($fieldtype eq "publish") { $pub_text .=  &form_publish($table,$id_value,$col,$value); }
 				
 		# Heading
 		elsif ($fieldtype eq "heading") { $form_text .=  &form_heading($sc,$fieldsize); }
@@ -4697,15 +4726,14 @@ sub form_editor() {
 		# Commit 
 		elsif ($fieldtype eq "commit") { $form_text .=  &form_commit($table,$col,$id_number,$record); }	
 		
-		# Publish
-		elsif ($fieldtype eq "publish") { $form_text .= &form_publish($table,$id_number,$col,$value,$fieldsize,$advice); }			
+
 						
 		elsif ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "post")) {			
 			$form_text .= &form_keylist($table,$id_value,$sc);
 			# $form_text .=  &form_keyinput($col,$record->{$col},2);
 	
 
-		} elsif ($fieldtype eq "social_media") { $form_text .= &form_publish($table,$id_number,$col,$value,$fieldsize,$advice); 		
+		} elsif ($fieldtype eq "social_media") { $pub_text .= &form_publish($table,$id_number,$col,$value,$fieldsize,$advice); 		
 		} elsif (($table eq "media") && ($fieldstem eq "link")) {
 			$form_text .=  &form_keyinput($col,$record->{$col},2);		
 		} elsif ( $table eq "link" && $col =~ /_category/ ) {
@@ -4792,11 +4820,12 @@ sub form_editor() {
 	$form_text .= &form_page_options($table,$id_number,$record);
         $form_text .= &form_badge_options($table,$id_number,$record);
 	$form_text .= "</form>\n";
-	$form_text = qq|<div id="form_text">|.$form_text.qq|</div>|;
+	
+	#$form_text = qq|<div id="form_text">|.$form_text.qq|</div>|;
 
-	return $form_text;
+	return qq|<div style="width:79%; float:left; ">$form_text</div><div style="width:20%; padding:5px;float:left; background-color:#f4f4f4;>$pub_text</div></div>|;
 }
-
+# 
 
 # -------  Text Input -----------------------------------------------------
 #
@@ -4810,10 +4839,13 @@ sub form_textinput {
 
 	# Old-Style Form Alternative
 	$value =~ s/"/\\"/sg;
+	
 	if (defined($vars->{raw_form})) { return qq|<tr><td class="column-name" align="right" width="200">$col</td><td><input type="text" name="$col" value="$value"></td></tr>|; }
 
 	return qq|
-		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+
+		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 		<span id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" >$value</span>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
 		<span id="|.$col.qq|_result"></span>$advice
@@ -4852,7 +4884,8 @@ sub form_textarea {
 	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="10">$value</textarea>|; }
 
 	return qq|
-		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 		<textarea id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" rows="|.$size.qq|" cols="60">$value</textarea>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
 		<span id="|.$col.qq|_result"></span>$advice
@@ -4883,7 +4916,7 @@ sub form_wysihtml {
 
 	$size ||= 10;
 	$value ||= $col;
-	my $plugindir = $Site->{st_url}."assets/sceditor/";	
+	
 		
 	# Escape markup
 	$value =~ s/</&lt;/sig;
@@ -4897,27 +4930,26 @@ sub form_wysihtml {
 
 	return qq|
 	
-		<!-- Include the default theme -->
-		<link rel="stylesheet" href="|.$plugindir.qq|minified/themes/default.min.css" media="all" />
- 
-		<!-- Include the editors JS -->
-		<script src="|.$plugindir.qq|minified/jquery.sceditor.xhtml.min.js"></script>
 
-		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+
+		<!-- Integration based on instructions here http://docs.ckeditor.com/#!/guide/dev_jquery - Downes -->
+		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 		<textarea id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" rows="|.$size.qq|" cols="60" >$value</textarea>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
 		<span id="|.$col.qq|_result"></span>$advice
 		
 		<script>
+		CKEDITOR.replace( '|.$col.qq|' );
 		\$(document).ready(function(){
-			\$('#|.$col.qq|').sceditor({
-				plugins: "xhtml",
-				style: "minified/jquery.sceditor.default.min.css"
-				});
-			\$('#|.$col.qq|_button').hide();				
+
+			\$('|.$col.qq|').ckeditor();
+			
 			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
 			\$('#|.$col.qq|_button').click(function(){
-				var content = \$('#|.$col.qq|').val(); 
+
+				var editor = CKEDITOR.instances['|.$col.qq|'];
+				var content = editor.getData();
 				submit_function("$table","$id","$col",content,"textarea");
 				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 			});
@@ -4929,7 +4961,8 @@ sub form_wysihtml {
 
 }
 
-
+# 				var content = \$('#|.$col.qq|').val(); 
+# 			\$('#|.$col.qq|_button').hide();
 
 
 # ------- Rules -----------------------------------------------------
@@ -4974,7 +5007,8 @@ sub form_keylist {
 
 
 	return qq|
-		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 		<span style="float:left;">Enter $col name: </span>
 		<span id="|.$col.qq|" contenteditable="true" style="float:left; width:20em;" ></span><span id="|.$col.qq|_button"><button>Update</button></span><br>
 		<span>$key_title List: <a href="#" id="$col"></a><br> 
@@ -5000,7 +5034,8 @@ sub form_keylist {
 	
 	
 	
-	return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
+	return qq|		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 \$('#|.$col.qq|_result').show();
    <script>
    \$(function(){
@@ -5074,7 +5109,7 @@ sub form_submit {
 
 	
 	if (defined($vars->{raw_form})) { 
-		return qq|<tr><td colspan="2"><input type="submit" value="Update Record" class="button"></td></tr>|;
+		return qq|<tr><td colspan="4"><input type="submit" value="Update Record" class="button"></td></tr>|;
 	}
 
 }
@@ -5134,14 +5169,15 @@ sub form_file_select {
 	$keylist_text ||= "None";	
 	
 return qq|
-<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
    <div>
    
 <!-- Existing Uploaded Files -->
   <span id="file_url_okindicator"></span>
   <span id="|.
 		$col
-	.qq|_okindicator">in |.$keylist_text.qq|</span><br>
+	.qq|_okindicator">|.$keylist_text.qq|</span><br>
 	
    </div>
    <div>	
@@ -5168,7 +5204,7 @@ return qq|
 		
 <!-- File Upload -->
 
-	
+<!-- JQuery code adapted from https://blueimp.github.io/jQuery-File-Upload/ by Downes  -->	
 <!-- CSS to style the file input field as button and adjust the Bootstrap progress bars -->
 <link rel="stylesheet" href="|.$plugindir.qq|css/jquery.fileupload.css">
 <hr size=1 width=15%>
@@ -5414,8 +5450,9 @@ sub form_data {
 	</form><form id="$col" action="$Site->{st_cgi}api.cgi" method="post">
 	<input type="hidden" name="table_name" value="$table">
 	<input type="hidden" name="table_id" value="$id">
-	<input type="hidden" name="field_name" value="$col">
+	<input type="hidden" name="col_name" value="$col">
 	<input type="hidden" name="type" value="data">
+	<input type="hidden" name="value" value="data input">	
 	<input type="hidden" name="updated" value="1">
 	<table border=0>|;
 	
@@ -5459,10 +5496,42 @@ sub form_data {
 	
 	#$output .= qq|<textarea style="font-family: Courier;" name="$col" rows="$rows" cols=60>$data</textarea>|;
 	
+$output .= qq|	
+<script type="text/javascript">
+    var frm = \$('#$col');
+    frm.submit(function (e) {
+        e.preventDefault();
+        \$.ajax({
+            type: frm.attr('method'),
+            url: frm.attr('action'),
+            data: frm.serialize(),
+            success: function (data) {
+		\$("#form_commit_button_text").show();
+		\$("#form_commit_button_done").hide();
+		\$('#|.$col.qq|_okindicator').show();		
+		\$('#|.$col.qq|_okindicator').html(data);
+		\$('#|.$col.qq|_okindicator').hide(4000);
+            },
+            error: function (data) {
+                alert('An error occurred.');
+                alert(data);
+            },
+        });
+    });
+ 
+ </script>\n\n|;
 			
 
 
-	return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top"><div>$output</div></td></tr><form>|;	
+	return qq|
+		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
+	<div>$output</div></td></tr><form>
+	
+	
+	
+	
+	|;	
 	
 	
 	
@@ -5506,24 +5575,51 @@ sub form_graph_list {
 
 sub form_date_select {
 
-	my ($record,$col,$colspan,$advice) = @_;
-	my ($table,$title) = split /_/,$col;
-	my $id = $record->{$table."_id"};
-	my $value = $record->{$col} || "";
+	my ($table,$id,$col,$value,$size) = @_;
 
-	#my ($name,$value) = @_;
-
-
-	unless ($value) { # Default to today's date
+	# Default to today's date
+	unless ($value) { 
 		$value = &cal_date(time);
 	}
 	
-	my $dateformat = 'yyyy/mm/dd';
-	my $datetype = "date";
-	
-	my $output = &form_dates_general($table,$id,$title,$col,$value,$dateformat,$datetype);
-	return $output;
+
+	# Old-Style Form Alternative
+	if (defined($vars->{raw_form})) { 
+		my $dateformat = 'yyyy/mm/dd';
+		my $datetype = "date";
+		my $output = &form_dates_general($table,$id,$title,$col,$value,$dateformat,$datetype);
+		return $output;
+	}	
+		
+
+	return qq |
+		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
+		<input type="text" id="$col" value="$value">
+		<span id="|.$col.qq|_result"></span>$advice
+		</td></tr>
+
+		<script>
+		\$( function() {
+
+			\$( "#$col" ).datepicker({
+				dateFormat: "yy/mm/dd",
+				onSelect: function(date, instance) {
+
+					var content = \$('#|.$col.qq|').val(); 
+					alert("$table+$id+$col+$value+$size");
+					submit_function("$table","$id","$col",content,"text");
+					\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
+				}	
+			});
+  
+;
+		} );
+		</script>
+	|;	
+
 }
+
 
 # -------  Date-Time Select -----------------------------------------------------
 #
@@ -5570,7 +5666,8 @@ sub form_dates_general {
 	if (defined($vars->{raw_form})) { return qq|<tr><td class="column-name" align="right" width="200">$col</td><td><input type="text" name="$col" value="$value"></td></tr>|; }
 
 	return qq|
-		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 		<span id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" >$value</span>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
 		<span id="|.$col.qq|_result"></span>
@@ -5696,7 +5793,9 @@ sub form_select_general {
 	my ($table,$id,$col,$selected_value,$fieldsize,$advice,$options) = @_;
 	
 	
-	return qq|<tr><td class="column-name" align="right" valign="top">$col</td><td colspan=3 valign="top">
+	return qq|
+		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 	<select id="$col"><option value="">$col</option>$options</select> <span id="|.$col.qq|_result"></span>
 
 	<script>
@@ -5935,7 +6034,8 @@ sub form_commit {
 		<div id="form_commit_button_done">Committed</div>
 		<span id="|.$col.qq|_okindicator"></span>|; 
 	
-	return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
+	return qq|		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
+		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 <div>
 <div id="|.$col.qq|">
 $button_text
@@ -5953,7 +6053,8 @@ $button_text
 				table_id:$id_value,
 				updated:1,
 				type:"commit",
-				name:"$col",
+				value: "committed data",
+				col_name:"$col",
 			},
 			success: function(result) {
 				\$("#form_commit_button_text").hide();
@@ -5980,22 +6081,27 @@ sub form_publish {
 
 	
 	# List of supported social media sites
-	my @accounts = qw(twitter facebook web rss json);			
+	my @accounts = qw(Web Twitter Facebook RSS JSON);			
 										# Future work - get this from the list of accounts
 	# Set up return content 
-	my $return_text = qq|<tr><td>$col</td><td colspan="3">
-	<table class="publish" style="border:0px;" border=0 width=200 cellspacing="0" cellpadding="0">|;	
+	my $return_text = qq|
+	    <div class="publish" style="width:100%; clear:all;">Publish!|;	
 
 	foreach my $account (@accounts) {
 		
-		$return_text .= qq|<tr style="border:0px;"><td style="text-align:right; border:0px;">$account:</td>|;
-		if ($value =~ /$account/i) { $return_text .= qq|<td  id="|.$col.qq|" style="border:0px;">Published</td></tr>|; }	
+		$return_text .= qq|
+		<div style="height:2em; clear:all">
+		   <span class="account_name" style="min-width:50px;width:40%;float:left;">$account: </span> |;
+		if ($value =~ /$account/i) { $return_text .= qq|
+		   <span id="|.$col.qq|" style="border:0px; width:60%;float:left;">Published</span>
+		</div>|; }	
 		else { 
 			
 			$return_text .= qq|		
-			<td style="border:0px;" id="|.$col."_".$account.qq|">
+		    <span style="border:0px; float:left; width:60%" id="|.$col."_".$account.qq|">
 			<button id="|.$col."_".$account.qq|_button" value="$account">Publish</button>
-			</td></tr>	
+		    </span>	
+		 </div>
 			<script>
 			\$(document).ready(function(){
 				\$('#|.$col."_".$account.qq|_button').click(function(){
@@ -6011,7 +6117,9 @@ sub form_publish {
 		
 	}
 	
-	$return_text .= qq|</table><span id="|.$col.qq|_result"></span>$advice</td></tr>|;
+	$return_text .= qq|
+	        <div><span id="|.$col.qq|_result"></span><span>$advice</span></div>
+	    </div>|;
 	return $return_text;
 
 	
@@ -7140,8 +7248,10 @@ sub db_columns {
 
 						
 	my ($dbh,$table) = @_;			# Get a list of columns
+	
 	my @columns = ();			 
 	my $showstmt = "SHOW COLUMNS FROM $table";
+	
 	my $sth = $dbh -> prepare($showstmt);
 	$sth -> execute();
 	while (my $showref = $sth -> fetchrow_hashref()) { 
