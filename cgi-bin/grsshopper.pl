@@ -10232,39 +10232,48 @@ package gRSShopper::Temp;
   	my $ht = "http://";
   	my $numArgs = $#ARGV + 1;
   	if ($ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'}) {
- print "Content-type: text/html\n\n";
- print " $ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'} || $ENV{'SERVER_NAME'}<p>";	
- while (my($sx,$sy) = each %ENV) { print "$sx=$sy <br>"; }	
- 		
-		# Script  #    - eg. http://www.downes.ca/cgi-bin/admin.cgi
-    		$self->{script} = $ENV{'SCRIPT_URI'};
-		unless ($self->{script}) { $self->{script} = "http://".$ENV{'SERVER_NAME'}.$ENV{'SCRIPT_NAME'};	}
-    		unless ($self->{script}) { die "Cannot determine website script."; }	#    - Failure?
+  		
+ 		# Document Root
+ 		unless ($self->{st_urlf}) { $self->{st_urlf} = $ENV{'DOCUMENT_ROOT'} . "/"; }
+  		unless (-d $self->{st_urlf}) { die "Cannot find document root directory $self->{st_urlf}"; }	
+  		 		
+ 		# Document Root URL
+ 		unless ($self->{st_url}) { $self->{st_url} = "http://" . $ENV{'HTTP_HOST'} . "/"; }		
+  
+		# Script URL  eg. http://www.downes.ca/cgi-bin/admin.cgi
+		$self->{script} = "http://" . $ENV{'HTTP_HOST'} . $ENV{'SCRIPT_NAME'};
+    		unless ($self->{script}) { die "Cannot determine website script."; }	
  
-  		if ($self->{script} =~ /https:/) {					#    - Set protocol
-			$ht = "https://"; } else { $ht = "http://"; }
-		unless ($self->{script} =~ /^http/) {
-			$self->{script} = "http://".$self->{script};
-		}			
-											# Home
-  		$self->{st_home} = $ENV{'HTTP_HOST'} || $ENV{'SERVER_NAME'};		#    - eg. www.downes.ca
-  		unless ($self->{st_home}) { die "Cannot determine website home."; }	#    - Failure?
-  		unless ($self->{st_home} =~ /^http/) {
-			$self->{st_home} = "http://".$self->{script};
-		}		
+		# Script Root URL
+		my @su = split "/",$self->{script};
+		my $sn = pop @su;
+		$self->{st_cgi} = join "/",@su;
+		$self->{st_cgi} .= "/";
+  		unless ($self->{st_cgi}) { die "Cannot determine website script root URL."; }		
+
+		# Script Root
+		$self->{st_cgif} = $ENV{'SCRIPT_FILENAME'};
+		$self->{st_cgif} =~ s/$sn//i;
+  		unless (-d $self->{st_cgif}) { die "Cannot file script root $self->{st_cgif}"; }		
+		 
+		# Home - eg. www.downes.ca
+  		$self->{st_home} = $ENV{'SERVER_NAME'};		
+  		unless ($self->{st_home}) { die "Cannot determine website home."; }	
+		
   
 		
 	} elsif ($numArgs > 1) {							# Home from Cron request
 		$self->{st_home} = $ARGV[0];   
-		unless ($self->{st_home}) { die "Cannot determine website home in cron."; }        			
+		unless ($self->{st_home}) { die "Cannot determine website home in cron."; }      
+		$self->{st_url} = $ht.$self->{st_home}."/";					# Set base URL
+		$self->{st_cgi} = $self->{st_url}."cgi-bin/";					# Set base URL 			  			
 
 	} else {
 		die "Cannot determine website home in ENV or cron.";
 	}
 	
 	$self->{co_host} = $self->{st_home};						# Set cookie host 		
- 	$self->{st_url} = $ht.$self->{st_home}."/";					# Set base URL
-	$self->{st_cgi} = $self->{st_url}."cgi-bin/";					# Set base URL 	
+
 	
 	
   }
