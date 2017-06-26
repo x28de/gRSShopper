@@ -10232,7 +10232,8 @@ package gRSShopper::Temp;
   	my $ht = "http://";
   	my $numArgs = $#ARGV + 1;
   	if ($ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'}) {
-  				
+ print "Content-type: text/html\n\n";
+ print " $ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'} <p>";				
 											# Script 
     		$self->{script} = $ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'};		#    - eg. http://www.downes.ca/cgi-bin/admin.cgi
     		unless ($self->{script}) { die "Cannot determine website script."; }	#    - Failure?
