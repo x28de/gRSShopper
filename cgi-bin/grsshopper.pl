@@ -1811,7 +1811,7 @@ sub format_record {
 		
 
 	my $view_text = "";								# Get the code and add header and footer for Page
-	if (($table eq "page") && ($record_format ne "page_list") && !$keyflag) { 
+	if (($table eq "page") && ($record_format ne "page_list" && $record_format ne "summary") && !$keyflag) { 
 			$view_text = &db_get_template($dbh,$filldata->{page_header}) .
 			$filldata->{page_code} .				
 			&db_get_template($dbh,$filldata->{page_footer});	
@@ -5607,7 +5607,6 @@ sub form_date_select {
 				onSelect: function(date, instance) {
 
 					var content = \$('#|.$col.qq|').val(); 
-					alert("$table+$id+$col+$value+$size");
 					submit_function("$table","$id","$col",content,"text");
 					\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 				}	
@@ -10235,7 +10234,7 @@ package gRSShopper::Temp;
   	if ($ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'}) {
   				
 											# Script 
-    		$self->{script} = $ENV{'SCRIPT_URI'}; 					#    - eg. http://www.downes.ca/cgi-bin/admin.cgi
+    		$self->{script} = $ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'};		#    - eg. http://www.downes.ca/cgi-bin/admin.cgi
     		unless ($self->{script}) { die "Cannot determine website script."; }	#    - Failure?
   		if ($self->{script} =~ /https:/) {				#    - Set protocol
 			$ht = "https://"; } else { $ht = "http://"; }
