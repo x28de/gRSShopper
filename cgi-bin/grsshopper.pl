@@ -10232,23 +10232,16 @@ package gRSShopper::Temp;
   	my $ht = "http://";
   	my $numArgs = $#ARGV + 1;
   	if ($ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'}) {
- print "Content-type: text/html\n\n";
- print " $ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'} || $ENV{'SERVER_NAME'}<p>";	
- while (my($sx,$sy) = each %ENV) { print "$sx=$sy <br>"; }			
-											# Script 
+		
+		# Script URI  #    - eg. http://www.downes.ca/cgi-bin/admin.cgi
     		$self->{script} = $ENV{'SCRIPT_URI'};
-		unless ($self->{script}) {   		
-			
-		}
-					#    - eg. http://www.downes.ca/cgi-bin/admin.cgi
+		unless ($self->{script}) { $self->{script} = "http://".$ENV{'SERVER_NAME'}.$ENV{'SCRIPT_NAME'};	}
     		unless ($self->{script}) { die "Cannot determine website script."; }	#    - Failure?
  
-  		if ($self->{script} =~ /https:/) {					#    - Set protocol
-			$ht = "https://"; } else { $ht = "http://"; }
-		unless ($self->{script} =~ /^http/) {
-			$self->{script} = "http://".$self->{script};
-		}			
-											# Home
+		#    - Set protocol
+  		if ($self->{script} =~ /https:/) { $ht = "https://"; } else { $ht = "http://"; }
+						
+		# Home URL
   		$self->{st_home} = $ENV{'HTTP_HOST'} || $ENV{'SERVER_NAME'};		#    - eg. www.downes.ca
   		unless ($self->{st_home}) { die "Cannot determine website home."; }	#    - Failure?
   		unless ($self->{st_home} =~ /^http/) {
