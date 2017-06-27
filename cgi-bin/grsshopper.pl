@@ -10252,8 +10252,10 @@ package gRSShopper::Temp;
   		unless ($self->{st_cgi}) { die "Cannot determine website script root URL."; }		
 
 		# Script Root
-		$self->{st_cgif} = $ENV{'SCRIPT_FILENAME'};
-		$self->{st_cgif} =~ s/$sn//i;
+		my @sru = $ENV{'SCRIPT_FILENAME'};
+		my $srn = pop @sru;
+		$self->{st_cgif} = join "/",@sru;
+		$self->{st_cgif} .= "/";		
   		unless (-d $self->{st_cgif}) { die "Cannot file script root $self->{st_cgif}"; }		
 		 
 		# Home - eg. www.downes.ca
