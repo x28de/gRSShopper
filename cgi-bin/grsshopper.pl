@@ -175,7 +175,6 @@ sub get_site {
 	my ($context) = @_;
 	
 	
-	my $numArgs = $#ARGV + 1;						# Command Line Args (For Cron)
 	if ($ARGV[1]) { $context = "cron"; }					# Set cron context, as appropriate
 	if ($vars->{action} eq "cron") { 					# Note that a cron key is required to execute 
 		$context = "cron"; 						# from the command line
@@ -183,56 +182,28 @@ sub get_site {
 	}
 	if ($context) { $vars->{context} = $context; }
 	
-
-	our $Site = gRSShopper::Site->new({					# Create new Site object
+	# Create new Site object
+	our $Site = gRSShopper::Site->new({					
 		context		=>	$context,
 		data_dir	=>	'/var/www/cgi-bin/data/',		# Location of site configuration files
 	});
 
-	
 
-	
-	$Site->{scriptfile} = $0;						# Find script filename 
-	$Site->{scriptdir} = dirname($0);					# and directory
-	
-
-						
-	my @languages = split /,/,$Site->{site_language};
-	foreach my $lang (@languages) {
-		
-		unless ($Site->{lang_default}) { $Site->{lang_default} = $lang; }
-		unless ($Site->{lang_user}) { $Site->{lang_user} = $lang; }
-
-		my $lang_filename = $Site->{scriptdir} . "/languages/".$lang . ".pl";
-			
-		if (-e $lang_filename) { 	
-			do $lang_filename; 
-		} else { 
-			&error_inline($dbh,"<p>Was expecting to find $lang_filename but it was not found</p>");	
-		}		
-	}	
-
+	# Open Site Database
+	my $dbh = $Site->{dbh};
 
 		
+	# Get Site Info From Database										
+	&get_config($dbh);		
 
-										# Open Site Database
-
-
+	# Clear site database info so it's not available later
+	$Site->{database}="";	
 	
-	my $dbh = DBI->connect("DBI:mysql:database=$Site->{database}->{name};host=$Site->{database}->{loc};port=3306",
-		$Site->{database}->{usr},$Site->{database}->{pwd},{'RaiseError' => 1});
+	# Prevent accidental (or otherwise) print of config file.										
+	$_ = "";									
 
-	$Site->{database}="";						# Clear site database info so it's not available later				
-	$_ = "";								# Prevent accidental (or otherwise) print of config file.		
-
-
-										# Get Site Info From Database	
-	&get_config($dbh);
-
-		
-
-	
-	my $upload_limit = $Site->{file_limit} || 10000;		# File Upload Limit
+	# File Upload Limit	
+	my $upload_limit = $Site->{file_limit} || 10000;		
 	$CGI::POST_MAX = 1024 * $upload_limit;			
 
 	return ($Site,$dbh);
@@ -242,14 +213,13 @@ sub get_site {
 
 sub get_config {
 
-
 	my ($dbh) = @_;
 	my $sth = $dbh->prepare("SELECT * FROM config");
-	$sth -> execute();
+	$sth -> execute() or die "Failed to load site configuration data";
 	while (my $c = $sth -> fetchrow_hashref()) { 
-		next if ($c->{config_noun} =~ /script|st_home|st_url|st_cgi|co_host|msg/ig);	# Can't change basic site data
+		next if ($c->{config_noun} =~ /script|st_home|st_url|st_urlf|st_cgif|st_cgi|co_host|msg/ig);	# Can't change basic site data
 		next unless ($c->{config_value});
-		$Site->{$c->{config_noun}} = $c->{config_value};
+		$Site->{$c->{config_noun}} = $c->{config_value};	
 	}
 	$sth->finish();
 
@@ -10064,7 +10034,7 @@ package gRSShopper::Temp;
 
   package gRSShopper::Site;
 
-  # $Site = gRSShopper::Site->new();
+  # $Site = gRSShopper::Site->new({name=>value});
   
    
   use strict;
@@ -10078,8 +10048,11 @@ package gRSShopper::Temp;
   	my($class, $args) = @_;								
    	my $self = bless({}, $class);
 
-   	
-	# Assign default values when Site created
+	# Assign default values when Site created, eg. location of site configuration file multisite.txt
+	#   context =>	$context,
+	#   data_dir =>	'/var/www/cgi-bin/data/',
+	#   secure => 1,
+	
    	while (my ($ax,$ay) = each %$args) { $self->{$ax} = $ay; }
    	
    	
@@ -10092,9 +10065,22 @@ package gRSShopper::Temp;
   	$self->__home();								
 
 
-	# Find db info from multisite.txt
-	unless ($self->{no_db}) { $self->__dbinfo();}				
+	unless ($self->{no_db}) { 
+		
+		# Find db info from multisite.txt
+		$self->__dbinfo();
+		
+		# Open Site Database
+		$self->{dbh} = DBI->connect("DBI:mysql:database=$self->{database}->{name};host=$self->{database}->{loc};port=3306",
+			$self->{database}->{usr},$self->{database}->{pwd}) or $self->__initialize("db"); # ---------------------------------> Initialize DB
+			
+		unless ($self->{dbh}) { die "Cannot connect to site database"; }
+		
+	}				
 
+ 
+ 
+ 
  	
  	# Load language translation packages
  	$self->__load_languages();
@@ -10103,6 +10089,40 @@ package gRSShopper::Temp;
  	return $self;
   }
 
+
+#  __home()  - assigns core directory and database names and data
+#  	- Determines site URL based on CGI or Cron request
+
+  sub __home {
+  	
+  	my($self, $args) = @_;
+  	
+	# Determine site URL from HTTP or Cron
+  	my $numArgs = $#ARGV + 1;
+  	if ($ENV{'HTTP_HOST'}) { $self->{st_host} = $ENV{'HTTP_HOST'}; }
+  	elsif ($numArgs > 1) { $self->{st_host} = $ARGV[0]; }
+  	else { die "Cannot find website host from HTTP or Cron input." } 
+  	
+  	# Set core URLs	
+  	if ($self->{st_secure}) { $self->{st_url} = "https://" . $self->{st_host} . "/"; }
+  	else { $self->{st_url} = "http://" . $self->{st_host} . "/"; }
+  	$self->{st_cgi} = $self->{st_url} . "cgi-bin/";
+  	
+  	# Set cookie host 
+ 	$self->{co_host} = $self->{st_host};						  	
+   	
+   	# Set script
+   	$self->{script} = $ENV{'SCRIPT_URI'};
+   	unless ($self->{script}) {  $self->{script} = $ENV{'SERVER_NAME'}.$ENV{'SCRIPT_NAME'}; }
+   	unless ($self->{script}) {  die "Could not identify site script URL"; }
+   	
+   	# Set Default Directories
+	# Assign or override defaults
+	$self->{site_language}  ||= 'en';						
+	$self->{st_urlf}  ||= '/var/www/html';
+	$self->{st_cgif}  ||= '/var/www/cgi-bin/'; 
+ 	
+  }
 
 
 
@@ -10122,7 +10142,7 @@ package gRSShopper::Temp;
 	# Initialize if file can't be found or opened
 	
   	my $data_file = $self->{data_dir} . "multisite.txt";							
-	open IN,"$data_file" or $self->__initialize("file");
+	open IN,"$data_file" or $self->__initialize("file");  # -------------------------------------------------------------> Initialize file
 
 	
 	# Find the line beginning with site URL
@@ -10131,7 +10151,7 @@ package gRSShopper::Temp;
 	my $url_located = 0;							
   	while (<IN>) {
 		my $line = $_; $line =~ s/(\s|\r|\n)$//g;			
-		if ($line =~ /^$self->{st_home}/) {				
+		if ($line =~ /^$self->{st_host}/) {				
 			( $self->{st_home},
 			  $self->{database}->{name},
 			  $self->{database}->{loc},
@@ -10148,11 +10168,11 @@ package gRSShopper::Temp;
 
 
 	# Initialize if line beginning with site URL can't be found										
-	unless ($url_located) { $self->__initialize("url"); }
+	unless ($url_located) { $self->__initialize("url"); } # -------------------------------------------------------------> Initialize url
 
 
 	# Assign or override defaults
-	$self->{st_lang}  ||= 'en';						
+	$self->{site_language}  ||= 'en';						
 	$self->{st_urlf}  ||= '/var/www/html';
 	$self->{st_cgif}  ||= '/var/www/cgi-bin/';	
 	return;
@@ -10187,98 +10207,13 @@ package gRSShopper::Temp;
 		if (-e $lang_filename) { 	
 			do $lang_filename; 
 		} else { 
-			die "<p>Was expecting to find $lang_filename but it was not found<.";	
+			die "Was expecting to find $lang_filename but it was not found.";	
 		}		
 	}
   	
   }
   
 
-#  __home()  - determines a 'site url' given a script request
-#          - used to determine which database to use for multisite requests
-#  Deduces the home URL of the website the script is managing
-#  This information is used to find the name of the site configuration script
-#  The Site Home is typically the domain name, eg. www.downes.ca
-#  This is the case if the admin script is in http://www.downes.ca/cgi-bin/admin.cgi
-#  Home URL subdirectories may also be used, if a subdirectory URL is called
-#  Eg. site home is www.downes.ca_subdomain if admin script is in 
-#  http://www.downes.ca/subdomain/cgi-bin/admin.cgi
-#  If the 'cgi-bin' dir is not use, the Site home will be wherever the
-#  admin.cgi script is located eg. http://www.downes.ca/wherever/admin.cgi will
-#  have a home of www.downes.ca/wherever
- 
- # -------   Get Site Home ------------------------------------------------------
-#
-#  Deduces the home URL of the website the script is managing
-#  This information is used to find the name of the site configuration script
-#  The Site Home is typically the domain name, eg. www.downes.ca
-#  This is the case if the admin script is in http://www.downes.ca/cgi-bin/admin.cgi
-#  Home URL subdirectories may also be used, if a subdirectory URL is called
-#  Eg. site home is www.downes.ca_subdomain if admin script is in 
-#  http://www.downes.ca/subdomain/cgi-bin/admin.cgi
-#  If the 'cgi-bib' dir is not use, the Site home will be wherever the
-#  admin.cgi script is located eg. http://www.downes.ca/wherever/admin.cgi will
-#  have a home of www.downes.ca/wherever
-
-
-  sub __home {
-  	
-  	my($self, $args) = @_;
-  	
-  	
-  	
-	
-  	my $home;
-  	my $ht = "http://";
-  	my $numArgs = $#ARGV + 1;
-  	if ($ENV{'SCRIPT_URI'} || $ENV{'HTTP_HOST'}) {
-  		
- 		# Document Root
- 		unless ($self->{st_urlf}) { $self->{st_urlf} = $ENV{'DOCUMENT_ROOT'} . "/"; }
-  		unless (-d $self->{st_urlf}) { die "Cannot find document root directory $self->{st_urlf}"; }	
-  		 		
- 		# Document Root URL
- 		unless ($self->{st_url}) { $self->{st_url} = "http://" . $ENV{'HTTP_HOST'} . "/"; }		
-  
-		# Script URL  eg. http://www.downes.ca/cgi-bin/admin.cgi
-		$self->{script} = "http://" . $ENV{'HTTP_HOST'} . $ENV{'SCRIPT_NAME'};
-    		unless ($self->{script}) { die "Cannot determine website script."; }	
- 
-		# Script Root URL
-		my @su = split "/",$self->{script};
-		my $sn = pop @su;
-		$self->{st_cgi} = join "/",@su;
-		$self->{st_cgi} .= "/";
-  		unless ($self->{st_cgi}) { die "Cannot determine website script root URL."; }		
-
-		# Script Root
-		my @sru = $ENV{'SCRIPT_FILENAME'};
-		my $srn = pop @sru;
-		$self->{st_cgif} = join "/",@sru;
-		$self->{st_cgif} .= "/";		
-  		unless (-d $self->{st_cgif}) { die "Cannot file script root $self->{st_cgif}"; }		
-		 
-		# Home - eg. www.downes.ca
-  		$self->{st_home} = $ENV{'SERVER_NAME'};		
-  		unless ($self->{st_home}) { die "Cannot determine website home."; }	
-		
-  
-		
-	} elsif ($numArgs > 1) {							# Home from Cron request
-		$self->{st_home} = $ARGV[0];   
-		unless ($self->{st_home}) { die "Cannot determine website home in cron."; }      
-		$self->{st_url} = $ht.$self->{st_home}."/";					# Set base URL
-		$self->{st_cgi} = $self->{st_url}."cgi-bin/";					# Set base URL 			  			
-
-	} else {
-		die "Cannot determine website home in ENV or cron.";
-	}
-	
-	$self->{co_host} = $self->{st_home};						# Set cookie host 		
-
-	
-	
-  }
 
   sub __initialize {
 
@@ -10295,154 +10230,6 @@ package gRSShopper::Temp;
   }
 
 
-  #  Multisite Form 
-  #
-  #  Form to input values for database access
-  #
-  
-  sub __multisite_form {
-
-  	my ($self,$cause) = @_;					# Create or update database information
-
-
-		print "Content-type: text/html\n\n";
-		print qq|
-			Please enter database information for $self->{st_home} 
-			<br>
-			Please provide database information in the form below:
-			<form action="initialize.cgi" method="post">
-			<br><table cellspacing=1 cellpadding=2>
-			<input type="hidden" name="st_home" value="$self->{st_home}">
-			<input type="hidden" name="cause" value="$cause">
-			<tr><td align="right">Database Name</td><td><input type="text" name="db_name" value="$self->{database}->{name}"></td></tr>
-			<tr><td align="right">Database Location</td><td><input type="text" name="db_loc" value="$self->{database}->{loc}"></td></tr>
-			<tr><td align="right">Database Username</td><td><input type="text" name="db_usr" value="$self->{database}->{usr}"></td></tr>
-			<tr><td align="right">Database Password</td><td><input type="password" name="db_pwd" value="$self->{database}->{pwd}"></td></tr>
-			<tr><td></td><td><input type="submit" name="action" value="Initialize Site"></td></tr></table><br/><br/>Context: $cause<p>
-			<a href="admin.cgi">Return to Admin</a>|;
- 
- 
-  }
-
-
-    sub __initialize_site {
-    	
-    	my ($self,$vars) = @_;	
-    	
-											# Open the multisite configuration file,
-											# Initialize if file can't be found or opened
-  	my $data_file = $self->{data_dir} . "multisite.txt";			
-  	my $output = "";
-  					
-	if (-e $data_file) {								# If the multisite configuration file exists
-		open IN,"$data_file" or die "Can't open $data_file to read";		#    open it
-
-		my $url_located = 0;							
-		while (<IN>) {								#    read each line
-			my $line = $_; 
-			next if ($line =~ /^$self->{st_home}/);				#    if it's the current site, skip
-			$output .= $line."\n";						#    otherwise write data to output
-		}
-		close IN;
-		
-    	}	
-    	
-											#    write current site data to output
-	my $new_line = qq|$self->{st_home}\t$vars->{db_name}\t$vars->{db_loc}\t$vars->{db_usr}\t$vars->{db_pwd}| or die "Cannot write to $data_file";
-	$output .= $new_line;
-    				
-	open OUT,">$data_file" or die "Cannot open $data_file for append";		# Save output
-	print OUT $output;
-	close OUT;
-	
-	$self->__dbinfo();
-	$self->__multisite_form("Updated");						# Show the form again
-    	
-    
-  	
-    }
-    
-    
-  # Create database information  
-  
-  sub __append_site {
-  	
-  	my ($self,$vars) = @_;								
-
-  											# Open the multisite configuration file,
-											# Initialize if file can't be found or opened
-											
-
-
- 
- 
-  }
-  
-  sub __update_site {
-    	
-    	
-    	
-  }
-  
-  
-  sub __site_maintenance {
-
-  	my ($self,$home) = @_;
-	print "Content-type: text/html\n\n";
-	print qq|
-		Welcome to $home<br> 
-		<br>
-		The website is currently down for maintenance.|;
-	exit;
-  }
-		
- 
- 
- 
-   #----------------------------------------------------------------------------------------------------------
-   
-   # $Site is loaded with site configuration variables at the beginning of each session
-   # This function updates those variables in the site configuration table
-   # Input in the form { name => value }  which are stored as config_name and config_value in the config table
- 
-   sub update_config {
-   	
-   	my ($self,$dbh,$data) = @_;
-  print "Content-type: text/html\n\n";
-  print "Updating config:   	";
-  
-	# Update Config Table
-	while (my ($vx,$vy) = each %$data) {
-print "$vx $vy <br>";
-		my $sth; my $sql;
-		if ($self->{$vx}) {	# Existing
-		
-			$sql = qq|UPDATE config SET config_value=? WHERE config_noun='$vx'|;
-			$sth = $dbh->prepare($sql)  or die "Cannot prepare: " . $dbh->errstr();
-			$sth->execute($vy) or die "Cannot execute: " . $sth->errstr();
-		} else {
-				
-			$sql = "INSERT INTO config (config_noun,config_value) VALUES (?,?)"; 
-			$sth = $dbh->prepare($sql)  or die "Cannot prepare: " . $dbh->errstr();
-			$sth->execute($vx,$vy) or die "Cannot execute: " . $sth->errstr();
-		}
-		$sth->finish();
-		
-		# Status Message
-		$self->{msg} .= "$vx has been set to $vy <br/>";
-	}
-
-
-
-
-	# Reload Site Data
-	my $sth = $dbh -> prepare("SELECT * FROM config"); $sth -> execute();
-	while (my $c = $sth -> fetchrow_hashref()) { $self->{$c->{config_noun}} = $c->{config_value}; }
-	$sth->finish();   	
-     	
-   	
-   	
-   }
 #----------------------------------------------------------------------------------------------------------
 #
 #                                             gRSShopper::Page;
