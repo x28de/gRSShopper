@@ -10070,16 +10070,14 @@ package gRSShopper::Temp;
 		# Find db info from multisite.txt
 		$self->__dbinfo();
 		
-		# Open Site Database
-		$self->{dbh} = DBI->connect("DBI:mysql:database=$self->{database}->{name};host=$self->{database}->{loc};port=3306",
-			$self->{database}->{usr},$self->{database}->{pwd}) or $self->__initialize("db"); # ---------------------------------> Initialize DB
+		$self->__db_connect();
 			
 		unless ($self->{dbh}) { die "Cannot connect to site database"; }
 		
 	}				
 
- 
- 
+
+
  
  	
  	# Load language translation packages
@@ -10183,7 +10181,47 @@ package gRSShopper::Temp;
   #    - thus storing language strings in a language hash
   #    - which is used by printlang() to print text in the right language
 
+  sub __db_connect {
+  	
+    	my ($self,$args) = @_;	
+    	
+    	# Make variables easy to read :)
+    	my $dbname = $self->{database}->{name};
+    	my $dbhost = $self->{database}->{loc};
+    	my $usr = $self->{database}->{usr};
+    	my $pwd = $self->{database}->{pwd};
 
+	# Connect to the Database
+  	$self->{dbh} = DBI->connect("DBI:mysql:database=$dbname;host=$dbhost;port=3306",$usr,$pwd);
+
+	# Catch connection error
+	if( ! $self->{dbh} ) {
+		
+		# Catch initialization error
+		if ($args->{initialize} eq "new") { print "Database initialization failed. Use 'Back' key, check variables, and try again.<br>"; }
+		
+		# Or Generic runtime error
+		else { 		print "Content-type: text/html\n\n";
+				print "Database connection error for db '$dbname'. Please contact the site administrator.<br>";   }
+		
+		# Print error report and exit
+		print "Error String Reported: $DBI::errstr <br>";
+		exit;
+	
+	# I'll put more error-checking here			
+	} else {
+		eval {
+		#$self->{dbh}->do( whatever );
+		#$self->{dbh}->do( something else );
+		};
+ 
+		if( $@ ) {
+			print "Ugg, problem: $@\n";
+		}
+	}
+  	
+  	
+  }
 
   sub __load_languages {
   	
@@ -10219,7 +10257,7 @@ package gRSShopper::Temp;
 
   	my ($self,$cmd) = @_;
 
-	unless ($ENV{'SCRIPT_NAME'} =~ /admin/) { $self->__site_maintenance($self->{st_home}); }
+	unless ($ENV{'SCRIPT_NAME'} =~ /(admin|initialize)/) { $self->__site_maintenance($self->{st_home}); }
 	if ($cmd) {
 		print "Content-type: text/html\n";
 		print "Location:initialize.cgi?action=".$cmd."\n\n";

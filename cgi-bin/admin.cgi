@@ -1232,16 +1232,21 @@ sub admin_database {
 	my @tables = $dbh->tables();
 	my $table_dropdown;
 	foreach my $table (@tables) {
-		$table=~s/`//g;
 		
 		# Remove database name from specification of table name
 		if ($table =~ /\./) {
 			my ($db,$dt) = split /\./,$table;
 			$table = $dt;
 		}
+
+		# User cannot view or manipulate person or config tables
+		next if ($table eq "person" || $table eq "config");
+		$table=~s/`//g;
+
 		my $sel; if ($table eq $sst) { $sel = " selected"; } else {$sel = ""; } 
 		$table_dropdown  .= qq|		<option value="$table"$sel>$table</option>\n|;
 	}
+	
 	
 	
 	
@@ -1312,9 +1317,7 @@ sub admin_database {
 	# Import from File
 
 
-	my $tout = qq|<select name="table">|;
-	foreach my $t (@tables) { $t=~s/`//g;$tout .= qq|<option value="$t">$t</option>\n|; }
-	$tout .= "</select><br/>\n";
+	my $tout = qq|<select name="table">$table_dropdown</select><br/>\n|;
 
 	
 	$content  .= qq|
@@ -1335,18 +1338,22 @@ sub admin_database {
 		</form></div>|;
 		
 	# Export data		
+
+	$content  .= qq|
+		<br/><h3>Export Data</h3>
+		<div class="adminpanel">
+		<form method="post" action="$adminlink">		
+		<input type="hidden" name="action" value="export_table">
+		<table cellpadding=2>
+		<tr><td>Export from table:</td><td>$tout</td></tr>
+		<tr><td>Data Format:</td><td><select name="export_format"><option value="">Select a format...</option>
+		<option value="tsv">Tab delimited (TSV)</option>
+		<option value="csv">Comma delimited (CSV)</option>
+		<option value="json">JSON</option></select></td>
+		<tr><td colspan=2><input type="submit" value="Export" class="button"></tr></tr></table>
+		</form></div>|;		
 		
-		
-	$content .= qq|		
-		<h3>Export Data</h3><ul><table border=1 cellpadding=10>
-		Export a table in the format desired. Exported data will be sent to your browser; save page as desired.<br/><br/>|;
-		foreach my $t (@tables) { 	
-			
-			$content .= qq|<tr><td>$t</td><td><a href="$Site->{st_cgi}admin.cgi?action=export_table&table=$t&format=tab">tab delimited</a></td></tr>		
-			|
-			
-		}	
-		
+
 	$content .=  qq|</table></ul>|;	
 		
 			
@@ -1434,6 +1441,7 @@ sub run_sql_file {
 	close SQLFILE;
 
 
+
       foreach my $sqlStatement (@sqllines) { # Execute each SQL command in turn
       my $sth = $dbh->prepare($sqlStatement) or print &printlang("Cannot prepare",$sqlStatement,$dbh::errstr);
       $sth->execute() or print &printlang("Cannot execute",$sqlStatement,$dbh::errstr);
@@ -1448,21 +1456,35 @@ sub admin_db_export {
 	my ($dbh,$query) = @_;	
 	my $vars = $query->Vars;
 	
-	print "Content-type: text/plain\n\n";
-	my $sth= $dbh->prepare(qq|select * from $vars->{table}|);
-	$sth->execute();
 	
-	my $fields = join "\t" , @{$sth->{NAME}};
-	print $fields,"\n";	
+	
+	if ($vars->{export_format} eq "json") {
+		print "Content-type: application/json\n\n";	
+		my $keyfield = $vars->{table}."_id";		
+		my $hash_ref = $dbh->selectall_hashref(qq|select * from $vars->{table}|,$keyfield);		
+		use JSON::XS;
+		my $utf8_encoded_json_text = encode_json $hash_ref;	
+		print "$utf8_encoded_json_text";
+		exit;
+	} else {
+	
+	
+		print "Content-type: text/plain\n\n";
+		my $sth= $dbh->prepare(qq|select * from $vars->{table}|);
+		$sth->execute();
+	
+		my $fields = join "\t" , @{$sth->{NAME}};
+		print $fields,"\n";	
 
-	my $count = 0;
-	while (my $row = $sth->fetchrow_arrayref()) {
-		foreach my $r (@$row) { $row[$count] =~ s/\t/    /g; $count++;}
-		print join( "\t", map( {$dbh->quote($_)} @$row)),"\n";
+		my $count = 0;
+		while (my $row = $sth->fetchrow_arrayref()) {
+			foreach my $r (@$row) { $row[$count] =~ s/\t/    /g; $count++;}
+			print join( "\t", map( {$dbh->quote($_)} @$row)),"\n";
+		}
 	}
 	$dbh->disconnect;
 
-	}
+}
 
 
 

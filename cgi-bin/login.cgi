@@ -717,6 +717,7 @@ sub login_form_input {
 			&error($dbh,$query,"",$mesg); exit; }			# User Login Error
 
 
+
 	my $stmt;
 	if ($vars->{person_title} =~ /@/) { 						# Select by email or title
 		$vars->{person_email} = $vars->{person_title}; 
@@ -727,6 +728,10 @@ sub login_form_input {
 	}
 
 											# Get Person Data
+#print "Content-type: text/html\n\n";
+#print $stmt," ",$vars->{person_title}," <P>";
+
+
 
 	my $sth = $dbh -> prepare($stmt);
 	$sth -> execute($vars->{person_title});
