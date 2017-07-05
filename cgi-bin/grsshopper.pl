@@ -241,13 +241,13 @@ sub get_person {
 								# and exit
 		
 										# Confirm cron key
-		my $cronkey = $vars->{cronkey} || $ARGV[1];
+		my $cronkey = $ARGV[1];
 		unless ($Site->{cronkey} eq $cronkey) {
+
 			print &printlang('Cron key mismatch',$vars->{cronkey},$Site->{st_name});
-			
 			&send_email("stephen\@downes.ca","stephen\@downes.ca",
 				&printlang("Cron Error",$Site->{st_name}),
-				&printlang("Cron key mismatch",$vars->{cronkey},$Site->{st_name}));			
+				"Cron key mismatch between $Site->{cronkey} and  $cronkey in get_person() - Args: $ARGV[0] - $ARGV[1] - $ARGV[2] - $ARGV[3]");			
 			exit;
 		}
 	
@@ -10095,29 +10095,43 @@ package gRSShopper::Temp;
   	
   	my($self, $args) = @_;
   	
+  	# Check whether URLs are https or http
+  	my $http;
+  	if ($self->{st_secure}) { $http = "https://" } else { $http = "http://"; }
+  	
 	# Determine site URL from HTTP or Cron
   	my $numArgs = $#ARGV + 1;
-  	if ($ENV{'HTTP_HOST'}) { $self->{st_host} = $ENV{'HTTP_HOST'}; }
-  	elsif ($numArgs > 1) { $self->{st_host} = $ARGV[0]; }
+  	
+  	# Determine site host for HTTP
+  	if ($ENV{'HTTP_HOST'}) { 
+  		$self->{st_host} = $ENV{'HTTP_HOST'};
+   		$self->{script} = $ENV{'SCRIPT_URI'}; 
+		unless ($self->{script}) {  $self->{script} = $ENV{'SERVER_NAME'}.$ENV{'SCRIPT_NAME'}; } 	
+  		
+  	}
+  	
+  	# Determine site host for cron
+  	elsif ($numArgs > 1) { 
+  		$self->{st_host} = $ARGV[0]; 
+		$self->{script} = "http://" . $ARGV[0] . "/cgi-bin/admin.cgi";		
+  		
+  	}
+  	
+  	# Or die
   	else { die "Cannot find website host from HTTP or Cron input." } 
   	
-  	# Set core URLs	
-  	if ($self->{st_secure}) { $self->{st_url} = "https://" . $self->{st_host} . "/"; }
-  	else { $self->{st_url} = "http://" . $self->{st_host} . "/"; }
-  	$self->{st_cgi} = $self->{st_url} . "cgi-bin/";
+  	
+  	# Set derived URLs based on st_host
+   	$self->{st_url} = $http . $self->{st_host} . "/";
+	$self->{st_cgi} = $self->{st_url} . "cgi-bin/";	  	
   	
   	# Set cookie host 
  	$self->{co_host} = $self->{st_host};						  	
-   	
-   	# Set script
-   	$self->{script} = $ENV{'SCRIPT_URI'};
-   	unless ($self->{script}) {  $self->{script} = $ENV{'SERVER_NAME'}.$ENV{'SCRIPT_NAME'}; }
-   	unless ($self->{script}) {  die "Could not identify site script URL"; }
-   	
+  	
    	# Set Default Directories
 	# Assign or override defaults
 	$self->{site_language}  ||= 'en';						
-	$self->{st_urlf}  ||= '/var/www/html';
+	$self->{st_urlf}  ||= '/var/www/html/';
 	$self->{st_cgif}  ||= '/var/www/cgi-bin/'; 
  	
   }

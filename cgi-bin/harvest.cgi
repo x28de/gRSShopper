@@ -88,7 +88,11 @@ our $DEBUG = 1;							# Toggle debug
 
 # Restrict to Admin
 
-	if ($vars->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }		
+	if ($vars->{context} eq "cron") { 
+		$vars->{action} = $ARGV[2]; 
+	} else {
+		&admin_only();
+	}		
 	
 
 

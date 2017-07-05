@@ -60,7 +60,6 @@
 
 
 
-
 # Get Person  (still need to make this an object)
 
 	our $Person = {}; bless $Person;				
@@ -429,13 +428,142 @@ sub admin_frame {
 	my $vars = $query->Vars;
 	
 	return unless (&is_viewable("admin","general")); 		# Permissions
+	
+	my $admin_nav = &admin_nav($dbh,$query);
 	$title ||= "Admin Title"; $content ||= "Admin Content";
 	print "Content-type: text/html; charset=utf-8\n\n";
 	
-	my $header = &get_template($dbh,$query,"admin_header",$title);
-	my $footer = &get_template($dbh,$query,"admin_footer",$title);
+	#my $header = &get_template($dbh,$query,"admin_header",$title);
+	#my $footer = &get_template($dbh,$query,"admin_footer",$title);
+	print <<END;
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>$title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+   <!-- JQuery -->
+   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+   <!-- JQuery UI -->
+   <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js""></script>
+
+   <!-- CK Editor -->
+   <script src="//cdn.ckeditor.com/4.7.0/standard/ckeditor.js"></script>
+   <script src="//cdn.ckeditor.com/4.7.0/basic/adapters/jquery.js"></script>
+
+   <!-- Datetimepicker --->
+   <link rel="stylesheet" href="http://www.downes.ca/assets/datetimepicker-master/build/jquery.datetimepicker.min.css">
+   <script src="http://www.downes.ca/assets/datetimepicker-master/build/jquery.datetimepicker.full.min.js"></script>
+ 
+  
+   <!-- gRSShopper -->
+   <script src="http://www.downes.ca/assets/js/grsshopper_admin.js"></script>
+
+   <!-- File Upload -->
+   <script src="http://www.downes.ca/assets/js/jquery.uploadfile.js"></script>
+
+   <!-- gRSShopper -->
+   <script src="http://www.downes.ca/assets/js/grsshopper.js"></script>
+
+   <!-- Style -->
+
+   <!-- JQuery 'Smoothness' Theme -->
+   <link rel="stylesheet" href="http://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+
+   <link rel="stylesheet" href="http://www.downes.ca/assets/css/datetimepicker.css">
+
+<style>
+#toc {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #333333;
+}
+
+#leftnav {
+
+   width:16em;
+   min-width:16em;
+   float:left;
+   margin-left:10px;
+}
+
+#admin-content {
+   width:80%;
+  float:left;
+
+}
+
+.column-name {
+   width:200px;
+}
+
+li {
+    float: left;
+}
+
+li a {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 20px;
+    text-decoration: none;
+}
+
+li a:hover {
+    background-color: #111111;
+}
+
+table {
+    width: 80%;
+}
+
+table, th, td {
+    border: 1px solid black;
+}
+
+
+th, td {
+    padding: 10px;
+    text-align: left;
+    vertical-align: top;
+}
+
+@media (min-width: 100px) {
+    .container{
+        width: 100%;
+        max-width: 1970px;
+    }
+}
+
+ input,textarea,.uneditable-input{width:100%;min-width:100%}
+
+
+
+.editable-buttons {
+    display: block;
+}
+.editable-container.editable-inline, .editableform > .control-group, .editable-input, .editableform .form-control {
+    width:100%;
+}
+
+
+.hiddenClass{visibility:hidden}
+
+</style>
+
+  </head>
+  <body>
+
+   <div class="container">
+   <div id="leftnav" style="width:10%; float:left;"> <img src="http://grsshopper.downes.ca/images/grsshopper_header.jpg"/ width=200>$admin_nav</div>
+
+   <!-- Generated Content Area -->	
+END
 	
-	print $header;
 	print qq|<div id="admin_content_area" style="width:79%; float: left;">|;
 	print &admin_navbar()."<h2>$title</h2>";
 	print qq|<div id="admin_editor_area" style="width:100%;">|.$content.qq|</div>|;
@@ -2313,30 +2441,40 @@ sub admin_nav {
 	my ($dbh,$query) = @_;
 
 	my @tables = $dbh->tables();
+	my $output;
 
-	my $output = qq|
-		<div id="admincontent">
-		[<a href="$Site->{script}">Admin</a>]<br/><br/>
-		|;
-
+	# For each table in tables()
 	foreach my $table (@tables) {
 		$table =~ s/`//ig;
-		next unless (&is_viewable("nav",$table)); 		# Permissions
+		
+		# Make sure the user is allowed to view the table
+		next unless (&is_viewable("nav",$table)); 		
 
+		# Increase limits on some useful tables
 		my $numb;
 		if ($table eq "feed") { $numb = "&number=1000"; }
-		elsif ($table eq "page") { $numb = "&number=100"; }
-
-		my $tname = ucfirst($table);
+		elsif ($table eq "page") { $numb = "&number=1000"; }
+		
+		# Normalize the table name (it comes out of tables() as `dbname.tablename` )
+		my ($tdb,$tname) = split /\./,$table; unless ($tname) { $tname = $tdb; }
+		
+		# Set a default title and format the output
 		my $title = "List ".$tname."s";
-		$output .= qq{
-			[<a href="?db=$table&action=edit">New</a>]
-			[<a href="?db=$table&action=list$numb">List</a>]
-			$tname <br />\n
-		};
+		$output .= qq|
+			[<a href="?db=$tname&action=edit">New</a>]
+			[<a href="?db=$tname&action=list$numb">List</a>]|.
+			ucfirst($tname).qq| <br />\n
+		|;
 	}
-	$output .= "</div>";
-	return $output;
+	
+	# Return nicely formatted output
+	return qq|
+		<div id="admincontent">
+		[<a href="$Site->{script}">Admin</a>]<br/><br/> 
+		$output 
+		</div>
+		|;
+
 }
 
 # -------   News Rollup ----------------------------------------------------------
@@ -3347,10 +3485,10 @@ sub cron_tasks {
 	print $content;
 
 										# Confirm cron key
-	my $cronkey = $vars->{cronkey} || $ARGV[1];
+	my $cronkey = $ARGV[1];
 	unless ($Site->{cronkey} eq $cronkey) {
 		print "Error: Cron key mismatch. $vars->{cronkey} must match the value of the cronkey set in $Site->{st_name} admin \n";
-		&send_email("stephen\@downes.ca","stephen\@downes.ca","Cron Error - $Site->{st_url}","Error: Cron key mismatch. $ARGV[1] must match the value of the cronkey set in $ARGV[0] admin\n");			
+		&send_email("stephen\@downes.ca","stephen\@downes.ca","Cron Error in cron - $Site->{st_url}","Args: $ARGV[0] 1 $ARGV[1] 2 $ARGV[2] 3 $ARGV[3] <p>Error: Cron key mismatch. $ARGV[1] must match the value of the cronkey set in $ARGV[0] admin\n");			
 		exit;
 	}
 	
@@ -3363,6 +3501,7 @@ sub cron_tasks {
 	if ($min < 10) { $min = "0".$min; }
 	if ($mday < 10) { $mday = "0".$mday; }	
 	if ($loglevel > 5) { $log .= "Calculated time as: Hour = $hour and minute = $min\n"; }	
+
 	
 
 										# Autopublish
@@ -3413,7 +3552,7 @@ sub cron_tasks {
 			$hn = "Harvesting";
 			my $harvester = $Site->{st_cgif} . "harvest.cgi";
 			my $siteurl = $Site->{site_url}; $siteurl =~ s|http://||;$siteurl =~ s|/||;
-			my $status = system($harvester,$siteurl,"queue");	
+			my $status = system($harvester,$siteurl,$Site->{cronkey},"queue");	
 			if ($loglevel > 5) { $log .= "\nHarvester run, Status: $status\n"; }
 		}
 	} 
@@ -3902,6 +4041,9 @@ sub moderate_meeting {
 
 	
 }
+
+
+
 
 #
 # Don't Delete these
