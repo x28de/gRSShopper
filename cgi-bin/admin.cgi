@@ -221,7 +221,8 @@ if ($action) {
 		/config/ && do { &admin_update_config($dbh,$query); last;	};		#	- Update config data
 		/export_table/ && do { &admin_db_export($dbh,$query); last;	};		#	- export a table
 		/db_pack/ && do {&admin_db_pack($dbh,$query); last;		};		#	- Make a new pack
-		/addcolumn/ && do { &addcolumn($dbh,$query); last; };				#	- Add new column to a table
+		/addcolumn/ && do { my $msg = &addcolumn($vars->{stable},$vars->{col}); 
+			&showcolumns($dbh,$query,$msg); last; };				#	- Add new column to a table
 		/removecolumnwarn/ && do { &removecolumnwarn($dbh,$query); last; };		#	- Remove column - warn user			
 		/removecolumndo/ && do { &removecolumndo($dbh,$query); last; };			#	- Remove column - remove it
 		
@@ -1458,10 +1459,11 @@ sub admin_database {
 		<table cellpadding=2>
 		<tr><td>Import into table:</td><td>$tout</td></tr>
 		<tr><td>File URL:</td><td><input type="text" name="file_url" size="40"></td></tr>
-		<tr><td>Or Select:</td><td><input type="file" name="file_name" /></td></tr>
+		<tr><td>Or Select:</td><td><input type="file" name="myfile" /></td></tr>
 		<tr><td>Data Format:</td><td><select name="file_format"><option value="">Select a format...</option>
 		<option value="tsv">Tab delimited (TSV)</option>
-		<option value="csv">Comma delimited (CSV)</option></select></td>
+		<option value="csv">Comma delimited (CSV)</option>
+		<option value="json">JSON</option></select></td>
 		<tr><td colspan=2><input type="submit" value="Import" class="button"></tr></tr></table>
 		</form></div>|;
 		
@@ -1649,7 +1651,7 @@ sub admin_db_backup {
 	my ($table,$p) = @_;
 	
 	my $output = "Backing up $table";
-	if ($table eq "all") { print " tables"; }
+	if ($table eq "all") {$output .= " tables"; }
 	my $savefile = &db_backup($table);
 	my $saveurl = $savefile; 
 	$saveurl =~ s/$Site->{st_urlf}/$Site->{st_url}/;
@@ -1953,14 +1955,12 @@ sub import {
 	print "<h1>Importing List</h1>";
 	print "Table: $table File: ".$vars->{file_name}."<br>";
 
-	unless (&new_module_load($query,"Text::ParseWords")) {
-		&error($dbh,"","","Text::ParseWords is not available"); 
-	}
+
 
 
 
 	my $file;
-	if ($query->param("file_name")) { $file = &upload_file($query); }		# Uploaded File
+	if ($query->param("myfile")) { $file = &upload_file($query); }		# Uploaded File
 	elsif ($vars->{file_url}) { $file = &upload_url($vars->{file_url}); }		# File from URL
 	$file->{file_format} = $vars->{file_format};
 	
@@ -1968,6 +1968,14 @@ sub import {
 	print "Got a file - $file->{file_location}  -- $file->{file_title} <p>";
 	print "Format is $file->{file_format} <br>";
 
+
+	if ($file->{file_format} =~ /^json$/i) {
+		my $result = &import_json($file,$table);
+	}
+
+	unless (&new_module_load($query,"Text::ParseWords")) {
+		&error($dbh,"","","Text::ParseWords is not available"); 
+	}
 
 	my $count = 0;
 	open DBIN,"$file->{file_location}" or &error($dbh,"","","Can't open $file->{file_location} $!");
@@ -2075,7 +2083,89 @@ exit;
 
 }
 
+sub import_json {
+	
+	my ($file,$table) = @_;
+	
 
+	my $json_text = &get_file($file->{file_location});
+
+#print $json_text;	
+	my $perl_scalar = decode_json $json_text;
+	
+	my $normalize = &import_json_schema($perl_scalar,$table);
+	
+#	print $perl_scalar;
+
+	while (my ($x,$y) = each %$perl_scalar) {
+		#print "Importing chat record with foreign ID of $x. ";
+		
+		# Normalize column names (note - in a table, all columns begin with 'tablename_' )
+		if ($normalize) {
+			while (my ($xx,$xy) = each %$y) {
+				
+				my $tabstring = $table."_";
+				unless ($xx =~ /^$tabstring/) { 
+					$y->{$tabstring.$xx} = delete $y->{$xx}
+				}									
+			}
+
+		}
+		my $new_record = &db_insert($dbh,$query,$table,$y);
+		#print "Saved as chat record $new_record.<br>";
+	}
+	
+	&list_records($dbh,$query,$table);
+	exit;
+	#$perl_scalar = decode_json $json_text	
+	
+}
+
+# This function allows you to import data from JSON, creating new
+# database columns as needed, in case the current schema doesn't 
+# support the column
+
+sub import_json_schema {
+	
+	my ($perl_scalar,$table) = @_;
+	
+	# get the current list of columns for the table
+	my @columns = &db_columns($dbh,$table);
+	my $normalize = 0;
+	
+	# Get the list of columns (cycle through the whole list so we don't miss any)
+	my %hash;
+	while (my ($x,$y) = each %$perl_scalar) {
+		while (my ($xx,$xy) = each %$y) {		
+			$hash{$xx} = 1;
+		}
+	}
+
+	# Compare the new columns with the existing columns and add the column to the table if needed
+	foreach my $column (keys %hash) {
+
+		
+		# Normalize column name
+		my $tabstring = $table."_";
+		unless ($column =~ /^$tabstring/) { 
+			$column = $tabstring.$column; 
+			$normalize=1;
+		}
+		
+		# skip if we already have this column
+		next if ( grep( /^$key$/, @columns ));
+		
+		push @column,$column;
+		$msg = &addcolumn($table,$column);		
+		#print "Added $column to list<br>";
+		# do something with $key
+	}	
+	
+	
+	return $normalize;	
+				
+	
+}
 
 
 # --------  Parse YouTube ----------------------------------------
@@ -2202,22 +2292,29 @@ sub showcolumns {
 	
 
 	
-	my $showstmt = qq|SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = ? AND table_schema = ? ORDER BY column_name|;
+#	my $showstmt = qq|SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = ? AND table_schema = ? ORDER BY column_name|;
 	# Replaces:  
-#	my $showstmt = "SHOW COLUMNS FROM $stable";
+	my $showstmt = "SHOW COLUMNS FROM $stable";
+	
 	
 	my $sth = $dbh -> prepare($showstmt)  or die "Cannot prepare: $showstmt FOR $vars->{stable}, $Site->{db_name} " . $dbh->errstr();
-	$sth -> execute($stable,$Site->{db_name})  or die "Cannot execute: $showstmt " . $dbh->errstr();
-#	$sth-> execute() or die "Cannot execute: $showstmt " . $dbh->errstr();
+#	$sth -> execute($stable,$Site->{db_name})  or die "Cannot execute: $showstmt " . $dbh->errstr();
+	$sth -> execute()  or die "Cannot execute: $showstmt " . $dbh->errstr();	
+
 	my $alt; # Toggle to shade table rows
 	while (my $showref = $sth -> fetchrow_hashref()) { 
+#print "Content-type: text/html\n\n";		
+#print "Data: <p>";
+#while (my($cx,$cy) = each %$showref) { print "$cx = $cy <br>"; }	
+
+	
 		if($alt) { $alt=""; } else { $alt=qq| class="alt"|;} 
 		unless ($showref->{COLUMN_DEFAULT}) { $showref->{COLUMN_DEFAULT} = "none"; }
 		unless ($showref->{COLUMN_KEY}) {  $showref->{COLUMN_KEY} = "-"; }
 		unless ($showref->{EXTRA}) {  $showref->{EXTRA} = "-"; }
 
-		$columns .= qq|<tr$alt><td>$showref->{COLUMN_KEY}</td><td>$showref->{COLUMN_NAME}</td><td>$showref->{COLUMN_TYPE}</td>\n|;
-		$columns .= "<td>$showref->{IS_NULLABLE}</td><td>$showref->{COLUMN_DEFAULT}</td><td>$showref->{EXTRA}</td></tr>\n";
+		$columns .= qq|<tr$alt><td>$showref->{Key}</td><td>$showref->{Field}</td><td>$showref->{Type}</td>\n|;
+		$columns .= "<td>$showref->{Null}</td><td>$showref->{Default}</td><td>$showref->{Extra}</td></tr>\n";
 
 
 	}
@@ -2229,24 +2326,27 @@ sub showcolumns {
 }
 	
 sub addcolumn {
-	my ($dbh,$query) = @_;
-	my $vars = $query->Vars;
-	my $col = $vars->{col};
-	&error($dbh,"","","Column name error - cannot call a column $col") if (
+	my ($table,$column) = @_;
+
+	&error($dbh,"","","Column name error - cannot call a column $column") if (
 		(($col+0) > 0) ||
 		($col =~ /['"`#!$%&@]/)
 		);
-	my $tab = $vars->{stable};
 	
-	$dbh->do("ALTER TABLE $tab ADD $col VARCHAR( 250 ) NULL");
+	
+	# Normalize column name - column names *must* be prefixed with the table name 'table_colmname'
+	my $tabstring = $table."_";
+	unless ($column =~ /^$tabstring/) { 
+		$column = $tabstring.$column; 
+	}
+	
+	
+	$dbh->do("ALTER TABLE $table ADD $column text NULL");
 	#$dbh->do("ALTER TABLE $tab ADD $col text NULL");
-	my $msg = "Column $col added to $tab";
-	&showcolumns($dbh,$query,$msg);
-
-
-
+	return "Column $column added to $table";
 
 }
+
 
 sub removecolumnwarn {
 	

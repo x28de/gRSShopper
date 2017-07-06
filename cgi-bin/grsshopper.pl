@@ -3854,7 +3854,7 @@ sub upload_file {
 	$file->{file_title} = $query->param("myfile");
 
 	$file->{file_dir} = $Site->{st_urlf} . "uploads";
-	unless (-d $file->{file_dir}) { mkdir $upload_dir, 0755 or die "Error 1857 creating upload directory $file->{file_dir} $!"; }
+	unless (-d $file->{file_dir}) { mkdir $file->{file_dir}, 0755 or die "Error 3857 creating upload directory $file->{file_dir} $!"; }
 	unless ($file->{file_title}) { $vars->{msg} .= " No file was uploaded."; }
 
 	# Prepare Filename 	
@@ -3865,13 +3865,12 @@ sub upload_file {
 	# Set File Upload Directory
 	($file->{filetype},$file->{file_dir}) = &file_upload_dir($ffextension);
 	my $fulluploaddir = $Site->{st_urlf} . $file->{file_dir};
-	unless (-d $fulluploaddir) { mkdir $fulluploaddir, 0755 or die "Error 1867 creating upload directory $fulluploaddir $!"; }
+	unless (-d $fulluploaddir) { mkdir $fulluploaddir, 0755 or die "Error 3868 creating upload directory $fulluploaddir $!"; }
 	
 	# Store the File
 	my $upload_filehandle = $query->upload("myfile");
 	$upload_filedirname = $file->{file_dir}.$file->{file_title};
 	$upload_fullfilename = $Site->{st_urlf}.$upload_filedirname;
-
 
 	
 	# Prevent Duplicate File Names  (creates filename.n.ext where n is the increment number)

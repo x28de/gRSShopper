@@ -93,7 +93,7 @@ exit;
 			<tr><td align="right">Database Username</td><td><input type="text" name="db_usr" value="$Site->{database}->{usr}"></td></tr>
 			<tr><td align="right">Database Password</td><td><input type="password" name="db_pwd" value="$Site->{database}->{pwd}"></td></tr>
 			<tr><td align="right">Language</td><td><input type="text" name="site_language" value="$Site->{site_language}"></td></tr>	
-			<tr><td align="right">Site Content Directory</td><td><input type="text" name="st_urlf" value="$Site->{st_urlf}"></td></tr>
+			<tr><td align="right">Site Document Directory</td><td><input type="text" name="st_urlf" value="$Site->{st_urlf}"></td></tr>
 			<tr><td align="right">Site CGI Directory</td><td><input type="text" name="st_cgif" value="$Site->{st_cgif}"></td></tr>								
 			
 			
@@ -178,7 +178,19 @@ exit;
 		
     	}	
     	
-
+    	
+    	
+    	# Make Document Directories
+	if (-d $vars->{st_urlf}) { die "Selected document directory $vars->{st_urlf} already exists. Please back up and try something new."; }
+	mkdir $vars->{st_urlf} or die "Could not make the document directory $vars->{st_urlf}  $!";
+	unless (-d $vars->{st_urlf}) { die "Error making the document directory $vars->{st_urlf}  $!"; }
+	foreach my $subdir (qw(archive assets files images logs stats)) {
+		mkdir($vars->{st_urlf}.$subdir."/");
+		unless (-d $vars->{st_urlf}.$subdir."/") { die "Error making subdirectory ".$vars->{st_urlf}.$subdir."/ $!"; }
+	}
+	
+	
+	
 	
 											#    write current site data to output
 	my $new_line = qq|$Site->{st_host}\t$vars->{db_name}\t$vars->{db_loc}\t$vars->{db_usr}\t$vars->{db_pwd}\t$vars->{site_language}\t$vars->{st_urlf}\t$vars->{st_cgif}\n| or die "Cannot write to $data_file";
