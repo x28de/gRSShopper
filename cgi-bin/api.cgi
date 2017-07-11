@@ -274,14 +274,16 @@ sub api_commit {
 
 	# Get the existing columns from the table
 	my $columns;
-	my $showstmt = qq|SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = ? AND table_schema = ? ORDER BY column_name|;
+	#my $showstmt = qq|SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = ? AND table_schema = ? ORDER BY column_name|;
+	my $showstmt = "SHOW COLUMNS FROM ".$record->{form_title};
 	my $sth = $dbh -> prepare($showstmt)  or die "Cannot prepare: $showstmt FOR $record->{form_title} in $Site->{db_name} " . $dbh->errstr();
-	$sth -> execute($record->{form_title},$Site->{db_name})  or die "Cannot execute: $showstmt " . $dbh->errstr();
+	$sth -> execute()  or die "Cannot execute: $showstmt " . $dbh->errstr();	
+#	$sth -> execute($record->{form_title},$Site->{db_name})  or die "Cannot execute: $showstmt " . $dbh->errstr();
 	while (my $showref = $sth -> fetchrow_hashref()) {
-
-		# Stash Columkn Data for future reference
-		$columns->{$showref->{COLUMN_NAME}}->{type} = $showref->{DATA_TYPE};
-		$columns->{$showref->{COLUMN_NAME}}->{size} = $showref->{CHARACTER_MAXIMUM_LENGTH};
+#print $showref->{Field},"<p>";
+		# Stash Column Data for future reference
+		$columns->{$showref->{Field}}->{type} = $showref->{Type};
+		$columns->{$showref->{Field}}->{size} = $showref->{CHARACTER_MAXIMUM_LENGTH};
 	
 	}
 	
@@ -318,8 +320,8 @@ sub api_commit {
 			} else {
 				$sql = qq|alter table |.$record->{form_title}.qq| add column $columntitle varchar ($fsize);|;
 			}
-						
-			$dbh->do($sql) or die "error creating $fname";	
+			#print "Doing: $sql <br>";			
+			$dbh->do($sql) or die "error creating $fname using $sql";	
 			
 		
 		# Yes

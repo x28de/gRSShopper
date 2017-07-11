@@ -152,7 +152,7 @@ exit;
     	
     	# Restrict input characters
     	while (my ($vx,$vy) = each %$vars) { 
-    		print "$vx = $vy <br>";
+  #  		print "$vx = $vy <br>";
 		if ($vars->{$vx} =~ /[^\/\\\-0-9a-zA-Z_,\0#@&;\.]/) { 
 			print "Content-type: text/html\n\n";
 			print "<h1>Input Error in $vars->{$vx} </h1><p>Allowed characters for input: a-zA-Z0-9 # @ & . ; / \</p>";
@@ -178,8 +178,10 @@ exit;
 		
     	}	
     	
-    	
-    	
+    	# Standardize dirtectory names
+    	unless ($vars->{st_urlf} =~ /\/$/) { $vars->{st_urlf} .= "/"; }
+    	unless ($vars->{st_cgif} =~ /\/$/) { $vars->{st_cgif} .= "/"; }
+    	    	
     	# Make Document Directories
 	if (-d $vars->{st_urlf}) { die "Selected document directory $vars->{st_urlf} already exists. Please back up and try something new."; }
 	mkdir $vars->{st_urlf} or die "Could not make the document directory $vars->{st_urlf}  $!";
@@ -203,44 +205,68 @@ exit;
 	# Load database information into the $Site object
 	$Site->__dbinfo();
 	
+	
 
 	# Create Database	
-	# Note: windows users must perform this step manually
-	my $dbsetup="create database ".$vars->{db_name}.";GRANT ALL PRIVILEGES ON ".
-		$vars->{db_name}.".* TO ".$vars->{db_usr}."@".$vars->{db_loc}.
-		" IDENTIFIED BY '".$vars->{db_pwd}."';FLUSH PRIVILEGES;";
-	my $mysqluser = $vars->{admin_usr};
-	my $mysqlpass = $vars->{admin_pwd};
-	my $mysqldb = $vars->{db_name};
-	`mysql -u $mysqluser -p$mysqlpass -e "$dbsetup"`;
-
+	my $dbsetup1="create database ".$vars->{db_name};
+	my $dbsetup2= "GRANT ALL PRIVILEGES ON ".$vars->{db_name}.".* TO ".$vars->{db_usr}."@".$vars->{db_loc}." IDENTIFIED BY '".$vars->{db_pwd}."'";
+	my $dbsetup3 = "FLUSH PRIVILEGES;";	
+	my $dbc = DBI->connect("DBI:mysql:host=".$vars->{db_loc}.";port=3306", $vars->{admin_usr},$vars->{admin_pwd}) or die "Cannot connect to database: $! ".$DBI::errstr;
+	$dbc->do($dbsetup1) or die "Failed to create database in $vars->{db_name}\n".$DBI::errstr;
+	$dbc->do($dbsetup2) or die "Failed to grant privileges in $vars->{db_name}\n".$DBI::errstr;
+	$dbc->do($dbsetup3) or die "Failed to flush privileges in $vars->{db_name}\n".$DBI::errstr;
+	$dbc->disconnect;
+	
+	
 	
 	# Connect to Database
 	$Site->__db_connect({initialize => "new"});
-	print "Created database",$vars->{db_name},"<p>";	
+	our $dbh = $Site->{dbh};
+	print "Created database ",$vars->{db_name},"<p>";	
 	
 	
 	# Write gRSShopper tables
-	# Note: windows users must perform this step manually	
-	$sqlresult = `mysql -u $mysqluser -p$mysqlpass $mysqldb < sql/grsshopper_tables.sql`;
-	print "Built database tables. ",$sqlresult,"<p>";
+	&run_sql_file($dbh,$vars->{st_cgif}."sql/grsshopper_tables.sql");
+
+	# Write Config (Stores general site information, can be edited later by admin)
+
+	$vars->{st_pub} = $vars->{st_email};
+	$vars->{st_crea} = $vars->{st_email};	
+	$vars->{reset_key} = $vars->{st_key};
+	$vars->{cronkey} = $vars->{st_key};	
+	my @configs = qw(st_name st_tag st_pub st_crea st_license st_timezone reset_key cronkey);
+	foreach $config (@configs) {
+	   print "$config = ".$vars->{$config}." <br>";
+	   
+	   &db_insert($dbh,"","config",{config_noun=>$config,config_value=>$vars->{$config}}) or print "Error inserting $config -- $vars->{err}";		
+	}
+	print "Stored site config information in database<p>";
+
+
+	# Import gRSShopper data
+	
+	# Form (defines editing forms for various data types)
+	my $file->{file_location} = $vars->{st_cgif}."sql/box.json";	
+	&import_json($file,"box");
+
+	# Form (defines editing forms for various data types)
+	$file->{file_location} = $vars->{st_cgif}."sql/form.json";	
+	&import_json($file,"form");
+		
+	# Template (defines various page templates)
+	$file->{file_location} = $vars->{st_cgif}."sql/template.json";	
+	&import_json($file,"template");
+	
+	# View (predefined view templates for various data types)
+	$file->{file_location} = $vars->{st_cgif}."sql/view.json";	
+	&import_json($file,"view");
+	
 	
 	# Connect to Database
 	$Site->__db_connect();
-	print "$dbsetup  <p>";
 	print "Connected to database<p>";	
 	
-	# Write Config
-	my $dbh = $Site->{dbh};
-	$vars->{st_pub} = $vars->{st_email};
-	$vars->{st_crea} = $vars->{st_email};	
-	$vars->{st_reset_key} = $vars->{st_key};
-	$vars->{st_cronkey} = $vars->{st_key};	
-	my @configs = qw(st_name st_tag st_pub st_crea st_license st_timezone st_reset_key st_cronkey);
-	foreach $config (@configs) {
-	   &db_insert($dbh,"","person",{config_noun=>$config,config_value=>$vars->{$config}});		
-	}
-	print "Stored site config information in database<p>";
+
 	
 	# Create Admin and anon Accounts
 	# Note: windows users must perform this step manually	
@@ -255,24 +281,7 @@ exit;
 	#&__multisite_form("Updated");						# Show the form again
  
  
-  qq|
- Site Name :	
-Stephen's Web
-Site Tag :	
-#oldaily
-Publisher :	
-stephen@downes.ca
-Creator :	
-stephen@downes.ca
-License :	
-CC By-NC-SA
-Time Zone :	
-America/Toronto
-Reset Key :	
-excalibur
-Cron Key :	
-excelsior
-|;
+
    	
 	print "Done";
   	
@@ -303,3 +312,58 @@ sub __command {
   
   }
   
+#
+#       run_sql_file
+#
+#     	Yes, I know I could just do $dbh->do(sqlfile)
+#       but doing it this way sports and reports errors line by line
+#
+
+#-----------------------------------------------------------------------------------------------------------------
+
+sub run_sql_file {
+	
+	my ($dbh,$sqlFile) = @_;
+
+
+	# Open the file that contains the various SQL statements
+	# Assuming one SQL statement per line
+
+	unless (-e $sqlFile) {	die "Could not find SQL file $sqlFile"; 	}
+
+	open (SQLFILE, "$sqlFile") or die "Could not load SQL file into the database: $!";
+	
+	# Loop though the SQL file and execute each and every one.
+	my @sqllines;
+	my $sqlline = "";
+	while (<SQLFILE>) {
+		chomp;
+		my $l = $_;
+		$l =~ s/\n//;$l =~ s/\r//;
+		next if ($l =~ /^\/\*/);
+		next if ($l =~ /^--/);	
+		$sqlline .= $l;			
+		if ($sqlline =~ /;(.*?)$/) {
+			push @sqllines,$sqlline;
+			$sqlline = "";
+		}
+	}
+	close SQLFILE;
+
+
+	print qq|<textarea cols=80 rows=5"> |;
+
+      	# Execute each SQL command in turn
+	foreach my $sqlStatement (@sqllines) {
+		next unless ($sqlStatement);
+		print $sqlStatement;
+		my $sth = $dbh->prepare($sqlStatement) or die "Cannot prepare SQL statement";
+		$sth->execute() or die "Cannot execute SQL statement";
+		print "Database initializaton failed" if $dbh::err;
+	}
+	print qq|</textarea><p>|;
+      
+      print "Ran SQL file $sqlFile OK<br><br>";
+	
+}
+

@@ -77,6 +77,16 @@ my $sq = "";
 
 
 
+	my $record->{page_content} = &db_get_template($dbh,"page_header","Login");
+	&format_content($dbh,$query,$options,$record);	
+	$Site->{header} = $record->{page_content};
+
+	my $record->{page_content} = &db_get_template($dbh,"page_footer","Login");
+	&format_content($dbh,$query,$options,$record);	
+	$Site->{footer} = $record->{page_content};	
+	
+
+
 $vars->{openid_enabled} = 0;
 
 for ($vars->{action}) {
@@ -298,6 +308,7 @@ sub openid_login_form {
 
 sub registration_form_text {
 	my ($dbh,$query) = @_;
+
 
 
 
@@ -2035,19 +2046,20 @@ sub subscription_form_text {
 	my $form_text = "";					
 	if ($pname) { $form_text .= qq|<p>@{[&printlang("Displaying subscriptions",$pname)]}|; }
 	$form_text .= qq|
-		<div class="newsletter-subscribe"><p>@{[&printlang("Subscribe newsletter")]}</p>
+		<div class="newsletter-subscribe"><p>@{[&printlang("Subscribe to newsletter...")]}</p>
 		<input type="hidden" name="pid" value="$pid">
 	|;
 
 
 						# Get List of Subscribable Pages
 	my $pages = {};
-	my $sql = qq|SELECT page_id,page_title,page_sub,page_autosub FROM page WHERE page_sub = 'yes' ORDER BY page_title|;
+	my $sql = qq|SELECT * FROM page WHERE page_sub = 'yes' ORDER BY page_title|;
 	my $sth = $dbh->prepare($sql) or &error($dbh,$query,"",&printlang("Cannot prepare SQL","subscription_form_text",$sth->errstr(),$sql));
 	$sth->execute() or &error($dbh,$query,"",&printlang("Cannot execute SQL","subscription_form_text",$sth->errstr(),$sql));
 
 						# For Each Subscribable Page...
 	$form_text .= qq|<p>\n|;
+	$form_text .= qq|<table>|;
 	while (my $p = $sth -> fetchrow_hashref()) {
 		
 						# Does the user already subscribe?
@@ -2057,17 +2069,18 @@ sub subscription_form_text {
 		}
 
 						# Is it a default subscribe on registration?
-		if ($p->{page_autosub} eq "yes" && $vars->{action} eq "Register") {				
+		if ($p->{page_autosub} eq "yes") {				
 			$selected = " checked";
 		}
 
 						# Create the form text for that page
 		$form_text .= qq|
-			<input type="checkbox" name="newsletter" value="$p->{page_id}"|.
-			qq| $selected > $p->{page_title}</input><br/>|;
+			<tr><td><input type="checkbox" name="newsletter" value="$p->{page_id}"|.
+			qq| $selected ></input></td><td>&nbsp;</td><td>$p->{page_title}</td><tr>|;
 
 
 	}
+		$form_text .= qq|</table>|;
 	$form_text .= qq|</p></div>\n|;
 	return $form_text;
 

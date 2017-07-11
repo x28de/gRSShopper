@@ -6313,9 +6313,240 @@ sub form_update_submit_data {
 	return $id_number;
 }
 
+# -------   Admin Database ----------------------------------------------------------
+
+sub showcolumns {
+	my ($dbh,$query,$msg) = @_;
+	my $vars = $query->Vars;
+
+#	my $alterstmt = "ALTER TABLE link MODIFY link_category varchar(255)";
+#	my $asth = $dbh -> prepare($alterstmt);
+#	$asth -> execute();
+
+#	my $alterstmt = "ALTER TABLE link MODIFY link_content text";
+#	my $asth = $dbh -> prepare($alterstmt);
+#	$asth -> execute();
 
 
 
+	my $colstyle = qq|<style type="text/css">#columns{
+		font-family:"Trebuchet MS", Arial, Helvetica, sans-serif;
+		width:100%;
+		border-collapse:collapse;
+		}
+		#columns td, #columns th 
+		{
+		font-size:1em;
+		border:1px solid #98bf21;
+		padding:3px 7px 2px 7px;
+		}
+		#columns th 
+		{
+		font-size:1.1em;
+		text-align:left;
+		padding-top:5px;
+		padding-bottom:4px;
+		background-color:#A7C942;
+		color:#ffffff;
+		}
+		#columns tr.alt td 
+		{
+		color:#000000;
+		background-color:#EAF2D3;
+		}
+		</style>|;
+
+	my ($sdb,$stable) = split /\./,$vars->{stable};
+	unless ($stable) { $stable = $sdb; }
+	
+	my $columns = qq|<h3>Table: $stable </h3>\n$colstyle\n<table  id="columns" cellpadding=3 cellspacing=0 border=1">	
+		<tr><td>Key</td><td>Field</td>
+		<td>Type</td><td>Null</td>
+		<td>Default</td><td>Extra</td></tr>\n|;
+	
+
+	
+#	my $showstmt = qq|SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = ? AND table_schema = ? ORDER BY column_name|;
+	# Replaces:  
+	my $showstmt = "SHOW COLUMNS FROM $stable";
+	
+	
+	my $sth = $dbh -> prepare($showstmt)  or die "Cannot prepare: $showstmt FOR $vars->{stable}, $Site->{db_name} " . $dbh->errstr();
+#	$sth -> execute($stable,$Site->{db_name})  or die "Cannot execute: $showstmt " . $dbh->errstr();
+	$sth -> execute()  or die "Cannot execute: $showstmt " . $dbh->errstr();	
+
+	my $alt; # Toggle to shade table rows
+	while (my $showref = $sth -> fetchrow_hashref()) { 
+#print "Content-type: text/html\n\n";		
+#print "Data: <p>";
+#while (my($cx,$cy) = each %$showref) { print "$cx = $cy <br>"; }	
+
+	
+		if($alt) { $alt=""; } else { $alt=qq| class="alt"|;} 
+		unless ($showref->{COLUMN_DEFAULT}) { $showref->{COLUMN_DEFAULT} = "none"; }
+		unless ($showref->{COLUMN_KEY}) {  $showref->{COLUMN_KEY} = "-"; }
+		unless ($showref->{EXTRA}) {  $showref->{EXTRA} = "-"; }
+
+		$columns .= qq|<tr$alt><td>$showref->{Key}</td><td>$showref->{Field}</td><td>$showref->{Type}</td>\n|;
+		$columns .= "<td>$showref->{Null}</td><td>$showref->{Default}</td><td>$showref->{Extra}</td></tr>\n";
+
+
+	}
+	$columns .=  "</table>\n";
+
+	# Print the result on the Database screen
+	&admin_database($dbh,$query,$vars->{stable},$columns);
+	exit;
+}
+	
+sub addcolumn {
+	my ($table,$column) = @_;
+
+	&error($dbh,"","","Column name error - cannot call a column $column") if (
+		(($col+0) > 0) ||
+		($col =~ /['"`#!$%&@]/)
+		);
+	
+	
+	# Normalize column name - column names *must* be prefixed with the table name 'table_colmname'
+	my $tabstring = $table."_";
+	unless ($column =~ /^$tabstring/) { 
+		$column = $tabstring.$column; 
+	}
+	
+	
+	$dbh->do("ALTER TABLE $table ADD $column text NULL");
+	#$dbh->do("ALTER TABLE $tab ADD $col text NULL");
+	return "Column $column added to $table";
+
+}
+
+
+sub removecolumnwarn {
+	
+	my ($dbh,$query) = @_;
+	my $vars = $query->Vars;
+	my $col = $vars->{col};
+	my $tab = $vars->{stable};
+	print "Content-type: text/html\n\n";
+	print qq|<html><head></head><h1>WARNING</h1>
+		<p>Are you <i>sure</i> you want to drop $col from $tab ?????</p>
+		<p><b>All data</b> in $col will be lost. Never to be recovered again.</p>
+		<p>You <b>cannot</b> fix this. Backcspace to get out of this.</p>
+		<p>If you're <i>sure</i>, press the button:</p>
+		<form method="post" action="$Site->{st_cgi}admin.cgi">
+		<input type="hidden" name="col" value="$col">
+		<input type="hidden" name="stable" value="$tab">
+		<input type="hidden" name="action" value="removecolumndo">	
+		<input type="submit" value="Remove Column">
+		</form></body><html>|;	
+		
+}
+
+sub removecolumndo {
+	my ($dbh,$query) = @_;
+	my $vars = $query->Vars;
+	my $col = $vars->{col};
+
+	&error($dbh,"","","Column name error - cannot remove $col") if (
+		($col =~ /_id/) || ($col =~ /_name/) || ($col =~ /_title/) || ($col =~ /_description/)
+		);
+	my $tab = $vars->{stable};
+	
+	$dbh->do("ALTER TABLE $tab DROP COLUMN $col");
+	my $msg = "Column $col dropped from $tab";
+
+	
+	&showcolumns($dbh,$query,$msg);
+
+}
+
+
+
+
+
+sub import_json {
+	
+	my ($file,$table) = @_;
+	
+	use JSON::XS;
+	my $json_text = &get_file($file->{file_location});
+
+#print $json_text;	
+	my $perl_scalar = decode_json $json_text;
+	
+	my $normalize = &import_json_schema($perl_scalar,$table);
+	
+#	print $perl_scalar;
+
+	while (my ($x,$y) = each %$perl_scalar) {
+		#print "Importing chat record with foreign ID of $x. ";
+		
+		# Normalize column names (note - in a table, all columns begin with 'tablename_' )
+		if ($normalize) {
+			while (my ($xx,$xy) = each %$y) {
+				
+				my $tabstring = $table."_";
+				unless ($xx =~ /^$tabstring/) { 
+					$y->{$tabstring.$xx} = delete $y->{$xx}
+				}									
+			}
+
+		}
+		my $new_record = &db_insert($dbh,$query,$table,$y);
+		#print "Saved as chat record $new_record.<br>";
+	}
+	
+
+	#$perl_scalar = decode_json $json_text	
+	
+}
+
+# This function allows you to import data from JSON, creating new
+# database columns as needed, in case the current schema doesn't 
+# support the column
+
+sub import_json_schema {
+	
+	my ($perl_scalar,$table) = @_;
+	
+	# get the current list of columns for the table
+	my @columns = &db_columns($dbh,$table);
+	my $normalize = 0;
+	
+	# Get the list of columns (cycle through the whole list so we don't miss any)
+	my %hash;
+	while (my ($x,$y) = each %$perl_scalar) {
+		while (my ($xx,$xy) = each %$y) {		
+			$hash{$xx} = 1;
+		}
+	}
+
+	# Compare the new columns with the existing columns and add the column to the table if needed
+	foreach my $column (keys %hash) {
+
+		
+		# Normalize column name
+		my $tabstring = $table."_";
+		unless ($column =~ /^$tabstring/) { 
+			$column = $tabstring.$column; 
+			$normalize=1;
+		}
+		
+		# skip if we already have this column
+		next if ( grep( /^$key$/, @columns ));
+		
+		push @column,$column;
+		$msg = &addcolumn($table,$column);		
+		#print "Added $column to list<br>";
+		# do something with $key
+	}	
+	
+	
+	return $normalize;	
+				
+	
+}
 
 
 
@@ -7004,14 +7235,14 @@ sub db_insert {		# Inserts record into table from hash
 	$sql .= '(' . join(', ', @sqlf) .') VALUES ('. join(', ', @sqlq) .')';
 
 						
-	my $sth = $dbh->prepare($sql);		# Execute SQL Statement
+	my $sth = $dbh->prepare($sql) or print "Content-type: text/html\n\n".$sth->errstr;;		# Execute SQL Statement
 	
 	if ($diag eq "on") { 
 		print "Content-type: text/html\n\n";
 		print "$sql <br/>\n @sqlv <br/>\n";
 	}
 
-    	$sth->execute(@sqlv);
+    	$sth->execute(@sqlv) or print "Content-type: text/html\n\n".$sth->errstr;
 	
 	if ($sth->errstr) { $vars->{err} = "DB INSERT ERROR: ".$sth->errstr." <p>"; }
 	
