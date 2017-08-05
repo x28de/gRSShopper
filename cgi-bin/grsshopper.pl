@@ -2339,7 +2339,7 @@ sub format_rssify {		# Misc. clean-up for print
 
 	my ($text_ptr) = @_;
 
-	$$text_ptr =~ s/&(\w+?);/AMPERSAND$1; /g;
+	$$text_ptr =~ s/&(\w+?);/AMPERSAND$1;/g;
 	$$text_ptr =~ s/&/&amp;/mig;
 	$$text_ptr =~ s/AMPERSAND(\w+?);/&$1;/g;
 	$$text_ptr =~ s/AMPERSAND/&/mig;
