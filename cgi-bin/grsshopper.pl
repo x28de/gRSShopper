@@ -1,4 +1,4 @@
-#    gRSShopper 0.7  Common Functions  0.81  -- 
+#    gRSShopper 0.7  Common Functions  0.81  --
 
 #    05 June 2017
 
@@ -22,8 +22,8 @@
 
 #-------------------------------------------------------------------------------
 #
-#	    gRSShopper 
-#           Common Functions 
+#	    gRSShopper
+#           Common Functions
 #
 #-------------------------------------------------------------------------------
 
@@ -31,12 +31,12 @@
 
 #-------------------------------------------------------------------------------
 #
-#		Initialization  
+#		Initialization
 #
 #-------------------------------------------------------------------------------
 
 sub load_modules {
-	
+
 
 
 
@@ -56,18 +56,18 @@ sub load_modules {
 	use CGI::Carp qw(fatalsToBrowser);
 
 	use CGI::Session;
-	my $query = new CGI; 
+	my $query = new CGI;
 	my $vars = $query->Vars;
-	
+
 	&filter_input($vars);				#	- filter CGI input
-	
+
 							# Required Modules
 
 	use DBI;
 	use LWP;
 	use LWP::UserAgent;
-	use LWP::Simple;	
-	
+	use LWP::Simple;
+
 
 	# Added by Luc - Support for french (or other) dates
 	# Required by : locale_date
@@ -75,7 +75,7 @@ sub load_modules {
 	use POSIX qw(strftime);
 	use Scalar::Util 'looks_like_number';
 	use Date::Parse;
-	
+
 	# Moved from admin context below to here (for dates)
 	use HTML::Entities;
 							# Admin Modules
@@ -84,65 +84,65 @@ sub load_modules {
 		use File::stat;
 		use Scalar::Util 'blessed';
 		use Text::ParseWords;
-	}					
-							
+	}
+
 							# Optional Modules
 	unless (&new_module_load($query,"MIME::Types")) { $vars->{warnings} .= "MIME::Types;"; }
 	unless (&new_module_load($query,"Net::Twitter::Lite::WithAPIv1_1")) { $vars->{warnings} .= "Net::Twitter::Lite::WithAPIv1_1;"; }
-	unless (&new_module_load($query,"Image::Magick")) { $vars->{warnings} .= "Image Magick;"; }	
+	unless (&new_module_load($query,"Image::Magick")) { $vars->{warnings} .= "Image Magick;"; }
 	unless (&new_module_load($query,"DateTime")) { $vars->{warnings} .= "DateTime;"; }
-	unless (&new_module_load($query,"DateTime::TimeZone")) { $vars->{warnings} .= "DateTime::TimeZone;"; }	
+	unless (&new_module_load($query,"DateTime::TimeZone")) { $vars->{warnings} .= "DateTime::TimeZone;"; }
 	unless (&new_module_load($query,"Time::Local")) { $vars->{warnings} .= "Time::Local;"; }
 	unless (&new_module_load($query,"Digest::SHA1 qw/sha1 sha1_hex sha1_base64/")) { $vars->{warnings} .= "Digest::SHA1 qw/sha1 sha1_transform sha1_hex sha1_base64/"; }
 
 
 	return ($query,$vars);
-	
+
 }
 
 #-------------------------------------------------------------------------------
 #
-#		Screen Input  
+#		Screen Input
 #
 #-------------------------------------------------------------------------------
 
 sub filter_input {
-	
+
 	my ($vars) = @_;
 	my $numArgs = $#ARGV + 1;					# Command Line Args (For Cron)
-	
+
 									# Do not allow these to be set by input
-	$vars->{mode} = ""; 
+	$vars->{mode} = "";
 	$vars->{cronsite} = "";
 	$vars->{context} = "";
-	
-			
+
+
 									# Default input variables
-					
-	unless (defined $vars->{format}) { $vars->{format} = "html"; }		
-	unless (defined $vars->{action}) { $vars->{action} = ""; }	
-	unless (defined $vars->{button}) { $vars->{button} = ""; }	
-	unless (defined $vars->{force}) { $vars->{force} = "no"; }		
+
+	unless (defined $vars->{format}) { $vars->{format} = "html"; }
+	unless (defined $vars->{action}) { $vars->{action} = ""; }
+	unless (defined $vars->{button}) { $vars->{button} = ""; }
+	unless (defined $vars->{force}) { $vars->{force} = "no"; }
 	unless (defined $vars->{comment}) { $vars->{comment} = ""; }
 
 
 									# Apostraphe-proofs and hack-proof system
 
-	while (my ($vx,$vy) = each %$vars) { 		
+	while (my ($vx,$vy) = each %$vars) {
 		$vars->{$vx} =~ s/'/&#39;/g; # '
 		$vars->{$vx} =~ s/\Q#!\E//g; # '
 	}
 
 
 	unless ($vars->{db}) { 						# Make old form requests compatible
-		if ($vars->{table}) { 
-			$vars->{db} = $vars->{table}; 
+		if ($vars->{table}) {
+			$vars->{db} = $vars->{table};
 		}
 	}
 
 
 	if ($numArgs > 1) {
-		
+
 		$vars->{context} = "cron";
 		$vars->{cronsite} = $ARGV[0];                # Site
 		$vars->{action} = $ARGV[1];		# Command
@@ -153,14 +153,14 @@ sub filter_input {
 		$vars->{mode} = "silent";
 
 	}
-	
 
-	
+
+
 }
- 
+
 #-------------------------------------------------------------------------------
 #
-#		Initialization Functions 
+#		Initialization Functions
 #
 #-------------------------------------------------------------------------------
 
@@ -170,20 +170,20 @@ sub filter_input {
 # -------   Get Site -----------------------------------------------------------
 
 sub get_site {
- 
+
 	# print "Content-type: text/html\n\n";
 	my ($context) = @_;
-	
-	
+
+
 	if ($ARGV[1]) { $context = "cron"; }					# Set cron context, as appropriate
-	if ($vars->{action} eq "cron") { 					# Note that a cron key is required to execute 
+	if ($vars->{action} eq "cron") { 					# Note that a cron key is required to execute
 		$context = "cron"; 						# from the command line
 		$vars->{cronuser} = "web";
 	}
 	if ($context) { $vars->{context} = $context; }
-	
+
 	# Create new Site object
-	our $Site = gRSShopper::Site->new({					
+	our $Site = gRSShopper::Site->new({
 		context		=>	$context,
 		data_dir	=>	'/var/www/cgi-bin/data/',		# Location of site configuration files
 	});
@@ -192,19 +192,19 @@ sub get_site {
 	# Open Site Database
 	my $dbh = $Site->{dbh};
 
-		
-	# Get Site Info From Database										
-	&get_config($dbh);		
+
+	# Get Site Info From Database
+	&get_config($dbh);
 
 	# Clear site database info so it's not available later
-	$Site->{database}="";	
-	
-	# Prevent accidental (or otherwise) print of config file.										
-	$_ = "";									
+	$Site->{database}="";
 
-	# File Upload Limit	
-	my $upload_limit = $Site->{file_limit} || 10000;		
-	$CGI::POST_MAX = 1024 * $upload_limit;			
+	# Prevent accidental (or otherwise) print of config file.
+	$_ = "";
+
+	# File Upload Limit
+	my $upload_limit = $Site->{file_limit} || 10000;
+	$CGI::POST_MAX = 1024 * $upload_limit;
 
 	return ($Site,$dbh);
 
@@ -216,10 +216,10 @@ sub get_config {
 	my ($dbh) = @_;
 	my $sth = $dbh->prepare("SELECT * FROM config");
 	$sth -> execute() or die "Failed to load site configuration data";
-	while (my $c = $sth -> fetchrow_hashref()) { 
+	while (my $c = $sth -> fetchrow_hashref()) {
 		next if ($c->{config_noun} =~ /script|st_home|st_url|st_urlf|st_cgif|st_cgi|co_host|msg/ig);	# Can't change basic site data
 		next unless ($c->{config_value});
-		$Site->{$c->{config_noun}} = $c->{config_value};	
+		$Site->{$c->{config_noun}} = $c->{config_value};
 	}
 	$sth->finish();
 
@@ -235,11 +235,11 @@ sub get_config {
 sub get_person {
 
 	my ($dbh,$query,$Person,$pstatus) = @_;
-	
-	
+
+
 	if ($Site->{context} eq "cron") { 			# Create cron person, if applicable,
 								# and exit
-		
+
 										# Confirm cron key
 		my $cronkey = $ARGV[1];
 		unless ($Site->{cronkey} eq $cronkey) {
@@ -247,60 +247,60 @@ sub get_person {
 			print &printlang('Cron key mismatch',$vars->{cronkey},$Site->{st_name});
 			&send_email("stephen\@downes.ca","stephen\@downes.ca",
 				&printlang("Cron Error",$Site->{st_name}),
-				"Cron key mismatch between $Site->{cronkey} and  $cronkey in get_person() - Args: $ARGV[0] - $ARGV[1] - $ARGV[2] - $ARGV[3]");			
+				"Cron key mismatch between $Site->{cronkey} and  $cronkey in get_person() - Args: $ARGV[0] - $ARGV[1] - $ARGV[2] - $ARGV[3]");
 			exit;
 		}
-	
+
 		$Person->{person_title} = $Site->{st_name};
 		$Person->{person_name} = $Site->{st_name};
 		$Person->{person_email} = $Site->{em_from};
 		$Person->{person_status} = "admin";
 		return;
 
-	}					
-		
+	}
+
 
 						# Define Cookie Names
-	my $site_base = &get_cookie_base();		
+	my $site_base = &get_cookie_base();
 	my $id_cookie_name = $site_base."_person_id";
 	my $title_cookie_name = $site_base."_person_title";
 	my $session_cookie_name = $site_base."_session";
 	my $language_cookie_name = $site_base."_language";
 
-	
+
 
 	my $id = $query->cookie($id_cookie_name);	# Get Person Info from Cookies
 	my $pt = $query->cookie($title_cookie_name);
 	my $sid = $query->cookie($session_cookie_name);
-	$Site->{lang_user} = $query->cookie($language_cookie_name) || $Site->{lang_user} || "en";	
+	$Site->{lang_user} = $query->cookie($language_cookie_name) || $Site->{lang_user} || "en";
 # print "Cookie data: ID $id Title $pt <br>";
 
-	
 
-					# Define Default Headers and Footers 
-					
+
+					# Define Default Headers and Footers
+
 	my $nowstr = &nice_date(time);	my $tempstr;
 	$Site->{context} ||= "page";
-	
-	if (($Site->{context} eq "page")||($Site->{context} eq "admin")) { 
-		$Site->{header} = &get_template($dbh,$query,$Site->{context}."_header"); 	
+
+	if (($Site->{context} eq "page")||($Site->{context} eq "admin")) {
+		$Site->{header} = &get_template($dbh,$query,$Site->{context}."_header");
 		$Site->{footer} = &get_template($dbh,$query,$Site->{context}."_footer");
-			
+
 		for ($Site->{header},$Site->{footer}) {
 			$_ =~ s/\Q[*page_crdate*]\E|\Q[*page_update*]\E/$nowstr/sig;
 		}
-	} 
+	}
 
 	unless (($id) && ($pt)) {		# No Person Info - Return anonymous User
-		
-		&anonymous(&printlang("No Person Info"));	
+
+		&anonymous(&printlang("No Person Info"));
 		return;
 	}
-	
+
 
 						# Get Person Data
 						# Temporary - I should be building a proper Person object here
-	
+
 	my $persondata = &db_get_record($dbh,"person",{person_title=>$pt,person_id=>$id});
 	while (my($x,$y) = each %$persondata) {	$Person->{$x} = $y; }
 
@@ -315,7 +315,7 @@ sub get_person {
 		&anonymous("No Person Data");
 		$Person->{person_status} = "anonymous";
 	}
-		
+
 	unless ($Person->{person_mode} eq $sid) { 	# Bad session data - Return anonymous User
 		&anonymous("Bad session data");
 		$Person->{person_status} = "anonymous";
@@ -324,10 +324,10 @@ sub get_person {
 	unless ($Person->{person_status} || ($Person->{person_status} eq "reg")) {
 		$Person->{person_status} = "registered";
 	}
-	
 
 
-	
+
+
 
 
 }
@@ -358,14 +358,14 @@ sub get_file {
 	my $content;
 
 	open FIN,"$file" or return &printlang("Not found",$file);
-	
+
 	while (<FIN>) {
 		$content .= $_;
 	}
 	close FIN;
-	
+
 	return $content;
-	
+
 }
 
 
@@ -381,7 +381,7 @@ sub anonymous {
 	$Person->{person_name} = "Anymouse";
 	$Person->{person_status} = "anonymous";
 	$Person->{person_mode} = $why;
-						
+
 	# Get Person Data
 
 	my $p;
@@ -389,14 +389,14 @@ sub anonymous {
 	my $sth = $dbh -> prepare($stmt);
 	$sth -> execute(2);
 	my $ref = $sth -> fetchrow_hashref();
-	while (my($x,$y) = each %$ref) { 	
-		$p->{$x} = $y; 
+	while (my($x,$y) = each %$ref) {
+		$p->{$x} = $y;
 	}
 	$sth->finish(  );
-	
+
 	# Place selected data into person hash
-	$Person->{person_lastread} = $p->{person_lastread};	
-	
+	$Person->{person_lastread} = $p->{person_lastread};
+
 }
 
 
@@ -408,32 +408,32 @@ sub output_record {
 
     my ($dbh,$query,$table,$id_number,$format) = @_;
     if ($diag>9) { print "Output Record<br>"; }
-   
+
 	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
 	my $output = "";
 
-	
+
 	# Identify record to output																									# Check Request
 	$table ||= $vars->{table}; die "Table not specified in output record" unless ($table);			#   - table
-	$id_number ||= $vars->{id_number};  
+	$id_number ||= $vars->{id_number};
 	unless ($table) { my $err = ucfirst($table)." ID not specified in output record" ; die "$err"; } 	#   - ID number
 	unless ($id_number =~ /^[+-]?\d+$/) { $id_number = &find_by_title($dbh,$table,$id_number); } 		#     (Try to find ID number by title)
 	$format ||= $vars->{format} || "html";									#   - format
-	
-						
-	# Permissions					
+
+
+	# Permissions
 	return unless (&is_allowed("view",$table,$wp));								# Permissions
-	
+
 	# Get Record
 	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id_number});					# Get Record
 	unless ($record) { die "Looking for $table number $id_number, but it was not found, sorry."; }		#     - catch get record error
 #	my ($hits,$total) = &record_hit($table,$id_number);							#     - Increment record hits counter
 
 	# Create Page Title
-	$record->{page_title} = $record->{$table."_title"} 
-		|| $record->{$table."_name"} 
-		|| $record->{$table."_noun"} 
-		|| ucfirst($table)." ".$record->{$table."_id"} 
+	$record->{page_title} = $record->{$table."_title"}
+		|| $record->{$table."_name"}
+		|| $record->{$table."_noun"}
+		|| ucfirst($table)." ".$record->{$table."_id"}
 		|| "Untitled";		# Page Title
 	unless ($table eq "page") { $record->{page_title} = $Site->{st_name} . " ~ " .
 		$record->{page_title}; }
@@ -455,9 +455,9 @@ sub output_record {
 
 	if ($table eq "presentation" && $format =~/htm/i) {
 		$header_template = "presentation_header";
-		$footer_template = "presentation_footer";	
+		$footer_template = "presentation_footer";
 	}
-	
+
 
 	# Add headers and footers
 	unless ($table eq "page") {
@@ -469,28 +469,28 @@ sub output_record {
 
 	# Format Page Content
 	&format_content($dbh,$query,$options,$record);								# Format Page content
-	
+
 	&make_pagedata($query,\$record->{page_content});							# Fill special Admin links and post-cache content
 	&make_admin_links(\$record->{page_content});
 	&make_login_info($dbh,$query,\$record->{page_content},$table,$id_number);
-						
-	$record->{page_content} =~ s/\Q]]]\E/] ]]/g;  								# Fixes a Firefox XML CDATA bug			
-	
+
+	$record->{page_content} =~ s/\Q]]]\E/] ]]/g;  								# Fixes a Firefox XML CDATA bug
+
 	$output .= $record->{page_content};
 
 														# Fill special Admin links and post-cache data
 
-	&make_pagedata($query,\$wp->{page_content},\$wp->{page_title});				
+	&make_pagedata($query,\$wp->{page_content},\$wp->{page_title});
 	&make_admin_links(\$wp->{page_content});
 	&make_login_info($dbh,$query,\$wp->{page_content},$table,$id_number);
 	&autotimezones($query,\$record->{page_content});
-		
+
 	my $mime_type = set_mime_type($format);
 	print "Content-type: ".$mime_type."\n\n";								# Print output
 	print $output;
 	if ($diag>9) { print "/Output Record<br>"; }
 	exit;
-	
+
 }
 
 
@@ -500,68 +500,68 @@ sub output_record {
 
 
 sub save_graph {
-	
-	
-	my ($type,$recordx,$recordy,$typeval) = @_;
-#$Site->{diag_level} = 1;	
 
-	
+
+	my ($type,$recordx,$recordy,$typeval) = @_;
+#$Site->{diag_level} = 1;
+
+
 							# Set default values
 	my $tabone = $recordx->{type}; unless ($tabone) { &diag(7,"Graph error 1"); return; }
-	
+
 	my $idone = $recordx->{$tabone."_id"}; unless ($idone) { &diag(7,"Graph error 3"); return; }
 	my $urlone; if ($tabone eq "feed") { $urlone = $recordx->{$tabone."_html"}; }
 	elsif ($tabone eq "media") { $urlone = $recordx->{$tabone."_url"}; }
 	else { $urlone = $recordx->{$tabone."_link"}; }
 	unless ($urlone) { $urlone = $Site->{st_url}.$tabone."/".$idone; }
-	my $baseone = "one"; if ($urlone =~ m/http:\/\/(.*?)\//) { $baseone = $1; } 	
-		
+	my $baseone = "one"; if ($urlone =~ m/http:\/\/(.*?)\//) { $baseone = $1; }
+
 	my $tabtwo = $recordy->{type}; unless ($tabtwo) { &diag(7,"Graph error 2"); return; }
 	my $idtwo = $recordy->{$tabtwo."_id"} || "-1";
 	my $urltwo; if ($tabtwo eq "feed") { $urltwo = $recordy->{$tabtwo."_html"}; }
 	elsif ($tabtwo eq "media") { $urltwo = $recordy->{$tabtwo."_url"}; }
-	else { $urltwo = $recordy->{$tabtwo."_link"}; }	
-	my $basetwo = "two"; if ($urltwo =~ m/http:\/\/(.*?)\//) { $basetwo = $1; } 
-	unless ($urltwo) { $urltwo = $Site->{st_url}.$tabtwo."/".$idtwo; }		
-	
+	else { $urltwo = $recordy->{$tabtwo."_link"}; }
+	my $basetwo = "two"; if ($urltwo =~ m/http:\/\/(.*?)\//) { $basetwo = $1; }
+	unless ($urltwo) { $urltwo = $Site->{st_url}.$tabtwo."/".$idtwo; }
+
 							# Graph distinct entities only
-							
+
 	if (($tabone eq $tabtwo) && (($idone eq $idtwo) || ($urlone eq $urltwo))) { &diag(7,"Graph error 4"); return; }
 	if (($tabone eq $tabtwo) && ($baseone eq $basetwo)) { &diag(7,"Graph error 5"); return; }
-	
+
 							# Uniqueness constraint
 
-						
+
 	if (&db_locate($dbh,"graph",{
 		graph_tableone=>$tabone, graph_idone=>$idone, graph_urlone=>$urlone,
 		graph_tabletwo=>$tabtwo, graph_idtwo=>$idtwo}, graph_urltwo=>$urltwo))
 		{ &diag(7,"Graph error 6 - uniqueness"); return; }
 
-	my $crdate  = time;  
+	my $crdate  = time;
 	my $creator = $Person->{person_id};
-	
+
 							# Create Graph Record
-							
+
 #	print qq|------ Save Graph: [<a href="$urlone">$tabone $idone</a>] $type [<a href="$urltwo">$tabtwo $idtwo</a>]<br>|;
 	my $graphid = &db_insert($dbh,$query,"graph",{
 		graph_tableone=>$tabone, graph_idone=>$idone, graph_urlone=>$urlone,
 		graph_tabletwo=>$tabtwo, graph_idtwo=>$idtwo, graph_urltwo=>$urltwo,
-		graph_creator=>$creator, graph_crdate=>$crdate, graph_type=>$type, graph_typeval=>$typeval}); 
-	
-		
-	return $graphid ||  &diag(7,"Graph error 6"); 
-	return;						
+		graph_creator=>$creator, graph_crdate=>$crdate, graph_type=>$type, graph_typeval=>$typeval});
 
 
-	
+	return $graphid ||  &diag(7,"Graph error 6");
+	return;
+
+
+
 }
 
 # -------   Create Graph Table ---------------------------------------------------------
 #
 
 sub create_table_graph {
-	
-	
+
+
 	# Create the graph table
 	my @tables = $dbh->tables();
 	my $tableName = "graph";
@@ -576,13 +576,13 @@ sub create_table_graph {
   			  graph_idone varchar(40) default NULL,
   			  graph_tabletwo varchar(40) default NULL,
   			  graph_urltwo varchar(256) default NULL,
-  			  graph_idtwo varchar(40) default NULL,  			  
-  			  graph_crdate varchar(15) default NULL, 
-  			  graph_creator varchar(15) default NULL,   			  
+  			  graph_idtwo varchar(40) default NULL,
+  			  graph_crdate varchar(15) default NULL,
+  			  graph_creator varchar(15) default NULL,
 			  KEY graph_id (graph_id)
 		)|;
 		$dbh->do($sql);
-	} 	
+	}
 }
 
 
@@ -595,51 +595,51 @@ sub find_graph_of {
 
 	my ($tableone,$idone,$tabletwo,$type) = @_;
 	return unless ($tableone && $idone);
-	return unless ($tabletwo || $type);	
+	return unless ($tabletwo || $type);
 #	if ($Site->{counter}) {$Site->{counter}++; } else { $Site->{counter} = 1; }
 #	return if ($Site->{counter} > 8000);
-	
-	
+
+
 	unless ($dbh) { $dbh = $ddbbhh; }
 	return unless ($dbh);						# For some reason mooc.ca doesn't pass $dbh
-	
+
 	if ($Site->{$tableone}->{$idone}) {				# Return cached graph entry
-	
+
 		if ($type) {							# by type, or
-		
+
 			return @{$Site->{$tableone}->{$idone}->{$type}};
-			
+
 		} else {							# by table
-		
+
 
 			return @{$Site->{$tableone}->{$idone}->{$tabletwo}};
 		}
-		
-		
-		
+
+
+
 	} else {							# Create a cache and call the function again
 									# so we have one DB call per record, not 12, or 16 times
-									
+
 		my $sql = qq|SELECT * FROM graph WHERE (graph_tableone = ? AND graph_idone = ?) OR (graph_tabletwo = ? AND graph_idtwo = ?)|;
 		my $sth = $dbh->prepare($sql);
 		$sth -> execute($tableone,$idone,$tableone,$idone); my $grfound=0;
-		while (my $c = $sth -> fetchrow_hashref()) { 
-			$grfound = 1;	
-	
-			if ($c->{graph_tableone} eq $tableone && $c->{graph_idone} eq $idone) {	
+		while (my $c = $sth -> fetchrow_hashref()) {
+			$grfound = 1;
+
+			if ($c->{graph_tableone} eq $tableone && $c->{graph_idone} eq $idone) {
 				push @{$Site->{$tableone}->{$idone}->{$c->{graph_tabletwo}}},$c->{graph_idtwo};
 				if ($c->{graph_type}) { push @{$Site->{$tableone}->{idone}->{$c->{graph_type}}},$c->{graph_idtwo}; }
 			} elsif ($c->{graph_tabletwo} eq $tableone && $c->{graph_idtwo} eq $idone) {
 				push @{$Site->{$tableone}->{$idone}->{$c->{graph_tableone}}},$c->{graph_idone};
-				if ($c->{graph_type}) { push @{$Site->{$tableone}->{idone}->{$c->{graph_type}}},$c->{graph_idone}; }	
+				if ($c->{graph_type}) { push @{$Site->{$tableone}->{idone}->{$c->{graph_type}}},$c->{graph_idone}; }
 			}
 		}
 		if ($grfound) {
 			my @connections = &find_graph_of($tableone,$idone,$tabletwo,$type);  # Once we've stored the data, call the result from cache
 			return @connections;
 		} else { return 0; }
-		
-	}	
+
+	}
 
 }
 
@@ -647,56 +647,56 @@ sub find_graph_of {
 # -------   Big Blue Button ---------------------------------------------------------
 
 sub bbb {
-	
-# "BBB Name:bbb_name","BBB URL:bbb_url","BBB Salt:bbb_salt"	
+
+# "BBB Name:bbb_name","BBB URL:bbb_url","BBB Salt:bbb_salt"
 
 	my ($url,$salt,$cmd,$qs) = @_;
-	
+
 	my $suburl = $cmd . $qs . $salt;
-	my $checksum = sha1_hex($suburl); 
+	my $checksum = sha1_hex($suburl);
 	my $gourl = $Site->{bbb_url}.$cmd."?".$qs."&checksum=".$checksum;
 	return $gourl;
 }
 
 sub bbb_create {
-	
+
 	my ($name,$id,$mp,$ap) = @_;
-	
+
 	$name =~ s/ /+/g; $id =~ s/ /+/g;
 	unless ($name) { $name = $id; }
 	my $qs = "name=$name&meetingID=$id&moderatorPW=$mp&attendeePW=$ap";
 	my $cmd = "create";
 	my $suburl = $cmd . $qs . $Site->{bbb_salt};
-	my $checksum = sha1_hex($suburl); 
+	my $checksum = sha1_hex($suburl);
 	my $gourl = $Site->{bbb_url}.$cmd."?".$qs."&checksum=".$checksum;
 	return $gourl;
 }
 
 sub bbb_joinmod {
-	
+
 	my ($meetingid,$username,$userid,$mp) = @_;
-		
+
 	&error($dbh,"","","Need a name to join a meeting") unless ($username || $userid);
 	unless ($username) { $username = $userid; }
 	unless ($userid) { $userid = $username; }
 	$username =~ s/ /+/g;
 	$userid =~ s/ /+/g;
-	
+
 	my $qs = "meetingID=$meetingid&password=$mp&fullName=$username&userID=$userid";
 	my $cmd = "join";
 	my $suburl = $cmd . $qs . $Site->{bbb_salt};
-	my $checksum = sha1_hex($suburl); 
+	my $checksum = sha1_hex($suburl);
 	my $gourl = $Site->{bbb_url}.$cmd."?".$qs."&checksum=".$checksum;
-	return $gourl;	
-	
-	
+	return $gourl;
+
+
 }
 
 sub bbb_create_meeting {
-	
+
 	my ($name,$id) = @_;
 #print "Content-type: text/html\n\n";
-#print "Smod password $Site->{bbb_mp} <p>";	
+#print "Smod password $Site->{bbb_mp} <p>";
 	$name =~ s/ /+/g; $id =~ s/ /+/g;
 	$name =~ s/&#39;//ig; $id =~ s/&#39;//ig;
 	unless ($name) { $name = $id; }
@@ -705,12 +705,12 @@ sub bbb_create_meeting {
 	if ($vars->{record_meeting} eq "on") { $qs .= "record=true"; }
 	my $cmd = "create";
 	my $suburl = $cmd . $qs . $Site->{bbb_salt};
-	my $checksum = sha1_hex($suburl); 
+	my $checksum = sha1_hex($suburl);
 	my $gourl = $Site->{bbb_url}.$cmd."?".$qs."&checksum=".$checksum;
-	
+
 	my $content = get($gourl);
 	&error($dbh,"","","Couldn't Create Meeting with $gourl") unless defined $content;
-#print qq|<form><textarea cols=50 rows=10>$content</textarea></form><p>|;	
+#print qq|<form><textarea cols=50 rows=10>$content</textarea></form><p>|;
 #exit;
 	my $status;
 	if ($content =~ /<returncode>FAILED<\/returncode>/) { $status = "failed"; }
@@ -719,71 +719,71 @@ sub bbb_create_meeting {
 }
 
 sub bbb_getMeetingInfo {
-	
+
 	my ($meetingid) = @_;
 #print "Content-type: text/html\n\n";
 	$meetingid =~ s/ /+/g;
 	my $qs = "meetingID=$meetingid&password=$Site->{bbb_mp}";
 	my $cmd = "getMeetingInfo";
 	my $suburl = $cmd . $qs . $Site->{bbb_salt};
-	my $checksum = sha1_hex($suburl); 
+	my $checksum = sha1_hex($suburl);
 	my $gourl = $Site->{bbb_url}.$cmd."?".$qs."&checksum=".$checksum;
 #print "$gourl <p>";
 	my $content = get($gourl);
 
 #print qq|<form><teaxarea cols="50" rows="10">$content</textarea></form>|;
 #print "Done";
-#exit;	
+#exit;
 	&error($dbh,"","","Couldn't get Meeting info from $gourl") unless defined $content;
-		
-	return $content;	
 
-	
-	
+	return $content;
+
+
+
 }
 
 sub bbb_getMeetingStatus {
-	
+
 	my ($meetingid,$req) = @_;
 
-	my $content = bbb_getMeetingInfo($meetingid);	
+	my $content = bbb_getMeetingInfo($meetingid);
 	my $status;
 	if ($content =~ /<returncode>FAILED<\/returncode>/) { $status = "failed"; }
 	elsif ($content =~ /<returncode>SUCCESS<\/returncode>/) { $status = "success"; }
 	else { $status = "unknown"; }
-	return $status; 	
+	return $status;
 }
 
 
 sub bbb_get_meetings {
-	
+
 	my $random = "1234567890";
 	my $qs = "random=$random";
-	my $cmd = "getMeetings";	
+	my $cmd = "getMeetings";
 	my $suburl = $cmd . $qs . $Site->{bbb_salt};
-	my $checksum = sha1_hex($suburl); 
-	my $gourl = $Site->{bbb_url}.$cmd."?".$qs."&checksum=".$checksum;	
-	
+	my $checksum = sha1_hex($suburl);
+	my $gourl = $Site->{bbb_url}.$cmd."?".$qs."&checksum=".$checksum;
+
 	my $content = get($gourl);
 	return "Couldn't get Meetings info from $gourl" unless defined $content;
 	return $content;
 
-	
+
 }
 
 sub bbb_join_as_moderator {
-	
-# print "Content-type: text/html\n\n";	
+
+# print "Content-type: text/html\n\n";
 	my ($meetingid,$username,$userid) = @_;
 	&error($dbh,"","","Must specify meeting ID to join as moderator<p>") unless ($meetingid);
 	&error($dbh,"","","Need a name to join a meeting") unless ($username || $userid);
-	
+
 	unless ($username) { $username = $userid; }
 	unless ($userid) { $userid = $username; }
 	$username =~ s/ /+/g; $userid =~ s/ /+/g; $meetingid =~ s/ /+/g;
-	
 
-	# Get Meeting Information	
+
+	# Get Meeting Information
 	my $status = &bbb_getMeetingStatus($meetingid);
 	if ($status eq "failed") {
 		$vars->{meeting_name} = "Generic Meeting" unless ($vars->{meeting_name});
@@ -793,44 +793,44 @@ sub bbb_join_as_moderator {
 			&error($dbh,"","","Tried to create meeting but it failed.<p>$content");
 		}
 	}
-	
+
 		# Join the Meeting
-	
+
 	$qs = "meetingID=$meetingid&password=$Site->{bbb_mp}&fullName=$username&userID=$userid";
 	$cmd = "join";
 	$suburl = $cmd . $qs . $Site->{bbb_salt};
-	$checksum = sha1_hex($suburl); 
+	$checksum = sha1_hex($suburl);
 	$gourl = $Site->{bbb_url}.$cmd."?".$qs."&checksum=".$checksum;
 	print "Content-type:text/html\n";
 	print "Location:".$gourl."\n\n";
-#	print "<br> $suburl <p>";	
-	
+#	print "<br> $suburl <p>";
+
 
 }
 
 sub bbb_join_meeting {
-	
-# print "Content-type: text/html\n\n";	
+
+# print "Content-type: text/html\n\n";
 	my ($meetingid,$username,$userid) = @_;
 	&error($dbh,"","","Must specify meeting ID to join meeting<p>") unless ($meetingid);
 	&error($dbh,"","","Need a name to join a meeting") unless ($username || $userid);
-	
+
 	unless ($username) { $username = $userid; }
 	unless ($userid) { $userid = $username; }
 	$username =~ s/ /+/g; $userid =~ s/ /+/g; $meetingid =~ s/ /+/g;
 
-	
+
 		# Join the Meeting
-	
+
 	$qs = "meetingID=$meetingid&password=$Site->{bbb_ap}&fullName=$username&userID=$userid";
 	$cmd = "join";
 	$suburl = $cmd . $qs . $Site->{bbb_salt};
-	$checksum = sha1_hex($suburl); 
+	$checksum = sha1_hex($suburl);
 	$gourl = $Site->{bbb_url}.$cmd."?".$qs."&checksum=".$checksum;
 	print "Content-type:text/html\n";
 	print "Location:".$gourl."\n\n";
-#	print "<br> $suburl <p>";	
-	
+#	print "<br> $suburl <p>";
+
 
 }
 
@@ -846,7 +846,7 @@ sub bbb_join_meeting {
 
 sub admin_only {
 
-# if ($Person->{person_title} eq "Downes") { $Person->{person_status} = "admin" }  
+# if ($Person->{person_title} eq "Downes") { $Person->{person_status} = "admin" }
 #
 	unless ($Person->{person_status} eq "admin") {
 		my $msg = qq|@{[&printlang("Must be admin")]}<br/>
@@ -862,7 +862,7 @@ sub admin_only {
 
 sub registered_only {
 
-	unless (($Person->{person_status} eq "registered") 
+	unless (($Person->{person_status} eq "registered")
 			 || ($Person->{person_status} eq "admin")) {
 		my $msg = qq|@{[&printlang("Must be registered")]}<br/>
 		   <h3><a href="login.cgi?refer=$Site->{script}">@{[&printlang("Login")]}</a></h3>|;
@@ -881,7 +881,7 @@ sub is_viewable {
 	my ($action,$table,$object) = @_;
 	return 1 if (&check_status($action,$table,$object));
 	return 0;
-	
+
 }
 
 
@@ -931,24 +931,24 @@ sub check_status {
 	return 1 if (lc($Person->{person_status}) eq "admin");	# Admin always has permission
 	return 1 if ($Site->{cron} );				# Always allow cron
 	return 1 if ($Site->{permission} eq "initialize");		# Lets us do things to initialize
-							
-									
+
+
 
 							# Read permision data from site information
 
 	my $req = &permission_current($action,$table,$object);
-	
+
 
 #	Diagnostic
 #	print "$action _ $table :  $req <br>";
 
 							# Return 0 if nobody can do this (hides features) and
-							# Return 1 if everybody can do this 
+							# Return 1 if everybody can do this
 
-	return 0 if ($req eq "none");					
-	return 1 if ($req eq "anyone");				
-							
-							# Get User Status															
+	return 0 if ($req eq "none");
+	return 1 if ($req eq "anyone");
+
+							# Get User Status
 	my $status = lc($Person->{person_status});
 	my $project = lc($Person->{project});
 	my $pid = $Person->{person_id};
@@ -957,37 +957,37 @@ sub check_status {
 
 #	Diagnostic
 #	print "Person: $pid <br>Status: $status <br>Project: $project <br>";
-	
 
-	
+
+
 							# If requirement is 'registered'
-							# Return 1 if $pid > 2 
+							# Return 1 if $pid > 2
 
-	if ($req eq "registered") { return 1 if ($pid > 2); }		
-		
+	if ($req eq "registered") { return 1 if ($pid > 2); }
+
 							# The next set requires that we look at the object.
-	
+
 	if ($object) {
-	
+
 							# If requirement is 'owner' or 'project'
 							# Return 1 if person is the object creator
-							
-		my $ownf = $table."_creator";				
+
+		my $ownf = $table."_creator";
  		if (($req eq "owner") || ($req eq "project")) {
-			return 1 if ($object->{$ownf} eq $pid); 
+			return 1 if ($object->{$ownf} eq $pid);
 		}
-			
+
 							# If requirement is 'project'
 							# Return 1 if person is in the project
 		my $prof = $table."_project";
 		if ($req eq "project") {
-# Needs to be created	
+# Needs to be created
 		}
-	
+
 	} else {
 		#&error($dbh,"","","Object information not found in check_status()");
 	}
-	
+
 	return 0;
 }
 
@@ -1001,15 +1001,15 @@ sub check_status {
 #-------------------------------------------------------------------------------
 
 sub permission_current {
-	
+
 	my ($action,$table,$object) = @_;
-		
+
 	my $req = lc($Site->{$action."_".$table});
 	unless ($req) { $req = &permission_default($action,$table,$object); }
-	
+
 	return $req;
-	
-	
+
+
 }
 
 #-------------------------------------------------------------------------------
@@ -1023,25 +1023,25 @@ sub permission_current {
 
 
 sub permission_default {
-	
-	my ($action,$table,$object) = @_;	
-	
-	if ($action eq "view")  { 
+
+	my ($action,$table,$object) = @_;
+
+	if ($action eq "view")  {
 		if ($table =~ /config|mapping|optlist/) { return "admin"; }
 		if ($table =~ /person/) { return "owner"; }
 		else { return "anyone"; }
-	} 
+	}
 	elsif ($action eq "admin") { return "admin"; }
 	elsif ($action eq "delete")  { return "admin"; }
-	elsif ($action eq "create")  { 
+	elsif ($action eq "create")  {
 		if ($table =~ /post|feed/) { return "registered"; }
 		else { return "admin"; }
 	}
-	elsif ($action eq "edit")  { 
+	elsif ($action eq "edit")  {
 		if ($table =~ /post|feed|person/) { return "owner"; }
 		else { return "admin"; }
 	}
-	elsif ($action eq "publish")  { 
+	elsif ($action eq "publish")  {
 		return "admin";
 	} else {
 		return "anyone";
@@ -1068,7 +1068,7 @@ sub permission_default {
 
 #-------------------------------------------------------------------------------
 #
-#           Content Formatting Functions 
+#           Content Formatting Functions
 #
 #-------------------------------------------------------------------------------
 
@@ -1086,7 +1086,7 @@ sub publish_page {
 	if ($vars->{mode} eq "silent") { $opt = "silent"; }
 	$vars->{force} = "yes";				# Always rebuild when publishing
 								# instead of using caches
-	
+
 	if ($opt eq "verbose") {			# Print header for verbose
 		print "Content-type: text/html; charset=utf-8\n\n";
 		$Site->{header} =~ s/\Q<page_title>\E/Publish!/g;
@@ -1098,33 +1098,33 @@ sub publish_page {
 
 							# Set Up Request
 	my $stmt;my $sth;
-	if ($page_id eq "all" || $page_id eq "auto") { 
-		$stmt = qq|SELECT * FROM page|; 
+	if ($page_id eq "all" || $page_id eq "auto") {
+		$stmt = qq|SELECT * FROM page|;
 		$sth = $dbh -> prepare($stmt);
  		$sth -> execute(); }
 	else {  $stmt = qq|SELECT * FROM page WHERE page_id = ?|;
 		$sth = $dbh -> prepare($stmt);
-		$sth -> execute($page_id); 
+		$sth -> execute($page_id);
 	}
-	
+
 							# Get Page Data
 	my $count=0;my $wp;
 	while ($wp = $sth -> fetchrow_hashref()) {
 		$count++;
-		
+
 		$wp->{page_content} = $wp->{page_code};
-		
-		next unless (&is_allowed("publish","page",$wp)); 
+
+		next unless (&is_allowed("publish","page",$wp));
 		unless ($opt eq "silent" || $opt eq "initialize") { print "Publishing Page: ",$wp->{page_title},$LF; }
 
 								# Skip non-auto in autopublish mode
 		if ($page_id eq "auto") {
 			next unless ($wp->{page_autopub} eq "yes");
-		}						
+		}
 
 
 								# Make Sure We Have Content
-		unless ($wp->{page_content}) {		
+		unless ($wp->{page_content}) {
 			unless ($opt eq "silent") { print qq|Whoa, this page has no content $LF $LF|; }
 			next;
 		}
@@ -1137,19 +1137,19 @@ sub publish_page {
 
 								# Update 'update' value
 		$wp->{page_update} = time;
-		&db_update($dbh,"page",{page_update=>$wp->{page_update}},$wp->{page_id});						
+		&db_update($dbh,"page",{page_update=>$wp->{page_update}},$wp->{page_id});
 
 
 		# Format Page Content
 		&format_content($dbh,$query,$options,$wp);
-		$wp->{page_content} =~ s/\Q<page_id>\E/$page_id/g;		
+		$wp->{page_content} =~ s/\Q<page_id>\E/$page_id/g;
 		$wp->{page_content} =~ s/\Q[*page_id*]\E/$page_id/g;
 		unless ($wp->{page_linkcount} || $wp->{page_allow_empty} eq "yes") {
 			print "Zero linkcount, page not published.<p>";
 			next;
 		}
-		$keyword_count = $wp->{page_linkcount};	
-		
+		$keyword_count = $wp->{page_linkcount};
+
 
 
 
@@ -1157,11 +1157,11 @@ sub publish_page {
 								# Save Formatted Content to DB
 		&db_update($dbh,
 			"page",
-			{page_content=>$wp->{page_content},page_latest=>time}, 
+			{page_content=>$wp->{page_content},page_latest=>time},
 			$page_id);
-				
+
 								# Make Sure We Have an Output File
-		unless ($wp->{page_location}) {	
+		unless ($wp->{page_location}) {
 			unless ($opt eq "silent") { print qq|Whoa, no file to print this to $LF $LF|; }
 			next;
 		}
@@ -1180,15 +1180,15 @@ sub publish_page {
 			my $pgfile = $Site->{st_urlf} . $wp->{page_location};
 			my $pgurl = $Site->{st_url} . $wp->{page_location};
 
-			open PSITE, ">$pgfile"  or  print qq|Cannot open $pgfile : $! $LF $LF|; 
-			print PSITE $wp->{page_content} or print qq| Cannot print to $pgfile : $!  $LF $LF|; 
-		
+			open PSITE, ">$pgfile"  or  print qq|Cannot open $pgfile : $! $LF $LF|;
+			print PSITE $wp->{page_content} or print qq| Cannot print to $pgfile : $!  $LF $LF|;
+
 			unless ($opt eq "silent" || $opt eq "initialize") { print qq|Saved page to <a href="$pgurl">$pgfile</a>  $LF|; }
 		}
 
 		close PSITE;
-	
-	
+
+
 
 								# Print Archive Version
 
@@ -1200,12 +1200,12 @@ sub publish_page {
 			open POUT,">$save_to" or print qq|Error opening to write to $save_to : $! $LF $LF|;
 			print POUT $wp->{page_content} or print qq|Error printing to $save_to : $! $LF $LF|;
 			close POUT;
-			unless ($vars->{mode} eq "silent" || $opt eq "silent" || $opt eq "initialize") { 
+			unless ($vars->{mode} eq "silent" || $opt eq "silent" || $opt eq "initialize") {
 				print qq|Archived $wp->{page_title} to <a href="$save_url">$save_url</a> |;
 			}
 			$archive_url = $save_url;
 
-		} 
+		}
 		if ($wp->{page_content}) { $pgcontent = $wp->{page_content}; }
 		if ($wp->{page_title}) { $pgtitle = $wp->{page_title}; }
 		if ($wp->{page_format}) { $pgformat = $wp->{page_format}; }
@@ -1215,8 +1215,8 @@ sub publish_page {
 
 	$sth->finish(  );
 
-	if ($opt eq "verbose") {	
-		print "</p>";		
+	if ($opt eq "verbose") {
+		print "</p>";
 		print $Site->{footer};
 	}
 
@@ -1229,150 +1229,150 @@ sub publish_page {
 # -------  Publish badge --------------------------------------------------------
 
 sub publish_badge {
-        
+
 	my ($dbh,$query,$badge_id,$opt) = @_;
 	my $options = $query->{options};
 
 	$vars->{force} = "yes";				# Always rebuild when publishing
 								# instead of using caches
-	
+
      	if ($opt eq "verbose") {			# Print header for verbose
 		print "Content-type: text/html; charset=utf-8\n\n";
 		$Site->{header} =~ s/\Q[*badge_name*]\E/Publish!/g;
 		print $Site->{header};
 		print "<p>";
 	}
-		
+
 
 
 
 							# Set Up Request
 	my $stmt;my $sth;
-	if ($badge_id eq "all" || $badge_id eq "auto") { 
-		$stmt = qq|SELECT * FROM badge|; 
+	if ($badge_id eq "all" || $badge_id eq "auto") {
+		$stmt = qq|SELECT * FROM badge|;
 		$sth = $dbh -> prepare($stmt);
  		$sth -> execute(); }
 	else {  $stmt = qq|SELECT * FROM badge WHERE badge_id = ?|;
 		$sth = $dbh -> prepare($stmt);
-		$sth -> execute($badge_id); 
+		$sth -> execute($badge_id);
 	}
-	
+
 							# Get Badge Data
 	my $count=0;my $wp;
 	while ($wp = $sth -> fetchrow_hashref()) {
 		$count++;
-		
-				
-		next unless (&is_allowed("publish","badge",$wp)); 
+
+
+		next unless (&is_allowed("publish","badge",$wp));
 		unless ($opt eq "silent" || $opt eq "initialize") { print "Publishing Badge: ",$wp->{badge_name},$LF; }
 
-														
+
 
 
 								# Make Sure We Have Content
-		unless ($wp->{badge_name}) {		
+		unless ($wp->{badge_name}) {
 			unless ($opt eq "silent") { print qq|Whoa, this badge has no name! $LF $LF|; }
 			next;
 		}
-																				
+
 								# Make Sure We Have an Output File
-		unless ($wp->{badge_location}) {	
+		unless ($wp->{badge_location}) {
 			unless ($opt eq "silent") { print qq|Whoa, no file to print this to $LF $LF|; }
 			next;
 		}
 
-																		
+
                      						# Print Page
 
-		
+
 			my $pgfile = $Site->{st_urlf} . $wp->{badge_location};
   			my $pgurl = $Site->{st_url} . $wp->{badge_location};
 			my $json = qq|{"name": "$wp->{badge_name}","description": "$wp->{badge_description}","image": "$wp->{badge_image}", "criteria": "$wp->{badge_criteria}","issuer": "$wp->{badge_issuer}"}|;
 
 
-			open PSITE, ">$pgfile"  or  print qq|Cannot open $pgfile : $! $LF $LF|; 
+			open PSITE, ">$pgfile"  or  print qq|Cannot open $pgfile : $! $LF $LF|;
 
-			print PSITE $json or print qq| Cannot print to $pgfile : $!  $LF $LF|; 
-		
+			print PSITE $json or print qq| Cannot print to $pgfile : $!  $LF $LF|;
+
 			unless ($opt eq "silent" || $opt eq "initialize") { print qq|Saved page to <a href="$pgurl">$pgfile</a>  $LF|; }
-		
+
 
 		close PSITE;
-	
+
 
 	}
 
 
 	$sth->finish(  );
 
-	if ($opt eq "verbose") {	
-		print "</p>";		
+	if ($opt eq "verbose") {
+		print "</p>";
 		print $Site->{footer};
 	}
 
    #assign_badge($dbh,$query,$badge_id,1,$opt);
-   #bake_badge("http://rel2014.mooc.ca/badge/badgeassert.json",$Site->{st_urlf}."monnouveaubadge.png"); 
-	
+   #bake_badge("http://rel2014.mooc.ca/badge/badgeassert.json",$Site->{st_urlf}."monnouveaubadge.png");
+
 }
 
 # -------  Assign badge --------------------------------------------------------
 
 sub assign_badge {
-        
+
 	my ($dbh,$query,$badge_id, $person_id,$opt) = @_;
 	my $options = $query->{options};
-	
+
 	 $stmt = qq|SELECT * FROM badge WHERE badge_id = ?|;
 		$sth = $dbh -> prepare($stmt);
 		$sth -> execute($badge_id);
 
-         my $badge = $sth -> fetchrow_hashref(); 
-	
+         my $badge = $sth -> fetchrow_hashref();
+
 	 $stmt = qq|SELECT * FROM person WHERE person_id = ?|;
 		$sth = $dbh -> prepare($stmt);
-		$sth -> execute($person_id); 	
-								  
-          my $person = $sth -> fetchrow_hashref();  
-		
-		
+		$sth -> execute($person_id);
+
+          my $person = $sth -> fetchrow_hashref();
+
+
 
 
 								# Make Sure We Have Badge Class
-		unless ($badge->{badge_location}) {		
+		unless ($badge->{badge_location}) {
 			unless ($opt eq "silent") { print qq|Whoa, this badge has no class location! $LF $LF|; }
 			next;
 		}
-																			
+
                      						# Print Page
 
-		
+
 			my $pgfile = $Site->{st_urlf} . "assert_".$person->{person_id}."_".$badge->{badge_location};
 			my $pgurl = $Site->{st_url} . "assert_".$person->{person_id}."_".$badge->{badge_location};
-  			
+
 			my $json = qq|{"uid": "$person->{person_id}_$badge->{badge_id}","recipient": {"type":"email", "hashed": false, "identity": "$person->{person_email}"},"image": "$badge->{badge_image}", "evidence": "$badge->{badge_criteria}","issuedOn": "12345","badge":"$Site->{st_url}$badge->{badge_location}", "verify":{"type": "hosted","url": "$pgurl"} }|;
 
 
-			open PSITE, ">$pgfile"  or  print qq|Cannot open $pgfile : $! $LF $LF|; 
+			open PSITE, ">$pgfile"  or  print qq|Cannot open $pgfile : $! $LF $LF|;
 
-			print PSITE $json or print qq| Cannot print to $pgfile : $!  $LF $LF|; 
-		
+			print PSITE $json or print qq| Cannot print to $pgfile : $!  $LF $LF|;
+
 			unless ($opt eq "silent" || $opt eq "initialize") { print qq|Saved page to <a href="$pgurl">$pgfile</a>  $LF|; }
-		
+
 
 		close PSITE;
-	
 
-	
+
+
 
 
 	$sth->finish(  );
 
-	if ($opt eq "verbose") {	
-		print "</p>";		
+	if ($opt eq "verbose") {
+		print "</p>";
 		print $Site->{footer};
 	}
 
-	
+
 }
 
 
@@ -1386,9 +1386,9 @@ use LWP::Simple;
 
 $contents = get("http://backpack.openbadges.org/baker?assertion=".$urlbadge);
 
-open PSITE, ">$pgfile"  or  print qq|Cannot open $pgfile : $! $LF $LF|; 
+open PSITE, ">$pgfile"  or  print qq|Cannot open $pgfile : $! $LF $LF|;
 
-print PSITE $contents or print qq| Cannot print to $pgfile : $!  $LF $LF|; 
+print PSITE $contents or print qq| Cannot print to $pgfile : $!  $LF $LF|;
 
 close PSITE;
 
@@ -1413,22 +1413,22 @@ sub make_admin_links {
 
 	my $count;
 	while ($$input =~ /<admin (.*?)>/mig) {
-	
+
 		my $autotext = $1;
 		$count++; last if ($count > 100);			# Prevent infinite loop
 		my $replace = "";
 		my ($table,$id,$status) = split ",",$autotext;
-		
+
 					# Define Admin Links (or Blanks)
 
-		if ($Person->{person_status} eq "admin") { 
+		if ($Person->{person_status} eq "admin") {
 			unless ($Site->{pubstatus} eq "publish") {
-			
+
 				$replace = "";
 						# Special for feeds
 
 				if ($table eq "feed") {
-					
+
 					my $sz = qq|width=10 height=10|;
 					my $A = qq|<img src="|.$Site->{st_img}.qq|A.jpg" $sz/> |;
 					my $R = qq|<img src="|.$Site->{st_img}.qq|R.jpg" $sz/> |;
@@ -1454,26 +1454,26 @@ sub make_admin_links {
 					} else {
 						$replace .= qq|[$status]|;
 					}
-				}	
-				
-				
-				$replace .=  qq| 
+				}
+
+
+				$replace .=  qq|
 				[<a href="$Site->{st_cgi}admin.cgi?$table=$id&action=edit">@{[&printlang("Edit")]}</a>]
 				[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?$table=$id&action=Delete')">@{[&printlang("Delete")]}</a>]|;
-				
+
 				if ($table eq "post") {
 					$replace .= qq|[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?$table=$id&action=Spam')">@{[&printlang("Spam")]}</a>]|;
 				}
-				
-				
-					
+
+
+
 			}
-		}	
-		
-		
-		
-		
-		
+		}
+
+
+
+
+
 		$$input =~ s/<admin $autotext>/$replace/;
 	}
 
@@ -1510,25 +1510,25 @@ sub make_comment_form {
 				<td colspan="2"><input type="text" name="anon_email" size="40"></tr>|;
 
 		# ... for registered user
-		} else {	 
-			$email_subscription = qq|	
+		} else {
+			$email_subscription = qq|
 			<tr><td><input type="checkbox" name="post_email_checked" checked></td>
 			<td colspan="3">@{[&printlang("Check Box for Replies")]}<br>&nbsp;@{[&printlang("Your email")]}
 			<input type="text" name="anon_email" value="$Person->{person_email}" size="57"></tr>|;
-		}			
+		}
 
 		my $identifier = "id".$Person->{person_id}.time;
 		my $comment_form = qq|
 		<div class="comment_form_container" style="background-color:#eeeeee;"><div style="padding:10px;">
 		<section id="Comment"><h3>@{[&printlang("Your Comment")]}</h3></section>
-		
+
 		<div id="preview" style="width:90%;">
 		<p><LOGIN_INFO></p>
 		<p>@{[&printlang("Preview until satisfied")]} @{[&printlang("Not posted until done")]}<p>
 		</div></div>
 
 		<div id="theform" style="width:90%;">
-		
+
 		 <a name="comment"></a>
  		 <form id="apisubmit" method="post" action="$Site->{st_cgi}page.cgi" style="margin-left:15px;">
 		 <input type="hidden" name="table" value="post">
@@ -1536,17 +1536,17 @@ sub make_comment_form {
 		 <input type="hidden" name="id" value="new">
 		 <input type="hidden" name="post_thread" value="$cid">
 		 <input type="hidden" name="code" value="$code">
-		 <input name="action" value="api submit" type="hidden">	 
+		 <input name="action" value="api submit" type="hidden">
 		 <input name="identifier" value="$identifier" type="hidden">
 
-		<input name="post_title" value="Re: $ctitle" size="60" style="width:300px;height:1.8em;" type="text"> 
+		<input name="post_title" value="Re: $ctitle" size="60" style="width:300px;height:1.8em;" type="text">
 		<br/>
-		
-		
+
+
 		<textarea id="post_description" name="post_description" cols="70" rows="5"></textarea>
 		<br/>
-		
-		$email_subscription 
+
+		$email_subscription
 
 		<br/>
 		<input name="pushbutton" id="pushbutton" type="hidden">
@@ -1555,12 +1555,12 @@ sub make_comment_form {
 
 
 		</form>|;
-		
+
 		my $cbox = &printlang("comment_disclaimer");
 		$comment_form .= &db_get_content($dbh,"box",$cbox);
-		
+
 		$comment_form .= "</div></div>";
-	
+
 		$$text_ptr =~ s/<CFORM>\Q$autotext\E<END_CFORM>/$comment_form/sig;
 	}
 }
@@ -1571,7 +1571,7 @@ sub make_comment_form {
 
 # Creates an archive filename based on date and page location filename (page_location)
 
-sub archive_filename {	
+sub archive_filename {
 
 	# Obtain filename from inout
 	my $archivefile = shift @_;
@@ -1604,7 +1604,7 @@ sub archive_filename {
 		$archivefile;	# Compile URL
 
 
-	
+
 	# And return them
 	return ($af,$au);
 }
@@ -1619,14 +1619,14 @@ sub archive_filename {
 
 sub format_content {
 
-				
+
 	my ($dbh,$query,$options,$wp) = @_;
 	if ($diag>9) { print "Format Content <br>"; }
-	
+
     	my $vars = ();
     	if (ref $query eq "CGI") { $vars = $query->Vars; }
 
-    		
+
 
 						# Default Content
 	unless (defined $wp->{page_content}) { $wp->{page_content} = &printlang("No content"); }
@@ -1639,28 +1639,28 @@ sub format_content {
 	unless (defined $wp->{page_feed}) { $wp->{page_feed} = $Site->{st_feed}; }
 	unless (defined $Site->{st_title}) { $Site->{st_title} = &printlang("Site Title");; }
 	$wp->{page_linkcount} = 0;
-	
-	
 
-	&make_data_elements($wp->{page_content},$wp,$wp->{page_format});		# Fill page content elements	
+
+
+	&make_data_elements($wp->{page_content},$wp,$wp->{page_format});		# Fill page content elements
 	&make_boxes($dbh,\$wp->{page_content});						# Make Boxes
-	&make_counter($dbh,\$wp->{page_content});						# Make Boxes	
+	&make_counter($dbh,\$wp->{page_content});						# Make Boxes
 	my $results_count = &make_keywords($dbh,$query,\$wp->{page_content},$wp);	# Make Keywords
 	$wp->{page_linkcount} .= $results_count;
-	
+
 	$wp->{page_content} =~ s/<count>/$vars->{results_count}/mig;			# Update results count from keywords
 
 
 	my $today = &nice_date(time);
 	$wp->{page_content} =~ s/#TODAY#/$today/;
-	
+
 	&autodates(\$wp->{page_content});
-	
+
 
         &get_loggedin_image(\$wp->{page_content});
 
 						# Comment Form
-		
+
 	if ($vars->{comment} eq "no") {
 		$wp->{page_content} =~ s/<CFORM>(.*?)<END_CFORM>//g;
 	} else {
@@ -1674,38 +1674,38 @@ sub format_content {
 
 
 	$wp->{page_content} =~ s/\Q[*page_title*]\E/$wp->{page_title}/g;					# Page Title
-	$wp->{page_content} =~ s/\Q<page_title>\E/$wp->{page_title}/g;				
+	$wp->{page_content} =~ s/\Q<page_title>\E/$wp->{page_title}/g;
 	&autotimezones($query,\$wp->{page_content});								# Fill timezone dates
-	
+
 						# Template and Site Info
 	&make_site_info(\$wp->{page_content});
-	
+
 	&make_site_hits_info(\$wp->{page_content});
 
 
-					
+
 
 
 						# Stylistic
 						# Customize Internal Links
 	my $style = qq||;
 	$wp->{page_content} =~ s/<a h/<a $style h/sig;
-	
 
-		
-		
-		
-		
+
+
+
+
+
 	&clean_up(\$wp->{page_content},$format);
-	
+
 						# RSSify
-						
+
 	if ($wp->{page_format} =~ /rss|xml|atom/i) {
 		&format_rssify(\$wp->{page_content});
 	}
 
 	if ($diag>9) { print "/Format Content <br>"; }
-	
+
 }
 
 sub  get_loggedin_image{
@@ -1719,25 +1719,25 @@ sub published_on_web {
 
 	# Do not publish if record is not 'published' (ie., if $Site->{pubstatus} has a value, then fill only if the value of $table_social_media !~ /web/
 	# Triggered by creating a 'social_media' column in the table (which we test for here)
-	
+
 	my ($dbh,$table,$record_data,@pubcolumns) = @_;
-	
-	if ($Site->{pubstatus}) { 
+
+	if ($Site->{pubstatus}) {
 		my $smcolumn = $table."_social_media";
 		unless (@pubcolumns) { @pubcolumns = &db_columns($dbh,$table); }
-			if ( grep( /^$smcolumn$/, @pubcolumns ) ) {	
-			return 0 unless ($record_data->{$table."_social_media"} =~ /web/i); 
+			if ( grep( /^$smcolumn$/, @pubcolumns ) ) {
+			return 0 unless ($record_data->{$table."_social_media"} =~ /web/i);
 		}
-	}	
+	}
 	return 1;
-	
+
 }
-	
+
 # -------  Format Record ----------------------------------------------------
 
 # Puts a single data record into its template
 # where there are different templates for different formats
-# keyflag is set by make_keywords() and is set to prevent 
+# keyflag is set by make_keywords() and is set to prevent
 # keyword commands from creating full page records with templates
 
 # Should be called record_format()  (and eventually, $record->format() when we're fully OO)
@@ -1750,100 +1750,100 @@ sub format_record {
 
 	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
 	my $id_number = $filldata->{$table."_id"};
-	
-	return unless (&published_on_web($dbh,$table,$filldata,@pubcolumns));
-	
-	
-									# Permissions
-				
-	return &printlang("Permission denied to view",$table) unless (&is_viewable("view",$table,$filldata)); 
 
-	
+	return unless (&published_on_web($dbh,$table,$filldata,@pubcolumns));
+
+
+									# Permissions
+
+	return &printlang("Permission denied to view",$table) unless (&is_viewable("view",$table,$filldata));
+
+
 									# Get and Return Cached Version
-									
-	$vars->{force} = "yes";						# Cache is broken (again), still haven't figured out how to make this work	
-			
-	unless ($vars->{force} eq "yes") {								
-		if (my $cached = &db_cache_check($dbh,$table,$id_number,$record_format)) {							
+
+	$vars->{force} = "yes";						# Cache is broken (again), still haven't figured out how to make this work
+
+	unless ($vars->{force} eq "yes") {
+		if (my $cached = &db_cache_check($dbh,$table,$id_number,$record_format)) {
 			if ($cached) {
 				&make_admin_links(\$cached);
-				return $cached;	
+				return $cached;
 			}
-		}					
-	}							
-					
+		}
+	}
 
 
 
-	
+
+
 											# No cached version, format record
-									
-		
+
+
 
 	my $view_text = "";								# Get the code and add header and footer for Page
-	if (($table eq "page") && ($record_format ne "page_list" && $record_format ne "summary") && !$keyflag) { 
+	if (($table eq "page") && ($record_format ne "page_list" && $record_format ne "summary") && !$keyflag) {
 			$view_text = &db_get_template($dbh,$filldata->{page_header}) .
-			$filldata->{page_code} .				
-			&db_get_template($dbh,$filldata->{page_footer});	
-	} else { 	
-	
+			$filldata->{page_code} .
+			&db_get_template($dbh,$filldata->{page_footer});
+	} else {
+
 									# Or Get the Template (aka View)
 
 		my $view_title = $record_format;
 		if ($table eq "post") { $view_title = $filldata->{post_type}."_".$view_title; }	# Special for post
-		unless ($view_title =~ /$table/) { $view_title = $table."_".$view_title; }	# ensure full view format name		
-		$view_text = &db_get_text($dbh,"view",$view_title);		
+		unless ($view_title =~ /$table/) { $view_title = $table."_".$view_title; }	# ensure full view format name
+		$view_text = &db_get_text($dbh,"view",$view_title);
 
 	}
 
 
 
 
-											
+
 	&make_boxes($dbh,\$view_text);							# Make Boxes - insert box text into element
 	&make_counter($dbh,\$view_text);							# Make Counter
-	
-	&make_data_elements(\$view_text,$filldata,$record_format);			# Fill page content elements				
+
+	&make_data_elements(\$view_text,$filldata,$record_format);			# Fill page content elements
 
 	my $results_count = &make_keywords($dbh,$query,\$view_text);						# Keywords
 
 	my $kresults_count = &make_keylist($dbh,$query,\$view_text);						# Keylist
-						
+
 	&make_next($dbh,\$view_text,$table,$id_number,$filldata);							# Prev / Next Link
-						
+
 	&autodates(\$view_text);										# Dates
 
 
 
 	&make_images(\$view_text,$table,$id_number,$filldata);							# Images
 
-	&make_enclosures(\$view_text,$table,$id_number,$filldata);						# Enclosures	
-	
-	&make_author(\$view_text,$table,$id_number,$filldata);							# Author	
-	
+	&make_enclosures(\$view_text,$table,$id_number,$filldata);						# Enclosures
+
+	&make_author(\$view_text,$table,$id_number,$filldata);							# Author
+
 	&make_hits($text_ptr,$table,$id,$filldata);								# Hits
 
 
 	if ($record_format =~ /opml/) { $view_text =~ s/&/&amp;/g; }
 	if ($record_format =~ /text|txt/) { &strip_html($text_ptr); }
 
-	
-	
-	
+
+
+
 	&make_escape($dbh,\$view_text);										# Escaped HTML
 
 	&clean_up(\$view_text,$record_format);
-										
-#	&db_cache_save($dbh,$table,$id_number,$record_format,$view_text);					# Save To Cache
-	
 
-	&make_admin_links(\$view_text);	
-	
+#	&db_cache_save($dbh,$table,$id_number,$record_format,$view_text);					# Save To Cache
+
+
+	&make_admin_links(\$view_text);
+
 	$view_text =~ s/CDATA\((.*?)\)//g;		# Kludge to eliminate hanging CDATA tags
-	
+
 	# Clean up presentations
 	if ($table eq "presentation") {
-		
+
 			unless ($filldata->{presentation_slideshare}) {
 				$view_text =~ s|<iframe(.*?)slideshare.net/(.*?)/iframe>||g;
 			}
@@ -1854,9 +1854,9 @@ sub format_record {
 			}
 
 	}
-	
-	
-	
+
+
+
 	#$viewtext = " - ";
 	if ($view_text =~ /CampaignToBuildOneBigCampaign/ || $view_text =~ /Blacklock/ ||  $view_text =~ /One Big Campaign/ || $view_text =~ /feed\/408/) {
 		$view_text = " - ";
@@ -1881,110 +1881,110 @@ sub format_record {
 
 
 sub facebook_post {
-	
+
 	my ($dbh,$table,$id,$message) = @_;
-	
+
 	return "Facebook turned off." unless ($Site->{fb_post} eq "yes");				# Make sure Facebook is active
 	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id});					# get record
-	my $fbp = &facebook_session(); 
-	
+	my $fbp = &facebook_session();
+
 	my $fbp = Net::Facebook::Oauth2->new(
-		application_secret     => $Site->{fb_app_secret} , 
+		application_secret     => $Site->{fb_app_secret} ,
 		application_id          => $Site->{fb_app_id},
 		callback           => $Site->{fb_postback_url}
 	);
-		
+
 	my $text = &format_record($dbh,"","post","facebook",$record);				# Format content
 	my $link = $Site->{st_url}."post/".$id."/rd";
-	
+
 	$text =~ s/<br>|<br\/>|<br \/>|<\/p>/\n\n/ig;							# No HTML
-	$text =~ s/\n\n\n/\n\n/g;				
-	$text =~ s/<(.*?)>//g; 
+	$text =~ s/\n\n\n/\n\n/g;
 	$text =~ s/<(.*?)>//g;
-		
-	
+	$text =~ s/<(.*?)>//g;
+
+
 	my $posturl = "https://graph.facebook.com/v2.2/OLDaily/feed";
-        my $args = {											
+        my $args = {
             message => $text,
             link => $link,
         };
-        $fbp->{access_token} = $Site->{fb_token};        	
+        $fbp->{access_token} = $Site->{fb_token};
         my $info = $fbp->post( $posturl,$args );							# Post to Facebook
         my $inforcheck = $info->as_json;
-	
+
 	if ($inforcheck =~ /error/) {													# catch error, or
-	
+
 			print "Content-type: text/html\n\n";
 			$vars->{facebook} .= "Facebook: Error <br />";
-			$vars->{facebook} .=  $inforcheck;  
+			$vars->{facebook} .=  $inforcheck;
 			print $vars->{facebook};
 			facebook_access_code_url($vars->{facebook});
 			exit;
-		
+
 	} else {
-		my $smfield = $table."_social_media";								# Update Record	
+		my $smfield = $table."_social_media";								# Update Record
 		my $smstring = $record->{$smfield}."facebook ";
 		&db_update($dbh,$table,{$smfield => $smstring},$id);
 		$vars->{facebook} .= "$inforcheck <br>Facebook: OK";
-	 }               									
-	 
-	 
-	
+	 }
+
+
+
 	return $vars->{facebook};
-	
+
 }
 
 
 sub facebook_session {
-	
-	my ($dbh) = @_;	
+
+	my ($dbh) = @_;
 
 	#use Facebook::Graph;
 	use Net::Facebook::Oauth2;
-	
-		
+
+
 									# Make sure we have an access token
 	unless ($Site->{fb_token}) { $Site->{fb_token} = &facebook_access_token(); }
 
 									# Authenticate and Encode token
-	unless (my $fb = &facebook_authenticate()) { return $vars->{facebook}; } 
+	unless (my $fb = &facebook_authenticate()) { return $vars->{facebook}; }
 	$fb->{access_token} = $Site->{fb_token};
-	return $fb;	
+	return $fb;
 }
 
 
 
 sub facebook_authenticate {
-	
-	
+
+
 	my $fbz = Net::Facebook::Oauth2->new(
-		application_secret     => $Site->{fb_app_secret} , 
+		application_secret     => $Site->{fb_app_secret} ,
 		application_id          => $Site->{fb_app_id},
 		callback           => $Site->{fb_postback_url}
 	);
-    
-	unless ($fbz) { $vars->{facebook} .= "Facebook authentication error: $?"; return; } 
-    
-	return $fbz;   	
-	
+
+	unless ($fbz) { $vars->{facebook} .= "Facebook authentication error: $?"; return; }
+
+	return $fbz;
+
 }
 
 sub facebook_access_token {
-	
+
 	return $Site->{fb_token} if ($Site->{fb_token});
 
-	my $access_code = &facebook_access_code_url(); 	
-	
+	my $access_code = &facebook_access_code_url();
+
 	my $fb = Net::Facebook::Oauth2->new(
-            application_secret     => $Site->{fb_app_secret}, 
+            application_secret     => $Site->{fb_app_secret},
             application_id          => $Site->{fb_app_id},
             callback           => $Site->{fb_postback_url}
         );
-    
-        my $access_token = $fb->get_access_token(code => $access_code);         
+
+        my $access_token = $fb->get_access_token(code => $access_code);
         if ($access_token) { $Site->update_config($dbh,{fb_token => $access_token}); }
         else { $vars->{facebook} .= "Facebook: Error getting access token."; }
-        	
+
 	return $access_token;
 }
 
@@ -1994,7 +1994,7 @@ sub facebook_access_code_url {
 	return $Site->{fb_code} if ($Site->{fb_code});
 	if ($vars->{code}) {						# This picks up the code from the redirect
 		$Site->{fb_code} = $vars->{code};			# We'll store it for later use
-		if ($Site->{fb_code}) { $Site->update_config($dbh,{fb_code => $Site->{fb_code}}); }		
+		if ($Site->{fb_code}) { $Site->update_config($dbh,{fb_code => $Site->{fb_code}}); }
 		print "Content-type: text/html\n\n";			# Print a response
 		print "Facebook OK $Site->{fb_code}";
 		exit;							# And quit
@@ -2003,32 +2003,32 @@ sub facebook_access_code_url {
 									# This assumes we did not get a code from a redirect
 									# So we have to make the request
 	my $fbb = Net::Facebook::Oauth2->new(
-            application_secret     => $Site->{fb_app_secret}, 
+            application_secret     => $Site->{fb_app_secret},
             application_id          => $Site->{fb_app_id},
             callback           => $Site->{fb_postback_url}
-        );	
-	
-	
-								        # Get the authorization URL 
-        my $url = $fbb->get_authorization_url(	
+        );
+
+
+								        # Get the authorization URL
+        my $url = $fbb->get_authorization_url(
             scope   => [ 'public_profile', 'email'  ],
             display => 'page'
         );
-    
+
         print "Content-type: text/html\n\n";
         print "$info <p>";
         print "Facebook needs to generate an access token. Click on the link or enter the URL:  $url<p>";					# And provide the link to click on
-    
-        print qq|Redirect URL: <a href="$url">Click here</a><p>|;	
-	
+
+        print qq|Redirect URL: <a href="$url">Click here</a><p>|;
+
 	exit;
 }
 
 sub facebook_access_code_submit {
-	
+
 	my $code = $vars->{code};					# save the code. Note it's valif only for a couple minutes
 	if ($access_token) { $Site->update_config($dbh,{fb_code => $code}); }
-	
+
 									# Regenerate the access token, which will persist
 	$Site->{fb_token} = "";
 	my $result = &facebook_access_token();
@@ -2036,8 +2036,8 @@ sub facebook_access_code_submit {
 	print "Facebook Access Result: $result<br>";
 	unless ($result =~ /error/i) { print "You can now use Facebook services<p>"; }
 	exit;
-	
-	
+
+
 }
 
 # -------   Post to Twitter --------------------------------------------------
@@ -2053,16 +2053,16 @@ sub facebook_access_code_submit {
 
 
 sub twitter_post {
-	
+
 	my ($dbh,$table,$id,$tweet) = @_;
 	my $record = &db_get_record($dbh,$table,{$table."_id"=>$id});
-	
+
 	unless ($Site->{tw_post} eq "yes") { $vars->{twitter} .= "Twitter turned off."; return $vars->{twitter}; }
 
-	
-	
-	if ($record->{$table."_social_media"} =~ "twitter") { $vars->{twitter} .= "Already posted this $table to Twitter."; return; }	
-	
+
+
+	if ($record->{$table."_social_media"} =~ "twitter") { $vars->{twitter} .= "Already posted this $table to Twitter."; return; }
+
 	#use Net::Twitter::Lite::WithAPIv1_1;
 	#use Scalar::Util 'blessed';
 
@@ -2073,14 +2073,14 @@ sub twitter_post {
 
 
 										# Access Account
-	
+
 	&error($dbh,"","","Twitter posting requires values for consumer key, consumer secret, token and token secret")
 		unless ($Site->{tw_cckey} && $Site->{tw_csecret} && $Site->{tw_token} && $Site->{tw_tsecret});
-		
 
-		
-	    
-										# Compose Tweet	
+
+
+
+										# Compose Tweet
 	my $tw_url = $Site->{st_url}.$table."/".$id;
 	if ($Site->{tw_use_tag}) { $tw_url = $Site->{st_tag}." ".$tw_url; }
 	my $url_length = length($tw_url)+1;
@@ -2088,29 +2088,29 @@ sub twitter_post {
 	my $tweet_length = length($tweet);
 
 										# Shorten Tweet
-	if (($url_length + $tweet_length) > 137) { 
+	if (($url_length + $tweet_length) > 137) {
 		my $etc = "...";
 		my $trunc_length = 137 - $url_length;
 		$tweet = substr($tweet,0,$trunc_length);
-		$tweet =~ s/(\w+)[.!?]?\s*$//;		
+		$tweet =~ s/(\w+)[.!?]?\s*$//;
 		$tweet.=$etc;
 	}
-	
+
 	$tweet = $tweet . " " . $tw_url;
-	
-	
+
+
 	$tweet =~ s/\xe2\x80\x99/\'/gs;						# Convert smartquotes
 	$tweet =~ s/\xe2\x80\x98/\'/gs;						# No doubt more UTF8 stuff needs to be fixed
 	$tweet =~ s/\xe2\x80\x9c/\"/gs;
 	$tweet =~ s/\xe2\x80\x9d/\"/gs;
-	
+
 	my $nt = Net::Twitter::Lite::WithAPIv1_1->new(
 		consumer_key        => $Site->{tw_cckey},
 		consumer_secret     => $Site->{tw_csecret},
 		access_token        => $Site->{tw_token},
 		access_token_secret => $Site->{tw_tsecret},
 		ssl                 => 1,  ## enable SSL! ##
-	);	
+	);
 
         my $result = eval {$nt->update({ status => $tweet})};
 
@@ -2120,12 +2120,12 @@ sub twitter_post {
 			"HTTP Message......: ". $err->message. "<br>Twitter error.....: ". $err->error. "</p>";
 		return $vars->{twitter};
 	}
-	
-				
+
+
 	if ($result) { $vars->{twitter} .= "Twitter: OK" }
 
 	return $vars->{twitter};
-	
+
 }
 
 
@@ -2160,37 +2160,37 @@ sub set_formats {
 	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
 
 
-	
+
 
 						# Page Format
 	my $page_format = "html";				# default page format
 	if ($table eq "page") { 				# Assign predefined page format
 		if ($wp->{page_format}) { 			# for pages
-			$page_format = $wp->{page_format}; 
-		} 
+			$page_format = $wp->{page_format};
+		}
 	} else {										# Assign requested format
 		if ($vars->{format}) {				# for everything else
 			$page_format = uc($vars->{format});
-		} 
+		}
 	}
-		
+
 						# Record Format
-	my $record_format = $table. "_" . lc($page_format);	# default record format	
+	my $record_format = $table. "_" . lc($page_format);	# default record format
 	# Special formats for 'types' of content
 	# Eg., for types of post: comment, link, article, gallery, announcement
-	if ($table eq "post") { 
-		if ($vars->{format}) { 
+	if ($table eq "post") {
+		if ($vars->{format}) {
 			$record_format = "post_".$wp->{post_type}."_".lc($vars->{format});
 		} elsif ($wp->{post_type}) {
 			$record_format = "post_".$wp->{post_type}."_".lc($page_format);
 		} else {
 			$record_format = "post_link_".lc($page_format);
-		}	
-	} 
-	
-						
+		}
+	}
+
+
 	my $mime_type = &set_mime_type($page_format);					# Mime Types
-					
+
 
 	return ($page_format,$record_format,$mime_type);
 }
@@ -2198,12 +2198,12 @@ sub set_formats {
 # -------  Mime Types ------------------------------------------------------
 
 sub set_mime_type {
-	
+
 	my ($page_format) = @_;
-	if ($page_format =~ /RSS|OPML|XML|DC|ATOM/i) { 
+	if ($page_format =~ /RSS|OPML|XML|DC|ATOM/i) {
 		$mime_type = "text/xml";
 	} elsif ($page_format =~ /TEXT|TXT/i) {
-		$mime_type = "text/plain"; 
+		$mime_type = "text/plain";
 	} elsif ($page_format =~ /JSON/i) {
 		$mime_type = "application/json";
 	} elsif ($page_format =~ /JS/i) {
@@ -2211,7 +2211,7 @@ sub set_mime_type {
 	} else {
 		$mime_type = "text/html";
 	}
-	return $mime_type;	
+	return $mime_type;
 	#	my $mime_type = "text/html; charset=utf-8";					# default mime
 }
 
@@ -2223,7 +2223,7 @@ sub clean_up {		# Misc. clean-up for print
 	my ($text_ptr,$format) = @_;
 	$format ||= "";
 	$$text_ptr =~ s/BEGDE(.*?)ENDDE//mig;				# Kill unfilled data elements
-	$$text_ptr =~ s/\[<a(.*?)href=""(.*?)>(.*?)<\/a>\]//mig;			# Kill blank Nav	
+	$$text_ptr =~ s/\[<a(.*?)href=""(.*?)>(.*?)<\/a>\]//mig;			# Kill blank Nav
 	$$text_ptr =~ s/<a(.*?)href=""(.*?)>(.*?)<\/a>/$1 $2 $3/mig;			# Kill blank URLs
 
 	$$text_ptr =~ s/<img(.*?)src=""(.*?)>//mig;			# Kill blank img
@@ -2252,38 +2252,38 @@ sub clean_up {		# Misc. clean-up for print
 						# Site Info
 	$$text_ptr =~ s/<st_url>/$Site->{st_url}/g;
 	$$text_ptr =~ s/<st_cgi>/$Site->{st_cgi}/g;
-	
+
 	$$text_ptr =~ s/ & / &amp; /mig;					# Catch hanging ampersands
 
 	$$text_ptr =~ s/,\s+}/}/g;
 	$$text_ptr =~ s/&amp;nbsp;/ /g;
-	
 
-	
+
+
 
 	return;
 }
 
 #------------------------  Strip HTML --------------------
-	
+
 sub strip_html {
-	
+
 	# Source
 	#########################################################
 	# striphtml ("striff tummel")
-	# tchrist@perl.com 
+	# tchrist@perl.com
 	#########################################################
 
 	my ($text_ptr) = @_;
-	
+
 	$$text_ptr =~ s/&gt;/>/ig;
 	$$text_ptr =~ s/&lt;/</ig;
-	
+
 	$$text_ptr =~ s/(<br>|<br\/>|<br \/>|<p>)/\n/ig;
-	$$text_ptr =~ s{ <!(.*?)(--.*?--\s*)+(.*?)>}{if ($1 || $3) {"<!$1 $3>";}}gesx;                 
-	$$text_ptr =~ s{ <(?:[^>'"] *|".*?"|'.*?') +>}{}gsx;    
-	$$text_ptr =~ s/\n\n\n/\n\n/g;     
-	$$text_ptr =~ s/\n/<br>/;         
+	$$text_ptr =~ s{ <!(.*?)(--.*?--\s*)+(.*?)>}{if ($1 || $3) {"<!$1 $3>";}}gesx;
+	$$text_ptr =~ s{ <(?:[^>'"] *|".*?"|'.*?') +>}{}gsx;
+	$$text_ptr =~ s/\n\n\n/\n\n/g;
+	$$text_ptr =~ s/\n/<br>/;
 
 }
 
@@ -2344,7 +2344,7 @@ sub format_rssify {		# Misc. clean-up for print
 	$$text_ptr =~ s/AMPERSAND(\w+?);/&$1;/g;
 	$$text_ptr =~ s/AMPERSAND/&/mig;
 
-	
+
 }
 
 
@@ -2366,55 +2366,55 @@ sub autocats {
 	my $dfield = $table."_description";
     	my $acfield = $table."_autocats";
     	my @tlist;
-	
-	
-	if (($filldata->{$acfield} eq "") || ($vars->{autocats} eq "force")) {		# if autocats are not defined in table_authcats, then 
-	
+
+
+	if (($filldata->{$acfield} eq "") || ($vars->{autocats} eq "force")) {		# if autocats are not defined in table_authcats, then
+
 
 		unless ($vars->{topicdefinitions}) {							# Get topic list (just once)
 			my $tsql = "SELECT * from topic";
 			my $tsth = $dbh->prepare($tsql);
 			$tsth->execute();
 			while (my $topic = $tsth -> fetchrow_hashref()) {
-				$vars->{topicdefinitions}->{$topic->{topic_title}} = $topic->{topic_where};	
-				$vars->{topicids}->{$topic->{topic_title}} = $topic->{topic_id};	
+				$vars->{topicdefinitions}->{$topic->{topic_title}} = $topic->{topic_where};
+				$vars->{topicids}->{$topic->{topic_title}} = $topic->{topic_id};
 			}
 		}
-	
+
 		my $tdata = $filldata->{$tfield}.$filldata->{$dfield};					# Find topics in data
 		while ( my ($tx,$ty) = each %{$vars->{topicdefinitions}}) {
-			if ($tdata =~ m/$ty/) { push @tlist,"$tx"; }				
-		}		
+			if ($tdata =~ m/$ty/) { push @tlist,"$tx"; }
+		}
 
 		$filldata->{$acfield} = join ";",@tlist;						# Save the topic list in table_authcats
 		# print "Autocats: $filldata->{$acfield} <br>";
 		unless ($filldata->{$acfield}) { $filldata->{$acfield} = "none"; }
-		&db_update($dbh,$table,{$acfield => $filldata->{$acfield}},$filldata->{$idfield});	
+		&db_update($dbh,$table,{$acfield => $filldata->{$acfield}},$filldata->{$idfield});
 	}
-	
+
 	# find List of Topics in Text  (@topiclist in $$text_ptr)
 	# then store in table_authcats
-	
+
 
 	unless (@tlist) { @tlist = split ";",$filldata->{$acfield}; }
 
 	# HTML Topics
 	while ($$text_ptr =~ m/<TOPIC>(.*?)<END_TOPIC>/g) {
 		my $id = $1; my $replace = "";
-		foreach my $t (@tlist) { 
-			if ($replace) { $replace .= ", "; } 
+		foreach my $t (@tlist) {
+			if ($replace) { $replace .= ", "; }
 			$replace .= $t;
 		}
 		unless ($replace) { $replace = "None"; }
 		$replace = "[Tags: $replace]";
 		$$text_ptr =~ s/<TOPIC>\Q$id\E<END_TOPIC>/$replace/sig;
 	}
-	
+
 	# XML Topics
 	while ($$text_ptr =~ m/<XMLTOPIC>(.*?)<END_XMLTOPIC>/g) {
 		my $id = $1; my $replace = "";
 
-		foreach my $t (@tlist) { 
+		foreach my $t (@tlist) {
 			my $topicurl = $Site->{st_url} . "topic/" . $vars->{topicids}->{$t};
 			$replace .= qq|      <category domain="$topicurl">$t</category>\n|;
 		}
@@ -2443,7 +2443,7 @@ sub autocats {
 
 #-------------------------------------------------------------------------------
 #
-#           Make Functions 
+#           Make Functions
 #
 #-------------------------------------------------------------------------------
 
@@ -2455,22 +2455,22 @@ sub autocats {
 #   in $$text_ptr
 
 sub make_data_elements {
-	
-	my ($text_ptr,$table,$format) = @_;	
-	
+
+	my ($text_ptr,$table,$format) = @_;
+
 	my @data_elements = ();
 	while ($$text_ptr =~ /\[\*(.*?)\*\]/) {
-		my $de = $1; push @data_elements,$de; 
+		my $de = $1; push @data_elements,$de;
 		$$text_ptr =~ s/\[\*(.*?)\*\]/BEGDE $de ENDDE/si;
 	}
-	
+
 	foreach my $data_element (@data_elements) {
-		
+
 		unless (defined $table->{$data_element}) { $table->{$data_element} = ""; }
-		if ($format =~ /JS|JSON/i) { &esc_for_javascript(\$table->{$data_element}); } 	# JS/JSON escape		
+		if ($format =~ /JS|JSON/i) { &esc_for_javascript(\$table->{$data_element}); } 	# JS/JSON escape
 		$$text_ptr =~ s/BEGDE $data_element ENDDE/$table->{$data_element}/mig;
 	}
-	
+
 }
 
 
@@ -2497,18 +2497,18 @@ sub make_pagedata {
 
 	my $count;
 	while ($$input =~ /<pagedata (.*?)>/mig) {
-	
-		my $autotext = $1;		
+
+		my $autotext = $1;
 		$count++; last if ($count > 100);			# Prevent infinite loop
 		my $replace = "";
-		
+
 		my $replacenumber = $autotext-1;
 		next unless ($replacenumber >= 0);
 		$replace = $insertdata[$replacenumber];
 
 		$$input =~ s/<pagedata $autotext>/$replace/;
 	}
-	
+
 									# Write Page Title
 	$$input =~ s/\Q[*page_title*]\E/$$title/g;
 	$$input =~ s/\Q<page_title>\E/$$title/g;
@@ -2526,7 +2526,7 @@ sub make_login_info {
 
 	my ($dbh,$query,$text_ptr,$table,$id) = @_;
 	return unless (defined $text_ptr);
-	
+
 #	if ($diag eq "on") { print "Make Login Info ($table $text_ptr)\n"; }
     	my $vars = ();
     	if (ref $query eq "CGI") { $vars = $query->Vars; }
@@ -2543,13 +2543,13 @@ sub make_login_info {
 #	    ($Person->{person_id} eq "")) {
 
 #		$replace = qq|
-#			You are not logged in. 
+#			You are not logged in.
 #			[<a href="$login_link">Login</a>]
 #		|;
 
 #	} else {
 #		$replace = qq|
-#			You are logged on as $name. 
+#			You are logged on as $name.
 #			[<a href="$logout_link">Logout</a>]
 #			[<a href="$options_link">Options</a>]
 #		|;
@@ -2573,45 +2573,45 @@ sub make_site_info {
 
 	my ($text_ptr) = @_;
 	return unless (defined $text_ptr);
-	
-	while (my($sx,$sy) = each %$Site) {	
-		next unless ($sx =~ /^(em|st)/);		
+
+	while (my($sx,$sy) = each %$Site) {
+		next unless ($sx =~ /^(em|st)/);
 		$$text_ptr =~ s/<$sx>/$sy/mig;
-		$$text_ptr =~ s/&lt;$sx&gt;/$sy/mig;		
+		$$text_ptr =~ s/&lt;$sx&gt;/$sy/mig;
 	}
 
 }
 
 sub make_site_hits_info {
-	
+
 	my ($text_ptr) = @_;
 	return unless (defined $text_ptr);
-	
+
 	while ($$text_ptr =~ /<site_hits>/sig) {
 
 						# Site Page Hit Totals
-		my $post_today; my $page_today; my $event_today;	
-		my $post_total; my $page_total; my $event_total;					
+		my $post_today; my $page_today; my $event_today;
+		my $post_total; my $page_total; my $event_total;
 		print "Content-type: text/html\n\n";
-	
+
 		# Posts - today
 		my $sth = $dbh->prepare("SELECT SUM(post_hits) FROM post");
-		$sth->execute();					
+		$sth->execute();
 		my ($post_today) = $sth->fetchrow_array();
 
-	
+
 		# Posts - total
 		my $sth = $dbh->prepare("SELECT SUM(post_total) FROM post");
-		$sth->execute();					
+		$sth->execute();
 		my ($post_total) = $sth->fetchrow_array();
 
 		my $site_hits = "Posts viewed: $post_today today, $post_total all time.<br>";
-	
-		$$text_ptr =~ s/<site_hits>/$site_hits/;	
+
+		$$text_ptr =~ s/<site_hits>/$site_hits/;
 	}
-	
-}	
-	
+
+}
+
 # -------  Make Hits -------------------------------------------------------------
 #
 #  Fill values for today and total number of hits recorded by the hit counter
@@ -2624,18 +2624,18 @@ sub make_hits {
 	return unless (defined $text_ptr);
 
 	my $count=0;
-	
+
 	while ($$text_ptr =~ /<hits>/sig) {
-			
+
 		my $autotext = $1;
 		$count++; last if ($count > 100);			# Prevent infinite loop
 
 		my $replace = "";
 		my $parse = $autotext;
-		
+
 		my $hits = $filldata->{$table."_hits"};
-		my $total = $filldata->{$table."_total"};		
-		
+		my $total = $filldata->{$table."_total"};
+
 		$$text_ptr =~ s/<hits>/$hits\/$total/;
 	}
 
@@ -2649,44 +2649,44 @@ sub make_next {
 
 	my ($dbh,$input,$table,$id_number,$filldata) = @_;
 	if ($diag>9) { print "Make Next<br>"; }
-	
+
 	unless (defined $input) { if ($diag>9) { print "/Make Next - input not defined<br>"; } return;	}
 	unless (defined $input) { if ($diag>9) { print "/Make Next - input not defined<br>"; } return;	}
-	
+
 	my @directions = qw(next previous first last);
 	foreach my $direction (@directions) {
 
 		my $count=0;
 		while ($$input =~ /<$direction(.*?)>/sig) {
-			
-			$count++; last if ($count > 100);			# Prevent infinite loop	
-		
+
+			$count++; last if ($count > 100);			# Prevent infinite loop
+
 			my $autocontent = $1;my $nexttext = "";
 			next if ($autocontent eq "BuildDate");			# Fixes RSS bug, need something more permanent
-			
-			my $script = {}; 
+
+			my $script = {};
 			&parse_keystring($script,$autocontent);
 			my $format = $script->{format} || $vars->{format} || "html";
-			
 
-			if ($script->{type}) { 	$typesql = " ".$table."_type='".$script->{type}."' AND ";  }		
-			
-			my $nextsql ="SELECT ".$table."_id FROM $table WHERE $typesql ".$table."_id ";		
-			
-			if ($direction eq "next") {  $nextsql .= ">'".$id_number."' ORDER BY ".$table."_id";}		
-			elsif ($direction eq "previous") { $nextsql .= "<'".$id_number."' ORDER BY ".$table."_id DESC";}	
-			elsif ($direction eq "first") { $nextsql .= "<'".$id_number."' ORDER BY ".$table."_id";}	
-			elsif ($direction eq "last") { $nextsql .= ">'".$id_number."' ORDER BY ".$table."_id DESC";}	
+
+			if ($script->{type}) { 	$typesql = " ".$table."_type='".$script->{type}."' AND ";  }
+
+			my $nextsql ="SELECT ".$table."_id FROM $table WHERE $typesql ".$table."_id ";
+
+			if ($direction eq "next") {  $nextsql .= ">'".$id_number."' ORDER BY ".$table."_id";}
+			elsif ($direction eq "previous") { $nextsql .= "<'".$id_number."' ORDER BY ".$table."_id DESC";}
+			elsif ($direction eq "first") { $nextsql .= "<'".$id_number."' ORDER BY ".$table."_id";}
+			elsif ($direction eq "last") { $nextsql .= ">'".$id_number."' ORDER BY ".$table."_id DESC";}
 			$nextsql .= " LIMIT 1";
-								
+
 			my ($newnextid) = $dbh->selectrow_array($nextsql);
-			if ($newnextid) { 
+			if ($newnextid) {
 				$nexttext = qq|[<a class="next" href="|.$Site->{st_cgi}.
-					qq|page.cgi?$table=$newnextid&format=$format">@{[&printlang(ucfirst($direction))]}</a>]|; 
+					qq|page.cgi?$table=$newnextid&format=$format">@{[&printlang(ucfirst($direction))]}</a>]|;
 			}
-			$$input =~ s/$autotext/$nexttext/; 
+			$$input =~ s/$autotext/$nexttext/;
 		}
-		
+
 	}
 	if ($diag>9) { print "/Make Next<br>"; }
 
@@ -2702,19 +2702,19 @@ sub make_counter {
 	while ($$input =~ /<counter(.*?)>/sig) {
 
 		my $autotext = "<counter".$1.">";
-		
-		if ($1 eq " increment") { 
-			#$Site->{keyword_counter}++; 
-		} else { 		
-			my $script = {}; 
+
+		if ($1 eq " increment") {
+			#$Site->{keyword_counter}++;
+		} else {
+			my $script = {};
 			&parse_keystring($script,$1);
-			if ($script->{start}) {	
+			if ($script->{start}) {
 					$Site->{keyword_counter} = "joe";
 					if ($Site->{keyword_counter}==1) { $Site->{keyword_counter} = $script->{start}; } }
-			#if ($script->{increment}) { $Site->{keyword_counter} += $script->{increment}; } else { $Site->{keyword_counter}++; }	
-					
+			#if ($script->{increment}) { $Site->{keyword_counter} += $script->{increment}; } else { $Site->{keyword_counter}++; }
+
 		}
-		
+
 		my $replace = $Site->{keyword_counter};
 		$$input =~ s/$autotext/$replace/;
 	}
@@ -2731,14 +2731,14 @@ sub make_boxes {
 
 	my @boxlist;
 	while ($$input =~ /<box (.*?)>/sig) {
-	
+
 		my $autotext = $1;
-		
+
 		&error($dbh,"","",&printlang("No box recursion")) unless (&index_of($autotext,\@boxlist) == -1);
 		push @boxlist,$autotext;
 
 		my $box_content = db_get_content($dbh,"box",$autotext);
-		&make_site_info(\$box_content);	
+		&make_site_info(\$box_content);
 		$$input =~ s/<box $autotext>/$box_content/;
 	}
 
@@ -2750,7 +2750,7 @@ sub make_escape {
 	my ($dbh,$input,$silent) = @_;
 	return unless $$input =~ /<escape>/;
 	my $newinput = "";
-	
+
 	my @elist = split /<escape>/,$$input;
 	foreach my $eitem (@elist) {
 		unless ($newinput) { $newinput = $eitem; next; }
@@ -2767,108 +2767,108 @@ sub make_escape {
 #
 #           Analyzes <keylist ...> command in text
 #           A keylist is a series of records linked via entries in the graph table
-#	    make_keylist parses a <keylist> command and replaces it with a 
+#	    make_keylist parses a <keylist> command and replaces it with a
 #           list of names with links. format: <keylist db=link,id=234,keytable=author>
 #	      Edited: 14 January 2013
 #-------------------------------------------------------------------------------
 
 sub make_keylist {
-	
+
 	my ($dbh,$query,$text_ptr) = @_;
 	if ($diag>9) { print "Make Keylist <br>"; }
-	
-   	my $vars = ();	
+
+   	my $vars = ();
        	if (ref $query eq "CGI") { $vars = $query->Vars; }
 
 
-	unless ($$text_ptr =~ /<keylist (.*?)>/i) { 
+	unless ($$text_ptr =~ /<keylist (.*?)>/i) {
 		if ($diag>9) { print "/Make Keylist - No content found<br>"; }
-		return 1 
-	} 	
+		return 1
+	}
 
 	while ($$text_ptr =~ /<keylist (.*?)>/ig) {
 
 		my $autocontent = $1; my $replace = "";
-#print " -- $autocontent <br>";		
+#print " -- $autocontent <br>";
 
 						# No endless loops, d'uh
-		$escape_hatch++; die "Endless keyword loop" if ($escape_hatch > 10000);		
-		$vars->{escape_hatch}++; die "Endless recursion keyword loop" if ($escape_hatch > 10000);		
+		$escape_hatch++; die "Endless keyword loop" if ($escape_hatch > 10000);
+		$vars->{escape_hatch}++; die "Endless recursion keyword loop" if ($escape_hatch > 10000);
 
 						# Pasre Keyword into Script
-		my $script = {}; 
+		my $script = {};
 		&parse_keystring($script,$autocontent);
-		
+
 		$script->{separator} = $script->{separator} || ", ";
 
 		for (qw(prefix postfix separator)) {
-			if ($script->{$_} =~ /(BR|HR|P)/i) { 
-				$script->{$_} = "<".$script->{$_}.">"; 
+			if ($script->{$_} =~ /(BR|HR|P)/i) {
+				$script->{$_} = "<".$script->{$_}.">";
 			}
 		}
-	
+
 		our $ddbbhh = $dbh;
-#print " Finbding graph $script->{db},$script->{id},$script->{keytable} <br>";		
+#print " Finbding graph $script->{db},$script->{id},$script->{keytable} <br>";
 		my @connections = &find_graph_of($script->{db},$script->{id},$script->{keytable});
-		
+
 		foreach my $connection (@connections) {
-	
-									# Get item data 
-									
+
+									# Get item data
+
 									# Prepare SQL Query for each item
 									# (We could probably combine into one
 									# by making a large 'OR' out of all the ID
 									# numbers...
-			my $titfield = get_key_namefield($script->{keytable});		
+			my $titfield = get_key_namefield($script->{keytable});
 			my $klid = $script->{keytable}."_id";
 			$script->{search} =~ s/'//; $connection =~ s/'//;
-				
+
 			my $keylistsql = qq|SELECT * FROM $script->{keytable} WHERE $klid = '$connection'|;
-			if ($script->{search}) { 
+			if ($script->{search}) {
 				my $descfield = $script->{keytable}."_description";
-				my $catfield = $script->{keytable}."_category";								
-				my $contfield = $script->{keytable}."_content";	
-				my $keylistwhere = qq| AND ($descfield LIKE '%$script->{search}' OR 
+				my $catfield = $script->{keytable}."_category";
+				my $contfield = $script->{keytable}."_content";
+				my $keylistwhere = qq| AND ($descfield LIKE '%$script->{search}' OR
 						$titfield LIKE '%$script->{search}%' OR
 						$contfield LIKE '%$script->{search}%' OR
-						$catfield LIKE '%$script->{search}%')|;	
+						$catfield LIKE '%$script->{search}%')|;
 				$keylistsql .= $keylistwhere;
 			}
-			
+
 									# Execute SQL Query for each item
 			my $sth = $dbh->prepare($keylistsql);
 			$sth -> execute();
-			while (my $c = $sth -> fetchrow_hashref()) { 
-			
+			while (my $c = $sth -> fetchrow_hashref()) {
+
 				next unless ($c);			# Items that don't match $script->{search}
 									# if it's used will not return results
 
 									# Display the result
 				my $kname = $c->{$titfield};
-				if ($replace) { $replace .= $script->{separator}; }	
-				if ($script->{format} eq "text") { $replace .= qq|$kname|; } 
-				elsif ($script->{format}) { 
+				if ($replace) { $replace .= $script->{separator}; }
+				if ($script->{format} eq "text") { $replace .= qq|$kname|; }
+				elsif ($script->{format}) {
 					my $ftext = &format_record($dbh,$query,$script->{keytable},"$script->{format}",$c);
 					$replace .= $ftext; }
 				else { $replace .= qq|<a href="$Site->{st_url}$script->{keytable}/$connection" style="text-decoration:none;">$kname</a>|; $replace =~ s/\n/<br\/>/ig; }
-			
+
 
 
 			}
-			$sth->finish();						
-			
-			
-			
-			
+			$sth->finish();
+
+
+
+
 		}
 #print " -- $replace <br>";
 
 		if ($replace) { $replace = $script->{prefix} . $replace . $script->{postfix}; }
 		$$text_ptr =~ s/\Q<keylist $autocontent>\E/$replace/;
-		
-		
-	}       		
-       		
+
+
+	}
+
 	if ($diag>9) { print "/Make Keylist <br>"; }
 }
 
@@ -2877,7 +2877,7 @@ sub make_keylist {
 #
 # -------   Make Author Info ------------------------------------------------------
 #
-# 
+#
 #   For a record $r finds the appropriate author records and returns
 #   formated content
 #
@@ -2885,18 +2885,18 @@ sub make_keylist {
 #
 #	      Edited: 19 April 2013
 #-------------------------------------------------------------------------------
-   	
+
  sub make_author {
-	
-	my ($text_ptr,$table,$id,$filldata) = @_;  	
-	
-   	return 1 unless ($$text_ptr =~ /<author (.*?)>/i);       	
+
+	my ($text_ptr,$table,$id,$filldata) = @_;
+
+   	return 1 unless ($$text_ptr =~ /<author (.*?)>/i);
 	while ($$text_ptr =~ /<author (.*?)>/ig) {
 
-		my $autocontent = $1; my $replace = ""; 
+		my $autocontent = $1; my $replace = "";
 
 		&escape_hatch();
-		
+
 
 		my @connections = &find_graph_of($table,$id,"author");
 		foreach my $connection (@connections) {
@@ -2909,14 +2909,14 @@ sub make_keylist {
 		}
 
 
-		
+
 		$$text_ptr =~ s/\Q<author $autocontent>\E/$replace/;
-					
+
 	}
-	
+
 }
-   	
-   	
+
+
 # -------   Make Admin Nav ----------------------------------------------------------
 #
 #	Prints the navigation bar to create and list types of records
@@ -2926,12 +2926,12 @@ sub make_admin_nav {
 
 	my ($dbh,$text_ptr) = @_;
 
-   	return 1 unless ($$text_ptr =~ /<admin_nav(.*?)>/i);   
-   	
-   	my @tables = $dbh->tables();    	
+   	return 1 unless ($$text_ptr =~ /<admin_nav(.*?)>/i);
+
+   	my @tables = $dbh->tables();
 	while ($$text_ptr =~ /<admin_nav(.*?)>/ig) {
-		my $autocontent = $1; my $replace = ""; 
-				
+		my $autocontent = $1; my $replace = "";
+
 		my $replace = qq|
 			<div id="admin_table_nav">
 			[<a href="$Site->{script}">Admin</a>]<br/><br/>
@@ -2940,7 +2940,7 @@ sub make_admin_nav {
 		foreach my $table (@tables) {
 			$table =~ s/`//ig;
 			if ($table =~ /\./) { my $tmp; ($tmp,$table) = split /\./,$table; }
-			
+
 #			next unless (&is_viewable("nav",$table)); 		# Permissions
 
 			my $numb;
@@ -2958,11 +2958,11 @@ sub make_admin_nav {
 		$replace .= "</div>";
 		$$text_ptr =~ s/\Q<admin_nav$autocontent>\E/$replace/;
 	}
-	
+
 
 }
 
-   	
+
 #-------------------------------------------------------------------------------
 #
 # -------   Make Enclosures ------------------------------------------------------
@@ -2973,42 +2973,42 @@ sub make_admin_nav {
 #-------------------------------------------------------------------------------
 
 sub make_enclosures {
-	
+
 	my ($text_ptr,$table,$id,$filldata) = @_;
-	
-   	return 1 unless ($$text_ptr =~ /<enclosures (.*?)>/i);       	
+
+   	return 1 unless ($$text_ptr =~ /<enclosures (.*?)>/i);
 	while ($$text_ptr =~ /<enclosures (.*?)>/ig) {
 
 		my $autocontent = $1;my $replace = ""; my $style = "";
 
 		&escape_hatch();
-		
+
 		my @enclosures = &find_graph_of($table,$id,"file","Enclosure");
 		foreach my $enclosure (@enclosures) {
 			my $file = &db_get_record($dbh,"file",{file_id=>$enclosure});
-			if ($autocontent eq "format=html") { 
+			if ($autocontent eq "format=html") {
 				$replace .= qq|- <a href="$Site->{st_url}$file->{file_dirname}">$file->{file_title}</a><br/>|;
-			} elsif  ($autocontent eq "format=html") { 
+			} elsif  ($autocontent eq "format=html") {
 				$replace .= qq|<enclosure url="$Site->{st_url}$file->{file_dirname}" length="$file->{file_size}" type="$file->{file_size}" />|;
 			}
 		}
-		if ($replace) { 
+		if ($replace) {
 			if ($autocontent eq "format=html") { $replace = qq|<p>Enclosures:<br>$replace</p>|; }
 		}
 
-		$$text_ptr =~ s/\Q<enclosures $autocontent>\E/$replace/;	
-		
-	}       		
-	
-}	
-   	
-  
-  
+		$$text_ptr =~ s/\Q<enclosures $autocontent>\E/$replace/;
+
+	}
+
+}
+
+
+
 #-------------------------------------------------------------------------------
 #
 # -------   Make Media ------------------------------------------------------
 #
-# 
+#
 #   For a record $r finds the appropriate image file $f or alignment $a and
 #   width $w and returns the formated image (with captions, etc., as
 #   appropriate given width parameters).
@@ -3018,46 +3018,46 @@ sub make_enclosures {
 
 
 sub make_media {
-	
+
 	my ($text_ptr,$table,$id,$filldata) = @_;
-#print "Making media<p>";	
-   	return 1 unless ($$text_ptr =~ /<media (.*?)>/i);       	
+#print "Making media<p>";
+   	return 1 unless ($$text_ptr =~ /<media (.*?)>/i);
 	while ($$text_ptr =~ /<media (.*?)>/ig) {
 
 		my $autocontent = $1; my $replace = ""; my $style = "";
 
 		&escape_hatch();
-		
+
 		my $typeval; my $width;
-		if ($autocontent eq "display") { 
+		if ($autocontent eq "display") {
 			$width = "400";
 			$style = qq|style="width:400px;margin:5px 15px 5px 0px;"|;
 		}
-		else { $typeval = autocontent; }		
+		else { $typeval = autocontent; }
 
 
 		if ($autocontent eq "icon") { $replace =  &make_icon($table,$id,$filldata)."<p>";
 
 
-		} else { $replace =  &make_media_display($table,$id,$autocontent,$style,$filldata)."<p>"; 
-		
+		} else { $replace =  &make_media_display($table,$id,$autocontent,$style,$filldata)."<p>";
+
 
 		}
-		
 
-		$$text_ptr =~ s/\Q<media $autocontent>\E/$replace/;	
-		
-	}       		
-	
-}	
 
- 	
-   	
+		$$text_ptr =~ s/\Q<media $autocontent>\E/$replace/;
+
+	}
+
+}
+
+
+
 #-------------------------------------------------------------------------------
 #
 # -------   Make Image ------------------------------------------------------
 #
-# 
+#
 #   For a record $r finds the appropriate image file $f or alignment $a and
 #   width $w and returns the formated image (with captions, etc., as
 #   appropriate given width parameters).
@@ -3067,110 +3067,110 @@ sub make_media {
 
 
 sub make_images {
-	
+
 	my ($text_ptr,$table,$id,$filldata) = @_;
-	
-   	return 1 unless ($$text_ptr =~ /<image (.*?)>/i);       	
+
+   	return 1 unless ($$text_ptr =~ /<image (.*?)>/i);
 	while ($$text_ptr =~ /<image (.*?)>/ig) {
 
 		my $autocontent = $1; my $replace = ""; my $style = "";
 
 		&escape_hatch();
-		
+
 		my $typeval; my $width;
-		if ($autocontent eq "display") { 
+		if ($autocontent eq "display") {
 			$width = "400";
 			$style = qq|style="width:400px;margin:5px 15px 5px 0px;"|;
 		}
-		else { $typeval = autocontent; }		
+		else { $typeval = autocontent; }
 
 
 		if ($autocontent eq "icon") { $replace =  &make_icon($table,$id,$filldata)."<p>";
 
 
-		} else { $replace =  &make_display($table,$id,$autocontent,$style,$filldata)."<p>"; 
-		
+		} else { $replace =  &make_display($table,$id,$autocontent,$style,$filldata)."<p>";
+
 
 		}
-		
 
-		$$text_ptr =~ s/\Q<image $autocontent>\E/$replace/;	
-		
-	}       		
-	
-}	
+
+		$$text_ptr =~ s/\Q<image $autocontent>\E/$replace/;
+
+	}
+
+}
 
 #-------------------------------------------------------------------------------
 #
 # -------   Make Icon ------------------------------------------------------
 #
 # Makes icon text for a record in response to an <image icon> tag
-# 
-# 
+#
+#
 
 sub make_icon {
 
 	my ($table,$id,$filldata) = @_;
 	$Site->{st_icon} ||= "files/icons/";		# Default icon directory location
 	my $width = "100";
-	my $style = qq|style="width: 100px; float:left; margin:5px 15px 5px 0px;"|; 
-	my $iconurl = "";	
-	
+	my $style = qq|style="width: 100px; float:left; margin:5px 15px 5px 0px;"|;
+	my $iconurl = "";
 
-	my $iconlink = $Site->{st_url}.$table."/".$id."/rd";	
-	
+
+	my $iconlink = $Site->{st_url}.$table."/".$id."/rd";
+
 	# Defined icon over-rides everything
 	if ($filldata->{$table."_icon"} && -e $Site->{st_urlf}.$Site->{st_icon}.$filldata->{$table."_icon"}) {
 		$iconurl = $Site->{st_url} . $Site->{st_icon} . $filldata->{$table."_icon"};
-	
+
 	# In certain cases, default to author icon
 	} elsif ($table eq "author" || $filldata->{$table."_genre"} eq "Column") {
 		$iconurl = &make_related_icon($table,$id,"author");
-	} 
+	}
 
-	# Otherwise, look for autogenerated icon	
+	# Otherwise, look for autogenerated icon
 	unless ($iconurl) {
 		if (-e $Site->{st_urlf}.$Site->{st_icon}.$table."_".$id.".jpg") {
 			$iconurl = $Site->{st_url} . $Site->{st_icon} . $table."_".$id.".jpg";
 			$filldata->{$table."_icon"} = $table."_".$id.".jpg";
-		
-		# Otherwise, try the author icon 
+
+		# Otherwise, try the author icon
 		} else {
 			$iconurl = &make_related_icon($table,$id,"author");
 		}
-		
+
 		unless ($iconurl) {
 			$iconurl = &make_related_icon($table,$id,"feed");
-			
+
 		}
 	}
-	
+
 	if ($iconurl) {
 		return  qq|<div class="image_icon" $style>
 		           <a href="$iconlink"><img src="$iconurl" alt="Icon" width=$width></a>
-		           </div>|;	
+		           </div>|;
 	}
-	
+
 	return "";
 }
 
 
 sub make_display {
-	
+
 	my ($table,$id,$autocontent,$style,$filldata) = @_;
 	my $replace = "";
 	my $imagefile = &item_images($table,$id,"largest");
 	my $imlink = $imagefile->{file_link} || $filldata->{$table."_link"};
 	my $width = 400;
-	
+
 	if ($imagefile->{file_dirname}) {
 		$replace =  qq|<div class="image_$autocontent">
-		<a href="$imlink"><img src="<st_url>$imagefile->{file_dirname}" $style 
-		alt="$imagefile->{file_dirname}" width="$width"></a></div>|; 
+		<a href="$imlink"><img src="<st_url>$imagefile->{file_dirname}" $style
+		alt="$imagefile->{file_dirname}" width="$width"></a></div>|;
 	}
 
 	return $replace;
-	
+
 }
 
 #          Item Images
@@ -3181,48 +3181,48 @@ sub make_display {
 #          Full image record is returned
 
 sub item_images {
-	
-	
+
+
 	my ($table,$id,$option) = @_;
-	
+
 	my $replace; my $largest_size = 0; $smallest_size = 10000000; my $largest_image; my $smallest_image;
-	
+
 	# Get the list of all images
 	my @image_list_a = &db_get_record_list($dbh,"graph",
 		{graph_tableone=>$table,graph_idone=>$id,graph_tabletwo=>'file',graph_type=>'Illustration'},"graph_idtwo");
 	my @image_list_b = &db_get_record_list($dbh,"graph",
-		{graph_tabletwo=>$table,graph_idtwo=>$id,graph_tableone=>'file',graph_type=>'Illustration'},"graph_idone");				
+		{graph_tabletwo=>$table,graph_idtwo=>$id,graph_tableone=>'file',graph_type=>'Illustration'},"graph_idone");
 	my @image_list = &arrays("union",@image_list_a,@image_list_b);
 
 	# Find the largest and smallest
 
-	foreach my $image_id (@image_list) { 
-		
+	foreach my $image_id (@image_list) {
+
 
 		my $imagefile = &db_get_record($dbh,"file",{file_id=>$image_id});
 
-		
+
 		if ($imagefile->{file_size} > $largest_size) {
-			
+
 			$largest_size = $imagefile->{file_size};
-			$largest_image = $imagefile;		
+			$largest_image = $imagefile;
 		}
 		if ($imagefile->{file_size} < $smallest_size) {
-			
+
 			$smallest_size = $imagefile->{file_size};
-			$smallest_image = $imagefile;			
-		}		
-	}	
+			$smallest_image = $imagefile;
+		}
+	}
 
 	if ($option eq "largest") { return $largest_image; }
 	elsif ($option eq "smallest") { return $smallest_image; }
 	else { print "ERROR"; }
-	
-	
+
+
 }
 
 sub make_media_display {
-	
+
 	my ($table,$id,$autocontent,$style,$filldata) = @_;
 	my $replace = "";
 
@@ -3231,62 +3231,62 @@ sub make_media_display {
 
 
 	$imagefile->{media_dirname} = $imagefile->{media_url};
-	
+
 	print "displaying media id number ".$imagefile->{media_id}."<P>".$imagefile->{media_dirname}."<p>";
-	
-	
+
+
 	if ($imagefile->{media_dirname}) {
 		$replace =  qq|Display<div class="image_$autocontent">
-		<a href="$imagefile->{media_link}"><img src="$imagefile->{media_dirname}" $style 
-		alt="$imagefile->{media_dirname}" width="$width"></a></div>|; 
+		<a href="$imagefile->{media_link}"><img src="$imagefile->{media_dirname}" $style
+		alt="$imagefile->{media_dirname}" width="$width"></a></div>|;
 	}
 
 	return $replace."Display ".$imagefile->{media_dirname}."<br>";
-	
+
 }
 
 sub item_media {
-	
-	
+
+
 	my ($table,$id,$option) = @_;
 
-	
+
 	my $replace; my $largest_size = 0; $smallest_size = 10000000; my $largest_image; my $smallest_image;
-	
+
 	# Get the list of all images
 	my @image_list_a = &db_get_record_list($dbh,"graph",
 		{graph_tableone=>$table,graph_idone=>$id,graph_tabletwo=>'media'},"graph_idtwo");
 	my @image_list_b = &db_get_record_list($dbh,"graph",
-		{graph_tabletwo=>$table,graph_idtwo=>$id,graph_tableone=>'media'},"graph_idone");				
+		{graph_tabletwo=>$table,graph_idtwo=>$id,graph_tableone=>'media'},"graph_idone");
 	my @image_list = &arrays("union",@image_list_a,@image_list_b);
 
 	# Find the largest and smallest
 
 	my $largest_size = 0;
-	foreach my $image_id (@image_list) { 
-		
-		
+	foreach my $image_id (@image_list) {
+
+
 
 		my $imagefile = &db_get_record($dbh,"media",{media_id=>$image_id});
 
-		
+
 		if ($imagefile->{media_width} > $largest_size) {
-			
+
 			$largest_size = $imagefile->{media_width};
-			$largest_image = $imagefile;		
+			$largest_image = $imagefile;
 		}
 		if ($imagefile->{media_width} < $smallest_size) {
-			
+
 			$smallest_size = $imagefile->{media_width};
-			$smallest_image = $imagefile;			
-		}		
-	}	
+			$smallest_image = $imagefile;
+		}
+	}
 
 	if ($option eq "largest") { return $largest_image; }
 	elsif ($option eq "smallest") { return $smallest_image; }
 	else { print "ERROR"; }
-	
-	
+
+
 }
 
 
@@ -3295,17 +3295,17 @@ sub item_media {
 # -------   Make Author Icon ------------------------------------------------------
 #
 # Used my make_icon() to find an author icon
-# 
-# 
+#
+#
 
 sub make_related_icon {
-	
+
 	my ($table,$id,$related) = @_;
 
 	my @connections = &find_graph_of($table,$id,$related);
 	foreach my $connection (@connections) {
 		if (-e $Site->{st_urlf} . $Site->{st_icon} . $related."_".$connection.".jpg") {
-			return $Site->{st_url} . $Site->{st_icon} . $related."_".$connection.".jpg";	
+			return $Site->{st_url} . $Site->{st_icon} . $related."_".$connection.".jpg";
 		}
 	}
 	return "";
@@ -3322,7 +3322,7 @@ sub make_related_icon {
 #-------------------------------------------------------------------------------
 
 sub make_lunchbox {
-	
+
 	my ($food,$name,$title) = @_;
 
 		$title ||= "Add more...";
@@ -3332,13 +3332,13 @@ sub make_lunchbox {
 		<div class="well">
 		$food
 		</div>
-			
+
 	</div>|;
-	return $lunchbox;	
-	
+	return $lunchbox;
+
 }
 
-		
+
 
 #-------------------------------------------------------------------------------
 #
@@ -3349,42 +3349,42 @@ sub make_lunchbox {
 #	      Edited: 28 March 2010
 #-------------------------------------------------------------------------------
 
- 
+
 sub make_keywords {
 
 	my ($dbh,$query,$text_ptr) = @_;
 	if ($diag>9) { print "Make Keywords <br>"; }
-	
+
    	my $vars = (); my $results_count=0;
    	my $running_results_count;
 
 
- 	
+
    	return 1 unless ($$text_ptr =~ /<keyword (.*?)>/i);				# Return 1 if no keywords
 											# This allows static pages to be published
 											# Otherwise, if keyword returns 0 results,
 											# the page will not be published, email not sent
-											
-   	
+
+
     	if (ref $query eq "CGI") { $vars = $query->Vars; }
 
 						# Substitute site tag (used to create filters)
 	$$text_ptr =~ s/<st_tag>/$Site->{st_tag}/g;
-		
-								
-						
+
+
+
 						# For Each keyword Command
 	my $escape_hatch=0; my $page_format = "";
 	while ($$text_ptr =~ /<keyword (.*?)>/ig) {
 		my $autocontent = $1; my $replace = ""; my $grouptitle = "";
-	
+
 
 						# No endless loops, d'uh
-		$escape_hatch++; die "Endless keyword loop" if ($escape_hatch > 10000);		
-		$vars->{escape_hatch}++; die "Endless recursion keyword loop" if ($escape_hatch > 10000);		
+		$escape_hatch++; die "Endless keyword loop" if ($escape_hatch > 10000);
+		$vars->{escape_hatch}++; die "Endless recursion keyword loop" if ($escape_hatch > 10000);
 
 						# Pase Keyword into Script
-		my $script = {}; 
+		my $script = {};
 		&parse_keystring($script,$autocontent);
 
 						# Check Keyword Contents and Defaults
@@ -3395,9 +3395,9 @@ sub make_keywords {
 
 						# Where
 		my $where = &make_where($dbh,$script);
-		
+
 						# Number / Limit
-		my $limit = ""; 
+		my $limit = "";
 		if ($script->{start}) {
 			$script->{number} ||= 10;
 			$script->{start}--; if ($script->{start} < 0) { $script->{start} = 0; }
@@ -3419,36 +3419,36 @@ sub make_keywords {
 
 
 						# Permissions
-						
-		my $perm = "view_".$table;					
+
+		my $perm = "view_".$table;
 		if ((defined $Site->{perm}) && $Site->{$perm} eq "owner") {
 			$where .= " AND ".$table."_creator = '".$Person->{person_id}."'";
 		} else {
-			return unless (&is_allowed("view",$script->{db},"","make keywords")); 
+			return unless (&is_allowed("view",$script->{db},"","make keywords"));
 		}
-	
+
 #print "Content-type: text/html\n\n";						# Get Records From DB
 
 		my $sth = $dbh -> prepare($sql);
 		$sth -> execute();
-		$results_count=0; 
+		$results_count=0;
 		my $results_in = "";
 
-		# get the list of coluns in this table (used by published_on_web() 
-	
+		# get the list of coluns in this table (used by published_on_web()
+
 		my @pubcolumns = &db_columns($dbh,$script->{db});
-		
+
 						# For Each Record
-		$Site->{keyword_counter}=0;		
+		$Site->{keyword_counter}=0;
 		while (my $record = $sth -> fetchrow_hashref()) {
-			
+
 			# If we are publishing a page, skip items that have not been published
 			next unless (&published_on_web($dbh,$script->{db},$record,@pubcolumns));
-			
+
 			$Site->{keyword_counter}++;
-			$results_count++; 
-			
-				
+			$results_count++;
+
+
 						# Apply nohtml and truncate commands
 						# to description or content fields
 
@@ -3456,38 +3456,38 @@ sub make_keywords {
 			my $conelement = $script->{db}."_content";
 			my $titelement = $script->{db}."_title";
 
-	
+
 			if ($script->{truncate} || $script->{nohtml}) {
 				$record->{$descelement} =~ s/<br>|<br\/>|<br \/>|<\/p>/\n\n/ig;
-				$record->{$descelement} =~ s/\n\n\n/\n\n/g;				
-				$record->{$descelement} =~ s/<(.*?)>//g; 
+				$record->{$descelement} =~ s/\n\n\n/\n\n/g;
+				$record->{$descelement} =~ s/<(.*?)>//g;
 				$record->{$conelement} =~ s/<(.*?)>//g;
 			}
-			
+
 						# Clean if for Javascript
 			if ($script->{format} =~ /js|player/) {
-				$titelement =~ s/"/&quote;/g; 
+				$titelement =~ s/"/&quote;/g;
 				$comelement =~ s/"/&quote;/g;
 				$descelement =~ s/"/&quote;/g;
 			}
-	
+
 			if ($script->{truncate}) {
 				my $etc = "...";
-				if (length($record->{$descelement}) > $script->{truncate}) { 
+				if (length($record->{$descelement}) > $script->{truncate}) {
 					$record->{$descelement} = substr($record->{$descelement},0,$script->{truncate}-1);
-					$record->{$descelement} =~ s/(\w+)[.!?]?\s*$//;		
+					$record->{$descelement} =~ s/(\w+)[.!?]?\s*$//;
 					$record->{$descelement}.=$etc;
 				}
-				if (length($record->{$conelement}) > $script->{truncate}) { 
+				if (length($record->{$conelement}) > $script->{truncate}) {
 					$record->{$conelement} = substr($conelement,0,$script->{truncate}-1);
-					$record->{$conelement} =~ s/(\w+)[.!?]?\s*$//;	
+					$record->{$conelement} =~ s/(\w+)[.!?]?\s*$//;
 					$record->{$conelement}.=$etc;
 				}
 			}
-	
+
 
 						# Format Record
-			my $keyflag = 1;		# Tell format_record this is a keywords request 
+			my $keyflag = 1;		# Tell format_record this is a keywords request
 
 			my $record_text = &format_record($dbh,
 				$query,
@@ -3500,51 +3500,51 @@ sub make_keywords {
 						# Add counter information
 			$record_text =~ s/<count>/$results_count/mig;
 			if ($results_count) { $vars->{results_count} = $results_count; }
-	
+
 						# Add Grouping titles
-						
+
 			if ($script->{groupby} eq "start date") {
-				my $element_date = &epoch_to_date($record->{$script->{db}."_start"});	
+				my $element_date = &epoch_to_date($record->{$script->{db}."_start"});
 				unless ($element_date eq $grouptitle) {
 					$grouptitle = $element_date;
 					$results_in .= qq|<div class="key_group">$grouptitle</div>|;
-					
+
 				}
-				
+
 			}
-							
+
 						# Add to Keyword Text
 			$results_in .= $record_text;
 
 		}
-		
-		
+
+
 		$results_in =~ s/,$//;	# Remove trailing comma
-		
-		if ($results_count) {		
+
+		if ($results_count) {
 			$running_results_count += $results_count;
 			# Insert Heading
-			if ($script->{heading}) { 
+			if ($script->{heading}) {
 				if ($script->{helptext}) {
 					$results_in = "<h2>".$script->{heading} ."</h2><p>".$script->{helptext}."</p>".  $results_in;
 				} else {
 					$results_in = "<h2>".$script->{heading} ."</h2>".  $results_in;
 				}
 			}
-			
+
 			if ($script->{readmore}) {
 				$results_in .= qq|Read more: <a href="$script->{readmore}">$script->{heading}</a>|;
 			}
-	
+
 		} else {
 			# If no results are found, and a empty format is specified, display empty format. -Luc
 			if ($script->{empty_format}) {
 				$results_in = &format_record($dbh, "", 	$script->{db}, 	$script->{empty_format}, "", 1);
 			}
-		}	
-		
+		}
+
 		$replace .= $results_in;
-		
+
 
 						# Insert Keyword Text Into Page
 
@@ -3592,8 +3592,8 @@ sub make_where {
 
 	unless ($script->{id}) { undef $script->{id}; }
 
-	if ($script->{lookup}) { 
-		my $ret = "(".&make_lookup($dbh,$script).")"; 
+	if ($script->{lookup}) {
+		my $ret = "(".&make_lookup($dbh,$script).")";
 		push @where_list,$ret;
 	}
 
@@ -3602,8 +3602,8 @@ sub make_where {
 	# Input may be in the form yyyy/mm/dd hh:mm
 	# of +/- offset (in seconds)
 	# or NOW (for now)
-	
-	
+
+
 	my $startafter; if ($script->{startafter}) {
 
 		my $dts;
@@ -3619,10 +3619,10 @@ sub make_where {
 		push @where_list,$startafter;
 
 	}
-	
 
-	# The same as startafter, in seconds. 
-	
+
+	# The same as startafter, in seconds.
+
 	my $startbefore; if ($script->{startbefore}) {
 		my $dtf;
 		if ($script->{startbefore} =~ /^(\+|\-)/) {				# Offset Value
@@ -3638,7 +3638,7 @@ sub make_where {
 	}
 
 	my $expires; if ($script->{expires}) {
-		
+
 		# Auto Adjust for weekends
 		my ($weekday) = (localtime time)[6];
 		if (($weekday == 1) && ( $script->{expires} == 24)) { $script->{expires} = 72; }
@@ -3647,7 +3647,7 @@ sub make_where {
 		my $extime = time - ($script->{expires}*3600);
 		$expires = $script->{db}."_crdate > ".$extime;
 		push @where_list,$expires;
-		
+
 	}
 
 
@@ -3679,13 +3679,13 @@ sub make_where {
 			my @matchlist = split ",",$flds;
 			foreach my $ml (@matchlist) {
 				push @fid_list, $script->{db}."_".$ml." < '".$tval."'";
-			}	
+			}
 		} elsif ($cx =~ '!=') {								# not equal
 			($flds,$tval) = split '!=',$cx;
 			my @matchlist = split ",",$flds;
 			foreach my $ml (@matchlist) {
 				push @fid_list, $script->{db}."_".$ml." <> '".$tval."'";
-			}					
+			}
 		} elsif (defined($cy)) {							# equals
 
 
@@ -3713,15 +3713,15 @@ sub make_where {
 #	and returns it neatly formatted as a table
 #	Use titles = a,b,c  (ie, a string with values separated by commas) for titles
 #	Specify table properties with $tv, eg. {cellpadding=>14}
-#	If $reqd is specified as a title, then there must be a value for that title to print 
+#	If $reqd is specified as a title, then there must be a value for that title to print
 #	Note that this value is only for checking if printing is OK, it will never actually be printed
 
 sub make_unpackeddata {
-	
+
 	my ($data,$titles,$tablevals,$reqd) = @_;
-	
+
 	my $ret = qq|<table cellpadding="$tv->{cellpadding}" cellspacing="$tv->{cellspacing}" border="$tb->{border}">\n|;
-	
+
 	my @titlelist; if ($titles) {
 		$ret .= "<tr>\n";
 		my @titlelist = split ",",$titles; my $tcount=0;
@@ -3729,11 +3729,11 @@ sub make_unpackeddata {
 			$ret .= qq|<td>$tit</td>|;
 		}
 	}
-	
-	
+
+
 	my @dl = split ";",$data;
 
-	
+
 	foreach my $dline (@dl) {
 		my $lineret = qq|<tr>|; my $ct = 0; my $skip=0;
 		my @dvls = split ",",$dline;
@@ -3743,14 +3743,14 @@ sub make_unpackeddata {
 			} else {
 				$lineret .= qq|<td>$tit</td>\n|;
 			}
-		}	
+		}
 		$lineret .= "</tr>\n";
 		unless ($skip == 1) { $ret .= $lineret; }
-	
+
 	}
 	$ret .= "<table>\n";
 	return $ret;
-	
+
 }
 
 # -------  Make Lookup ---------------------------------------------------------
@@ -3764,16 +3764,16 @@ sub make_lookup {
 	my $ret = $ll."_".$asitem;
 	die "Lookup command badly formed: $ll && $lf && $lv && $script->{db}" unless ($ll && $lf && $lv && $script->{db});
 
-# print "Content-type: text/html; charset=utf-8\n\n$stmt -- $lv <br>"; 
+# print "Content-type: text/html; charset=utf-8\n\n$stmt -- $lv <br>";
 
 						# Permissions
-			
+
 	my $where ="";
-	my $perm = "view_".$ll;					
+	my $perm = "view_".$ll;
 	if ((defined $Site->{perm}) && $Site->{$perm} eq "owner") {
 		$where .= " AND ".$ll."_id = '".$Person->{person_id}."'";
 	} else {
-		return unless (&is_allowed("view",$ll,"","make lookup")); 
+		return unless (&is_allowed("view",$ll,"","make lookup"));
 	}
 
 	my $stmt = "SELECT $ret FROM $ll WHERE ".$ll."_".$lf." = ?".$where;
@@ -3799,7 +3799,7 @@ sub header {
 	my ($dbh,$query,$table,$format,$title) = @_;
 	$format ||= "html";
 	my $template = $Site->{lc($format) . "_header"} || lc($format) . "_header";
-	
+
 	return &get_template($dbh,$query,$template,$title);
 
 }
@@ -3831,13 +3831,13 @@ sub footer {
 
 #-------------------------------------------------------------------------------				UPLOAD FUNCTIONS
 #
-#           Upload Functions 
+#           Upload Functions
 #
 #-------------------------------------------------------------------------------
 
 
 
-# -------   Upload File --------------------------------------------------------------                          
+# -------   Upload File --------------------------------------------------------------
 #
 #
 #	      Edited: 21 January 2013, 30 May 2017
@@ -3845,10 +3845,10 @@ sub footer {
 #----------------------------------------------------------------------
 
 sub upload_file {
-	
+
 	# Assumes global input variable $query from CGI
 	# Name of input field:  myfile
- 	
+
 
 	my $file = gRSShopper::File->new();
 	$file->{file_title} = $query->param("myfile");
@@ -3857,8 +3857,8 @@ sub upload_file {
 	unless (-d $file->{file_dir}) { mkdir $file->{file_dir}, 0755 or die "Error 3857 creating upload directory $file->{file_dir} $!"; }
 	unless ($file->{file_title}) { $vars->{msg} .= " No file was uploaded."; }
 
-	# Prepare Filename 	
-	my ( $ffname, $ffpath, $ffextension ) = fileparse ( $file->{file_title}, '\..*' );  
+	# Prepare Filename
+	my ( $ffname, $ffpath, $ffextension ) = fileparse ( $file->{file_title}, '\..*' );
 	$file->{file_title} = $ffname . $ffextension;
 	$file->{file_title} = &sanitize_filename($dbh,$file->{file_title});
 
@@ -3866,34 +3866,34 @@ sub upload_file {
 	($file->{filetype},$file->{file_dir}) = &file_upload_dir($ffextension);
 	my $fulluploaddir = $Site->{st_urlf} . $file->{file_dir};
 	unless (-d $fulluploaddir) { mkdir $fulluploaddir, 0755 or die "Error 3868 creating upload directory $fulluploaddir $!"; }
-	
+
 	# Store the File
 	my $upload_filehandle = $query->upload("myfile");
 	$upload_filedirname = $file->{file_dir}.$file->{file_title};
 	$upload_fullfilename = $Site->{st_urlf}.$upload_filedirname;
 
-	
-	# Prevent Duplicate File Names  (creates filename.n.ext where n is the increment number)
-	
-	
-	my ($upload_fulldirname,$upload_fullfilename,$upload_filedirname) = &unique_filename($file,$upload_fullfilename);
-		
 
-	open ( UPLOADFILE, ">$upload_fullfilename" ) or &error($dbh,"","","Failed to upload $upload_fullfilename $!");  
-	binmode UPLOADFILE;  
-	while ( <$upload_filehandle> ) { print UPLOADFILE; } 
+	# Prevent Duplicate File Names  (creates filename.n.ext where n is the increment number)
+
+
+	my ($upload_fulldirname,$upload_fullfilename,$upload_filedirname) = &unique_filename($file,$upload_fullfilename);
+
+
+	open ( UPLOADFILE, ">$upload_fullfilename" ) or &error($dbh,"","","Failed to upload $upload_fullfilename $!");
+	binmode UPLOADFILE;
+	while ( <$upload_filehandle> ) { print UPLOADFILE; }
 	close UPLOADFILE;
 
 	$file->{fullfilename} = $upload_fullfilename;
 
-		
+
 	return $file;
 
 
 }
 
 
-# -------   Upload URL ---------------------------------------------------------------                                          
+# -------   Upload URL ---------------------------------------------------------------
 #
 #
 #	      Edited: 21 January 2013, 30 May 2017
@@ -3901,28 +3901,28 @@ sub upload_file {
 #----------------------------------------------------------------------
 
 sub upload_url {
-	
+
 	my ($url) = @_;
 
-	$vars->{msg} .= "<br>Downloading $url...  ";	
+	$vars->{msg} .= "<br>Downloading $url...  ";
 	return unless ($url);
-	
+
 	# Chop seo and such (if there are exceptions to these I'll fix them in the future)
 	$ url =~ s/\?(.*?)$//;
 	$ url =~ s/#(.*?)$//;
 
 	my $file = gRSShopper::File->new();
-	
-	
-	
-	# Prepare Filename 
-	my @parts = split "/",$url; 										
+
+
+
+	# Prepare Filename
+	my @parts = split "/",$url;
 	$file->{file_title} = pop @parts;
 	$file->{file_title} = &sanitize_filename($dbh,$file->{file_title});
 
 	# Set File Upload Directory
 	my @pparts = split /\./,$file->{file_title};
-	my $ffextension = "." . pop @pparts;			
+	my $ffextension = "." . pop @pparts;
 	($file->{filetype},$file->{file_dir}) = &file_upload_dir($ffextension);
 	my $fulluploaddir = $Site->{st_urlf} . $file->{file_dir};
 	unless (-d $fulluploaddir) { mkdir $fulluploaddir, 0755 or die "Error 1892 creating upload directory $upload_dir $!"; }
@@ -3936,14 +3936,14 @@ sub upload_url {
 	$file->{filedirname} = $upload_fulldirname;
 	$file->{fullfilename} = $upload_fullfilename;
 
-		
+
 	# Get and Store the File
-	
+
 	my $result = getstore($url,$file->{fullfilename});
-	
-	unless ($result eq "200") {   
+
+	unless ($result eq "200") {
 		$vars->{msg} .= qq|<span style="color:red;">
-			<br>Error $result while trying to download<br><a href="$url">$url</a> <br> 
+			<br>Error $result while trying to download<br><a href="$url">$url</a> <br>
 			Try saving manually and uploading from your computer</span><br><br>|;
 		$file->{fullfilename} = ""; $file->{file_title} = "";
 		return 0;
@@ -3959,10 +3959,10 @@ sub upload_url {
 
 
 sub unique_filename {
-	
+
 	my ($file,$upload_fullfilename,$upload_filedirname) = @_;
-	
-	my $ccnt = 0;		
+
+	my $ccnt = 0;
 	while (-e $upload_fullfilename) {
 
 		# Get extension and remove from file title
@@ -3974,8 +3974,8 @@ sub unique_filename {
 			my ($incr) = $file->{file_title} =~ /(\.[^.]+)$/;
 			$incr =~ s/\.//;
 			$file->{file_title} =~ s/(\.[^.]+)$//;
-			$incr = $incr +1; 
-			$file->{file_title} = $file->{file_title}.".".$incr.$ext; 
+			$incr = $incr +1;
+			$file->{file_title} = $file->{file_title}.".".$incr.$ext;
 
 		# or create a new file name counter
 		} else {
@@ -3984,13 +3984,13 @@ sub unique_filename {
 
 		# Set the new file name variables
 		$upload_filedirname = $file->{file_dir}.$file->{file_title};
-		$upload_fullfilename = $Site->{st_urlf}.$upload_filedirname;	
-		$ccnt++; last if ($ccnt > 100000);		
-			
+		$upload_fullfilename = $Site->{st_urlf}.$upload_filedirname;
+		$ccnt++; last if ($ccnt > 100000);
+
 	}
-	
+
 	return ($upload_fulldirname,$upload_fullfilename);
-	
+
 }
 
 
@@ -3999,12 +3999,12 @@ sub unique_filename {
 
 sub sanitize_filename {
 
-	my ($dbh,$filename) = @_; 
+	my ($dbh,$filename) = @_;
 	my $safe_filename_characters = "a-zA-Z0-9_.-";
 
-	$filename =~ tr/ /_/;  
+	$filename =~ tr/ /_/;
 	$filename =~ s/[^$safe_filename_characters]//g;
-	if ( $filename =~ /^([$safe_filename_characters]+)$/ )  { $filename = $1;  }  
+	if ( $filename =~ /^([$safe_filename_characters]+)$/ )  { $filename = $1;  }
 	else { &error($dbh,"","","Filename $filename contains invalid characters"); }
 
 	return $filename;
@@ -4019,28 +4019,28 @@ sub file_upload_dir {
 	my $filetype = "";
 	my $dir = "";
 
-	if ($ff =~ /\.jpg|\.jpeg|\.gif|\.png|\.bmp|\.tif|\.tiff/i) { 
-		$filetype = "image"; $dir = $Site->{up_image} || "files/images/"; 
+	if ($ff =~ /\.jpg|\.jpeg|\.gif|\.png|\.bmp|\.tif|\.tiff/i) {
+		$filetype = "image"; $dir = $Site->{up_image} || "files/images/";
 	} elsif ($ff =~ /\.doc|\.txt|\.pdf/i) {
-		$filetype = "doc"; $dir = $Site->{up_docs} || "files/documents/"; 
+		$filetype = "doc"; $dir = $Site->{up_docs} || "files/documents/";
 	} elsif ($ff =~ /\.ppt|\.pps/i) {
-		$filetype = "slides"; $dir = $Site->{up_slides} || "files/slides/"; 
+		$filetype = "slides"; $dir = $Site->{up_slides} || "files/slides/";
 	} elsif ($ff =~ /\.mp3|\.wav/i) {
-		$filetype = "audio"; $dir = $Site->{up_audio} || "files/audio/"; 
+		$filetype = "audio"; $dir = $Site->{up_audio} || "files/audio/";
 	} elsif ($ff =~ /\.flv|\.mp4|\.avi|\.mov/i) {
-		$filetype = "video"; $dir = $Site->{up_video} || "files/video/"; 
+		$filetype = "video"; $dir = $Site->{up_video} || "files/video/";
 	} else {
-		$filetype = "other"; $dir = $Site->{up_files} || "files/files/"; 
+		$filetype = "other"; $dir = $Site->{up_files} || "files/files/";
 	}
 
 	unless ($dir =~ /\/$/) { $dir .= "/"; }
 
-	
+
 	return ($filetype,$dir);
 }
 
 
-# -------  Auto Make Icon  --------------------------------------------------------                                                  
+# -------  Auto Make Icon  --------------------------------------------------------
 #
 #
 #	      Edited: 21 January 2013
@@ -4054,14 +4054,14 @@ sub file_upload_dir {
 #
 
 sub auto_make_icon {
-	
-	my ($table,$id) = @_;
-	
 
-	
+	my ($table,$id) = @_;
+
+
+
 	my $file = &auto_upload_image($table,$id);					# Upload image found in RSS feed
 	if ($file =~ /Error:/) { return "Error uploading image"; }
-	$file->{file_id} =  &db_insert($dbh,$query,"file",$file);			# Save file record (for later graphing)	
+	$file->{file_id} =  &db_insert($dbh,$query,"file",$file);			# Save file record (for later graphing)
 
 	my $icondir = $Site->{st_icon} || $Site->{st_urlf}."files/icons/";		# Define (or make) icon directory
 	unless (-d $icondir) { mkdir $icondir, 0755 or die "Error creating icon directory $icondir $!"; }
@@ -4072,18 +4072,18 @@ sub auto_make_icon {
 	my $icondir = $Site->{st_urlf}."files/icons/";
 	my $iconname = $table."_".$id.".jpg";
 	my $icon = &make_thumbnail($filedir,$filename,$icondir,$iconname);		# make the icon
-	
-	
-	if ($icon) {									# Update icon value in post record									
+
+
+	if ($icon) {									# Update icon value in post record
 		&db_update($dbh,$table,{post_icon=>$icon},$id,"Update icon in $table"); # (not strictly necessary but loads image a bit faster)
 	}
-	
+
 	return $file;
-	
+
 }
 
 
-# -------  Auto Upload Image  --------------------------------------------------------                                                  
+# -------  Auto Upload Image  --------------------------------------------------------
 #
 #
 #	      Edited: 25 January 2013
@@ -4091,24 +4091,24 @@ sub auto_make_icon {
 #----------------------------------------------------------------------
 
 sub auto_upload_image {
-	
+
 	my ($table,$id) = @_;
-		
+
 	my @graph = &find_graph_of($table,$id,"media");
 	my $media; foreach my $media_id (@graph) {					# Find media associated with record
 		$media = &db_get_record($dbh,"media",{media_id=>$media_id});		#    keep searching till you find an image
-		next unless (($media->{media_mimetype} =~ /image/ || $media->{media_type} =~ /image/));		
+		next unless (($media->{media_mimetype} =~ /image/ || $media->{media_type} =~ /image/));
 		my $uploadedfile = &upload_url($media->{media_url});			#    then upload that image to the server
 		if ($uploadedfile->{fullfilename}) {					#    if the upload was successful
 			return $uploadedfile ;						#    return the newly created file record as an object
 		}
-			 
+
 	}
-	return "Error: could not find a record to upload."; 
-	
+	return "Error: could not find a record to upload.";
+
 }
 
-# -------  Make Thumbnail  --------------------------------------------------------                                                  
+# -------  Make Thumbnail  --------------------------------------------------------
 #
 #
 #	      Edited: 21 January 2013
@@ -4116,19 +4116,19 @@ sub auto_upload_image {
 #----------------------------------------------------------------------
 
 sub make_thumbnail {
-	
+
 
 	my ($dir,$img,$icondir,$iconname) = @_;
 
-		
-	return "Error: need both directory and file" unless ($img && $dir);		
+
+	return "Error: need both directory and file" unless ($img && $dir);
 	my $tmb = $img;
 	if ($iconname) { $tmb = $iconname; }
 	else { $tmb =~ s/\.(.*?)$/_tmb\.$1/; }
-	
+
 	my $dimf = $dir . $img;			# Full filename of original
 	my $domf = $icondir . $tmb;		# Full filename of new icon
-	
+
 	my $image = Image::Magick->new;
 
 	my $error = $image->Read($dimf);
@@ -4141,8 +4141,8 @@ sub make_thumbnail {
 	return "Error: writing $domf image file: $error" if $error;
 
 	return $tmb;
-	
-	
+
+
 }
 
 
@@ -4174,7 +4174,7 @@ sub make_thumbnail {
 
 #-------------------------------------------------------------------------------
 #
-#           Form Functions 
+#           Form Functions
 #
 #-------------------------------------------------------------------------------
 
@@ -4187,83 +4187,83 @@ sub make_thumbnail {
 #-------------------------------------------------------------------------------
 
 sub auto_post() {
-	
+
 	my ($dbh,$query,$linkid) = @_;
-	
+
 	my $link = &db_get_record($dbh,"link",{link_id=>$linkid});
 	unless ($link->{link_id}) { return &printlang("Link error",$linkid); }
-	
-	
+
+
 									# Uniqueness Constraints
 	my $l = "";
 	if (
 	    ($l = &db_locate($dbh,"post",{post_link => $link->{link_link}}))  ||
-	    ($l = &db_locate($dbh,"post",{post_title => $link->{link_title},post_feedid => $link->{link_feedid}})) 
+	    ($l = &db_locate($dbh,"post",{post_title => $link->{link_title},post_feedid => $link->{link_feedid}}))
 	    ) {
 	    	print "Not unique <br>";
 	    	return $l;
-	}    	
+	}
 
-									# Create post 
-						
+									# Create post
+
 	my $post = {
-		post_journal => $link->{link_feed},	
-		post_journalname => $link->{link_feedname},			
+		post_journal => $link->{link_feed},
+		post_journalname => $link->{link_feedname},
 		post_creator => $Person->{person_id},
 		post_feedid => $link->{link_feedid},
 		post_crdate => $now,
 		post_type => "link"
-	};				
+	};
 									# Fill with link data
 	while (my($lx,$ly) = each %$link) {
-		
+
 		my $px=$lx; $px =~ s/link_/post_/i;
 		$post->{$px} ||= $ly;
-	
-	}					
-						
+
+	}
+
 	my $now = time;
 
-	
+
 	$post->{post_id} = &db_insert($dbh,$query,"post",$post);	# save post record
 	$vars->{post_twitter}="yes";
 	$vars->{post_facebook}="yes";
 	$vars->{msg} .= &publish_post($dbh,"post",$post->{post_id});	# Publish to Social Media
-	
+
 									# Create post graph
-		
+
 	$post->{type} = "post";			# Declare types for graphing
 	$link->{type} = "link";
 	&clone_graph($link,$post)		# Clone link graph items for post
-	&save_graph("posted",$link,$post);	# Create graph linking link, post					
+	&save_graph("posted",$link,$post);	# Create graph linking link, post
 
-									
+
 									# Update link status
 	my $link = {
 		link_post => $post->{post_id},
 		link_status => "Posted"
 	};
-	&db_update($dbh,"link",$link,$linkid);				
-	
-	
+	&db_update($dbh,"link",$link,$linkid);
+
+
 	my $file = &auto_make_icon("post",$post->{post_id});			# Make post icon
-	
-	if ($file) {								# If a file was uploaded to make the icon		
+
+	if ($file) {								# If a file was uploaded to make the icon
 										# Graph it to the post
 		$file->{type} = "file";							# Declare types for graphing
 		&save_graph("contains",$post,$file);					# Create graph linking post, file
-	}		
-	
-	
+	}
 
-	
-	return $post->{post_id};	
 
-	
+
+
+	return $post->{post_id};
+
+
 }
 
 
-# -------  Publish Post  --------------------------------------------------------                                                  
+# -------  Publish Post  --------------------------------------------------------
 #
 #
 #	      Edited: 10 July 2013
@@ -4277,14 +4277,14 @@ sub publish_post {
 
 	if ($vars->{post_twitter} eq "yes") { $vars->{twitter} = &twitter_post($dbh,"post",$id); }
 	if ($vars->{post_facebook} eq "yes") { $vars->{facebook} = &facebook_post($dbh,"post",$id);	}
-	
+
 	return $vars->{twitter}.$vars->{facebook};
 }
 
 
 
 
-# -------  Clone Graph  --------------------------------------------------------                                                  
+# -------  Clone Graph  --------------------------------------------------------
 #
 #
 #	      Edited: 21 January 2013
@@ -4292,43 +4292,43 @@ sub publish_post {
 #----------------------------------------------------------------------
 
 sub clone_graph {
-	
+
 	my ($link,$post) = @_;
-	
+
 	&diag(7,"Cloning graph for link $link->{link_id} autopost<br>");
 	my $now = time;
 	my $cr = $Person->{person_id};
-	
+
 	my $sql = qq|SELECT * FROM graph WHERE graph_tableone=? AND graph_idone = ?|;
 	my $sth = $dbh->prepare($sql);
 	$sth->execute("link",$link->{link_id});
 	while (my $ref = $sth -> fetchrow_hashref()) {
-		
+
 		$ref->{graph_tableone} = "post";
 		$ref->{graph_idone} = $post->{post_id};
 		$ref->{graph_urlone} = $post->{post_link};
 		$ref->{graph_crdate} = $now;
-		$ref->{graph_creator} = $cr;	
-		&diag(7,qq|------ Save Graph: [<a href="$ref->{graph_urlone}">$ref->{graph_tableone} $ref->{graph_idone}</a>] 
-			$ref->{graph_type} [<a href="$ref->{graph_urltwo}">$ref->{graph_tabletwo} $ref->{graph_idtwo}</a>]<br>|);				
+		$ref->{graph_creator} = $cr;
+		&diag(7,qq|------ Save Graph: [<a href="$ref->{graph_urlone}">$ref->{graph_tableone} $ref->{graph_idone}</a>]
+			$ref->{graph_type} [<a href="$ref->{graph_urltwo}">$ref->{graph_tabletwo} $ref->{graph_idtwo}</a>]<br>|);
 		&db_insert($dbh,$query,"graph",$ref);
 	}
-	
+
 	my $sql = qq|SELECT * FROM graph WHERE graph_tabletwo=? AND graph_idtwo = ?|;
 	my $file_list = "";
 	my $sth = $dbh->prepare($sql);
 	$sth->execute("link",$link->{link_id});
 	while (my $ref = $sth -> fetchrow_hashref()) {
-	
+
 		$ref->{graph_tabletwo} = "post";
 		$ref->{graph_idtwo} = $post->{post_id};
 		$ref->{graph_urltwo} = $post->{post_link};
 		$ref->{graph_crdate} = $now;
-		$ref->{graph_creator} = $cr;	
-		&diag(7,qq|------ Save Graph: [<a href="$ref->{graph_urlone}">$ref->{graph_tableone} $ref->{graph_idone}</a>] 
-			$ref->{graph_type} [<a href="$ref->{graph_urltwo}">$ref->{graph_tabletwo} $ref->{graph_idtwo}</a>]<br>|);				
+		$ref->{graph_creator} = $cr;
+		&diag(7,qq|------ Save Graph: [<a href="$ref->{graph_urlone}">$ref->{graph_tableone} $ref->{graph_idone}</a>]
+			$ref->{graph_type} [<a href="$ref->{graph_urltwo}">$ref->{graph_tabletwo} $ref->{graph_idtwo}</a>]<br>|);
 		&db_insert($dbh,$query,"graph",$ref);
-	}	
+	}
 }
 
 
@@ -4343,29 +4343,29 @@ sub clone_graph {
 #----------API: Send REST---------------------------------------------
 
 sub api_send_rest {
-	
+
 	my ($dbh,$query,$url,$path,$data,$target) = @_;
-       
+
 									# Load REST::Client module
-	unless (&new_module_load($query,"REST::Client")) { 
+	unless (&new_module_load($query,"REST::Client")) {
 		print $vars->{error};
 		exit;
 	}
 									# Load JSON Module
-	unless (&new_module_load($query,"JSON")) { 
+	unless (&new_module_load($query,"JSON")) {
 		print $vars->{error};
 		exit;
 	}
-	
+
 									# Load URI::Escape
-	unless (&new_module_load($query,"URI::Escape")) { 
+	unless (&new_module_load($query,"URI::Escape")) {
 		print $vars->{error};
 		exit;
 	}
-	  
-      
+
+
         # Prepare content
-        
+
         my $body = JSON->new->utf8->encode($data);
 
 	$target =~ s/&amp;/&/g;
@@ -4377,25 +4377,25 @@ sub api_send_rest {
 	my $client = REST::Client->new();
  	$client->POST($url.$path.$target,$body);
 	my $loc = $client->responseContent();
-	
-	# Return Redirect URL 
-	
+
+	# Return Redirect URL
+
 	$loc =~ s/"//g;
 	return $loc;
 
 	exit;
 
-	
-	
+
+
 }
 
 sub api_receive_rest {
-	
+
 	my ($dbh,$query) = @_;
-	
-	
-	
-	
+
+
+
+
 }
 
 
@@ -4415,34 +4415,34 @@ sub api_receive_rest {
 
 
 sub form_editor() {
-	
+
 	my ($dbh,$query,$table,$id_number,$data) = @_;
 
 	# Initialize major form elements
 	my $form_text = "";
 	my $pub_text = "";
-	
-	
+
+
 	my $autoblog = $vars->{autoblog};
 	my $id; my $id_value;						# Not needed, but let's wipe out the value
 									# in case they're used accidentally. Heh
-	
+
 
 	# Check Starting Data
 
-	unless ($dbh) { &error($dbh,$query,"","Database not ready") }	
+	unless ($dbh) { &error($dbh,$query,"","Database not ready") }
 	unless ($table) { &error($dbh,$query,"","A record type must be provided."); }
 	my $id_value = "";
 
 	# If Record doesn't exist, create a new empty record
 
 	if ($id_number) { $id_value = $id_number; }
-	else { 
+	else {
 
 		# Record wasn't found, create a new record, eg., a new 'author'
 		unless ($keyrecord) {
 
-			# Initialize values				
+			# Initialize values
 			my $table_record = {
 				$table."_creator"=>$Person->{person_id},
 				$table."_crdate"=>time,
@@ -4458,22 +4458,22 @@ sub form_editor() {
 
 	}
 
-	
-	
+
+
 	# Get Record
 
-	my $record; my $quotationtext; my $link; my $feed;	
+	my $record; my $quotationtext; my $link; my $feed;
 	$record = &db_get_record($dbh,$table,{$table."_id" => $id_number});
-	
+
 	# Remove spacings
 	$record->{$table."_description"} =~ s/<br\/>/\n/g;
 	$record->{$table."_content"} =~ s/<br\/>/\n/g;
 
 
 	# Permissions
-	if ($id_value =~ /new/i) {	return unless (&is_allowed("create",$table,"","$Person->{person_id} form editor")); } 
+	if ($id_value =~ /new/i) {	return unless (&is_allowed("create",$table,"","$Person->{person_id} form editor")); }
 	else { return unless (&is_allowed("edit",$table,$record,"$Person->{person_id} form editor")); }
-	
+
 
 	# Print Messages
 
@@ -4483,7 +4483,7 @@ sub form_editor() {
 
 
 	# Navigation
-	
+
 	unless ($vars->{autoblog}) {
 		my $scripturl = $Site->{st_url}.$ENV{'REQUEST_URI'};
 		$form_text .= qq|<p class="nav">[<a href="$Site->{st_url}$table/$id_number">View |.ucfirst($table).qq|</a>] |;
@@ -4493,7 +4493,7 @@ sub form_editor() {
 		$form_text .= qq|</p>|;
 	}
 
-	# Create Preview Version 
+	# Create Preview Version
 	$form_text .= qq|<script>\$(document).ready(function(){\$('#record_summary').load("admin.cgi?$table=$id_number&format=summary");});</script>
 	 	<br><i>&nbsp;&nbsp;Preview:</i><br/><table id="record_preview" border=1 cellpadding=10 cellspacing=0 style="color:#888888; width:95%">
 		<tr><td><div id="record_summary"></div></td></tr></table><br>|;
@@ -4501,15 +4501,15 @@ sub form_editor() {
 	# Create Form Heading for Old-Style (Raw) Form
 
 	if (defined($vars->{raw_form})) {
-		
+
 		# Table and ID values
 		$form_text .=  qq|
  		 <form method="post" id="contenteditor" action="$Site->{script}" enctype="multipart/form-data">
 		 <input type="hidden" name="table" value="$table">
 		 <input type="hidden" name="id" value="$id_value">
 		 <input type="hidden" name="action" value="update">
-		 <input type="hidden" name="raw_form" value="1">|; 
-		 
+		 <input type="hidden" name="raw_form" value="1">|;
+
 		if ($vars->{autoblog}) {
 			$form_text .=  qq|
 			<input type="hidden" name="newautoblog" value="$vars->{autoblog}">|;
@@ -4520,8 +4520,8 @@ sub form_editor() {
 		if ($spam_code) { $form_text .=  qq|
 			<input type="hidden" name="code" value="$vars->{code}">
 			<input type="hidden" name="post_thread" value="$record->{post_thread}">|; }
-	
-		 
+
+
 		# Add hidden values from $data
 		while (my($dx,$dy) = each %$data) {
 			$form_text .=  qq|
@@ -4530,118 +4530,118 @@ sub form_editor() {
 	}
 
 
-		 
- 		 
+
+
 	if ($autoblog) {
 		$form_text .= qq|<table border=0 cellpadding=10 cellspacing=0 style="color:#888888; width:95%"><tr><td>
 			<i>Full text of the link you are commenting on is located below the form</i></td></tr></table>|;
 	}
-	
-	
 
-	$form_text .= qq|	 
+
+
+	$form_text .= qq|
 		 <table border=1 cellpadding=10 cellspacing=0 style="color:#888888; width:95%">\n|;
-	
+
 	# Get the full list of tables, for crosslinks
 	my @db_tables = &db_tables($dbh);
-	
+
 	# Find the list for fields to display...
 	my @fieldlist;
-	
+
 	# If the Form table exists
-	
+
 	if (&db_table_exist($dbh,"form")  && !defined($vars->{raw_data})) {
-	
-		# Find the record for the current $table 
+
+		# Find the record for the current $table
 		my $tableid = &db_locate($dbh,"form",{form_title=>$table});
-				
+
 		# If the $table record exists
-		if ($tableid) { 
-			
+		if ($tableid) {
+
 			# Get the 'data' from the record, and split it into fields
 			my $table_data = &db_get_single_value($dbh,"form","form_data",$tableid);
 			@fieldlist = split /;/,$table_data;
 		}
-	
+
 	}
-	
+
 	# If the form table doesn't exist, or doesn't have a record for $table, or is over-ridden in options...
-	
-	unless (@fieldlist) {	
-		
+
+	unless (@fieldlist) {
+
 		# Push headings into the @Fieldlist data
-		push @fieldlist,"Name,Type,Size,Default";	
-		
-		# Get the list of columns from the database			
-		my @columns = (); my $coltypes = ();			 
+		push @fieldlist,"Name,Type,Size,Default";
+
+		# Get the list of columns from the database
+		my @columns = (); my $coltypes = ();
 		my $showstmt = "SHOW COLUMNS FROM $table";
 		my $sth = $dbh -> prepare($showstmt);
 		$sth -> execute();
-		
+
 		# For each column...
-		while (my $showref = $sth -> fetchrow_hashref()) { 
-			
+		while (my $showref = $sth -> fetchrow_hashref()) {
+
 			# Add it to the list of coluymns in @columns
-			push @columns,$showref->{Field}; 
+			push @columns,$showref->{Field};
 
 			# Save type information to the $coltypes hash
 			$coltypes->{$showref->{Field}} = $showref->{Type};
 
 			# Normalize the column name
 			my $fullfieldname = $showref->{Field};
-			my $prefix = $table."_"; $showref->{Field} =~ s/$prefix//; 
-			
+			my $prefix = $table."_"; $showref->{Field} =~ s/$prefix//;
+
 			# Extract column type and length values
 			my ($fieldtype,$fieldsize) = split /\(|\)/,$showref->{Type};
 			if ($fieldsize+0 == 0) { $fieldsize = 10; }  # Prevent 0 fieldsize
-			
+
 			# Some defaults fieldtypes for important fields
 
 			if ($table eq "form" && $showref->{Field} eq "data") { $fieldtype = "data"; }
-			elsif ($table eq "presentation" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary			
+			elsif ($table eq "presentation" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary
 			elsif ($table eq "optlist" && $showref->{Field} eq "data") { $fieldtype = "text"; }
-			elsif ($table eq "view" && $showref->{Field} eq "text") { $fieldtype = "text"; }		
+			elsif ($table eq "view" && $showref->{Field} eq "text") { $fieldtype = "text"; }
 			elsif ($showref->{Field} eq "description") { $fieldtype = "text"; }
 			elsif ($showref->{Field} eq "data") { $fieldtype = "data"; }
 			elsif ($fullfieldname =~ /_file/) { $fieldtype = "file"; }
 			elsif ($fullfieldname =~ /_date/) { $fieldtype = "date"; }
-			elsif ($fullfieldname =~ /_social_media/) { $fieldtype = "publish"; }			
-			elsif ($fullfieldname =~ /_start/ || $fullfieldname =~ /_finish/) { $fieldtype = "datetime"; }			
+			elsif ($fullfieldname =~ /_social_media/) { $fieldtype = "publish"; }
+			elsif ($fullfieldname =~ /_start/ || $fullfieldname =~ /_finish/) { $fieldtype = "datetime"; }
 			elsif (&db_get_record($dbh,"optlist",{optlist_title=>$fullfieldname})) { $fieldtype = "optlist"; }
 			elsif ($table eq "post" && ($showref->{Field} eq "author" || $showref->{Field} eq "feed")) { $fieldtype = "keylist"; } # Temporary
-			elsif ($table eq "publication" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary			
-			else { $fieldtype = "varchar"; } 
+			elsif ($table eq "publication" && ($showref->{Field} eq "post")) { $fieldtype = "keylist"; } # Temporary
+			else { $fieldtype = "varchar"; }
 
-			# Push the column information into the new @fieldlist array 
+			# Push the column information into the new @fieldlist array
 			# (which will now look just like the comma-delimited data if it were retrieved from the Form table
 			push @fieldlist,"$showref->{Field},$fieldtype,$fieldsize,$showref->{Default}";
-		}	
-	
+		}
+
 	}
-	
+
 	# Process each field in @fieldlist in turn
-	
+
 	my $rowcounter = 0;
 	foreach my $f (@fieldlist) {
-		
+
 		# Skip headings in Form data table
 		$rowcounter++; next if ($rowcounter == 1);
 
 		# get field name, type, size and default value
 
-  		my ($col,$fieldtype,$fieldsize,$fielddefault) = split /,/,$f; 
-		
+  		my ($col,$fieldtype,$fieldsize,$fielddefault) = split /,/,$f;
+
   		# Normalize column names
 		$sc = $col;
-  		$col = $table."_".$col;	
- 
+  		$col = $table."_".$col;
+
 		# Find the Size, if specified
 		my $size;
 		if ($coltypes->{$col} =~ /\((.*?)\)/) {
 			$size = $1;
 		}
-		
-		
+
+
 		# Isolate Field Type
 		my $fieldstem = $col; my $tabstem = $table."_";
 		$fieldstem =~ s/$tabstem//;
@@ -4649,62 +4649,62 @@ sub form_editor() {
 		my $keylist=0; foreach my $tab (@db_tables) { if ($tab eq $sc) { $keylist=1; last; } }
 
 		# Generate form element variables
-		
+
 		my $value = $record->{$col} || "";
 
 
 		# Print Input Fields
-						
-		# Keylist				
-		if ($fieldtype eq "keylist") { $form_text .= &form_keylist($table,$id_value,$sc); }			
-		
+
+		# Keylist
+		if ($fieldtype eq "keylist") { $form_text .= &form_keylist($table,$id_value,$sc); }
+
 		# Varchar
 		elsif ($fieldtype eq "varchar") { $form_text .=  &form_textinput($table,$id_value,$col,$value,4); }
-		
+
 		# HTML text  (wysihtml)
 		elsif ($fieldtype eq "html") { $form_text .= &form_wysihtml($table,$id_number,$col,$value,$fieldsize,$advice); }
-		
+
 		# Text       (textarea)
 		elsif ($fieldtype eq "text") { $form_text .= &form_textarea($table,$id_number,$col,$value,$fieldsize,$advice); }
-		
+
 		# Rules       (textarea)
 		elsif ($fieldtype eq "rules") { $form_text .= &form_rules($record,$col,$fieldsize); }
-		
+
 		# Option List (Selections defined in the'optlist' table; defaults to varchar if options are missing)
-		elsif ($fieldtype eq "optlist") { $form_text .=  &form_optlist($table,$id_number,$col,$value,$fieldsize,$advice); }
-		
-		# Data  - each line ; delimited  and individual items , delimited. First line is data headers 
-		elsif ($fieldtype eq "data") { $form_text .=  &form_data($col,$record->{$col},$id_number,$table); }		
-		
-		# File			
+		elsif ($fieldtype eq "optlist") { $form_text .=  &form_optlist($table,$id_number,$col,$value,$fieldsize,$advice,1); }
+
+		# Data  - each line ; delimited  and individual items , delimited. First line is data headers
+		elsif ($fieldtype eq "data") { $form_text .=  &form_data($col,$record->{$col},$id_number,$table); }
+
+		# File
 		elsif ($fieldtype eq "file") { $form_text .=  &form_file_select($dbh,$table,$id_number); }
-		
+
 		# Date
-		
+
 		elsif ($fieldtype eq "date") { $form_text .=  &form_date_select($table,$id_value,$col,$value,4); }
-		
+
 		# DateTime
 		elsif ($fieldtype eq "datetime") { $form_text .=  &form_date_time_select($record,$col,$colspan,$advice); }
 
 		# Publish
 		elsif ($fieldtype eq "publish") { $pub_text .=  &form_publish($table,$id_value,$col,$value); }
-				
+
 		# Heading
 		elsif ($fieldtype eq "heading") { $form_text .=  &form_heading($sc,$fieldsize); }
-		
-		# Commit 
-		elsif ($fieldtype eq "commit") { $form_text .=  &form_commit($table,$col,$id_number,$record); }	
-		
 
-						
-		elsif ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "post")) {			
+		# Commit
+		elsif ($fieldtype eq "commit") { $form_text .=  &form_commit($table,$col,$id_number,$record); }
+
+
+
+		elsif ($keylist && ($fieldstem ne "url") && ($sc ne "link") && ($sc ne "field") && ($sc ne "post")) {
 			$form_text .= &form_keylist($table,$id_value,$sc);
 			# $form_text .=  &form_keyinput($col,$record->{$col},2);
-	
 
-		} elsif ($fieldtype eq "social_media") { $pub_text .= &form_publish($table,$id_number,$col,$value,$fieldsize,$advice); 		
+
+		} elsif ($fieldtype eq "social_media") { $pub_text .= &form_publish($table,$id_number,$col,$value,$fieldsize,$advice);
 		} elsif (($table eq "media") && ($fieldstem eq "link")) {
-			$form_text .=  &form_keyinput($col,$record->{$col},2);		
+			$form_text .=  &form_keyinput($col,$record->{$col},2);
 		} elsif ( $table eq "link" && $col =~ /_category/ ) {
 			$form_text .=  &form_textinput($table,$id_value,$col,$value,4);
 		} elsif ( $col =~ /_content/ || $col =~ /_description/) {
@@ -4719,26 +4719,26 @@ sub form_editor() {
 		} elsif ($col =~ /_start|_finish/) {
 			$form_text .=  &form_date_time_select($record,$col,$colspan,$advice);
 		} elsif ($col =~ /_timezone/) {
-			$form_text .=  &form_timezone($col,$record->{$col},$table,$record);	
+			$form_text .=  &form_timezone($col,$record->{$col},$table,$record);
 		} elsif ($col =~ /_edit|_show/) {
 			$form_text .= &form_boolean($col,$record->{$col},$table,$record);
 		} elsif ( $coltypes->{$col} =~ /int/ ||
-		     ($coltypes->{$col} =~ /varchar/ && $size <60)) {	
+		     ($coltypes->{$col} =~ /varchar/ && $size <60)) {
 			$form_text .=  &form_textinput($table,$id_value,$col,$value);
-		} elsif ( $col =~ /_current|_updated|_refresh|_textsize|_tag|_srefresh|_supdated/) {	
+		} elsif ( $col =~ /_current|_updated|_refresh|_textsize|_tag|_srefresh|_supdated/) {
 			$form_text .=  &form_textinput($table,$id_value,$col,$value);
 		} elsif ( $col =~ /_creatorname|_source/ ) {
  			$form_text .=  &form_textinput($table,$id_value,$col,$value,4);
 		} elsif ( $coltypes->{$col} =~ /varchar/ ) {
  			$form_text .=  &form_textinput($table,$id_value,$col,$value,);
-		} elsif ( $coltypes->{$col} eq "text") {	
+		} elsif ( $coltypes->{$col} eq "text") {
 			$form_text .=  &form_textarea($record,$col,$fieldsize);
 		} elsif ( $coltypes->{$col} eq "longtext") {
 			$form_text .=  &form_textarea($record,$col,$fieldsize);
 		} elsif ($sc eq "submit") {
 			$form_text .=  &form_submit();
 		} else {
-			$form_text .=  &form_textinput($table,$id_value,$col,$value);		
+			$form_text .=  &form_textinput($table,$id_value,$col,$value);
 		}
 
 
@@ -4747,12 +4747,12 @@ sub form_editor() {
 	$form_text .=  &form_submit();
 	$form_text .=  "</table>\n";
 
-	
-	
+
+
 	# link to Edit Raw Data
-	if (defined($vars->{raw_data})) { 
+	if (defined($vars->{raw_data})) {
 		$form_text .= qq|<span class="small_nav">[<a href="|.
-			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit">Predefined Form</a>]</span>|;		
+			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit">Predefined Form</a>]</span>|;
 	} else {
 		$form_text .= qq|<span class="small_nav">[<a href="|.
 			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit&raw_data">Edit Raw Data</a>]</span>|;
@@ -4760,21 +4760,21 @@ sub form_editor() {
 
 
 	# link to Use Old Style (Raw) Form
-	if (defined($vars->{raw_form})) { 	
+	if (defined($vars->{raw_form})) {
 		$form_text .= qq|<span class="small_nav">[<a href="|.
 
-			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit">In-Line Editing</a>]</span>|;			
+			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit">In-Line Editing</a>]</span>|;
 	} else {
 		# link to Use Old Style (Raw) Form
 		$form_text .= qq|<span class="small_nav">[<a href="|.
 			$Site->{st_cgi}.qq|admin.cgi?$table=$id_value&action=edit&raw_data&raw_form">Form Not Working?</a>]</span>|;
 	}
-	
+
 	# Some Autoblog Code; fix later
-	
+
 	if ($autoblog) {
 		my $link = db_get_record($dbh,"link",{link_id=>$autoblog});
-		$form_text .= qq|	 
+		$form_text .= qq|
 		 	<br><table border=0 cellpadding=10 cellspacing=0 width="600">
 			<tr><td>
 			<i>Link Text:</i><br/><br/>
@@ -4783,18 +4783,18 @@ sub form_editor() {
 			<br>
 			<a href="$link->{link_link}" target="_new">Open link in a new window</a>
 			</td></tr></table><br>\n|;
-	
+
 	}
-	
+
 	$form_text .= &form_page_options($table,$id_number,$record);
         $form_text .= &form_badge_options($table,$id_number,$record);
 	$form_text .= "</form>\n";
-	
+
 	#$form_text = qq|<div id="form_text">|.$form_text.qq|</div>|;
 
 	return qq|<div style="width:79%; float:left; ">$form_text</div><div style="width:20%; padding:5px;float:left; background-color:#f4f4f4;>$pub_text</div></div>|;
 }
-# 
+#
 
 # -------  Text Input -----------------------------------------------------
 #
@@ -4802,13 +4802,13 @@ sub form_editor() {
 
 sub form_textinput {
 	my ($table,$id,$col,$value,$size,$advice) = @_;
-	
+
 	$value ||= $col;
 
 
 	# Old-Style Form Alternative
 	$value =~ s/"/\\"/sg;
-	
+
 	if (defined($vars->{raw_form})) { return qq|<tr><td class="column-name" align="right" width="200">$col</td><td><input type="text" name="$col" value="$value"></td></tr>|; }
 
 	return qq|
@@ -4818,38 +4818,38 @@ sub form_textinput {
 		<span id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" >$value</span>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
 		<span id="|.$col.qq|_result"></span>$advice
-		
+
 		<script>
 		\$(document).ready(function(){
 			\$('#|.$col.qq|_button').hide();
 			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
 			\$('#|.$col.qq|_button').click(function(){
-				var content = \$('#|.$col.qq|').text(); 
+				var content = \$('#|.$col.qq|').text();
 				submit_function("$table","$id","$col",content,"text");
 				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 			});
 		});
 		</script>
-		</td></tr>	
+		</td></tr>
 	|;
-	
+
 
 }
 
 # -------  Textarea -----------------------------------------------------------
 
 sub form_textarea {
-	
+
 	my ($table,$id,$col,$value,$size,$advice) = @_;
 	$size ||= 10;
-	$value ||= $col;	
-		
+	$value ||= $col;
+
 	# Escape markup
 	$value =~ s/</&lt;/sig;
 	$value =~ s/>/&gt;/sig;
 
 
-	# Old-Style Form Alternative	
+	# Old-Style Form Alternative
 	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="10">$value</textarea>|; }
 
 	return qq|
@@ -4858,24 +4858,24 @@ sub form_textarea {
 		<textarea id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" rows="|.$size.qq|" cols="60">$value</textarea>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
 		<span id="|.$col.qq|_result"></span>$advice
-		
+
 		<script>
 		\$(document).ready(function(){
 			\$('#|.$col.qq|_button').hide();
 			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
 			\$('#|.$col.qq|_button').click(function(){
-				var content = \$('#|.$col.qq|').val(); 
+				var content = \$('#|.$col.qq|').val();
 				submit_function("$table","$id","$col",content,"textarea");
 				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 			});
 		});
 		</script>
-		</td></tr>	
-	|;	
+		</td></tr>
+	|;
 
 }
 
- 
+
 # -------  WYSI HTML Input -----------------------------------------------------
 #
 # Creates Formatted HTML Text Input Form Field
@@ -4885,20 +4885,20 @@ sub form_wysihtml {
 
 	$size ||= 10;
 	$value ||= $col;
-	
-		
+
+
 	# Escape markup
 	$value =~ s/</&lt;/sig;
 	$value =~ s/>/&gt;/sig;
-	
+
 	# Old-Style Form Alternative
-	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="|.$colspan.qq|" cols="60">$value</textarea>|; }	
+	if (defined($vars->{raw_form})) { return qq|$col<br><textarea name="$col" rows="|.$colspan.qq|" cols="60">$value</textarea>|; }
 
 
 
 
 	return qq|
-	
+
 
 
 		<!-- Integration based on instructions here http://docs.ckeditor.com/#!/guide/dev_jquery - Downes -->
@@ -4907,13 +4907,13 @@ sub form_wysihtml {
 		<textarea id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" rows="|.$size.qq|" cols="60" >$value</textarea>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
 		<span id="|.$col.qq|_result"></span>$advice
-		
+
 		<script>
 		CKEDITOR.replace( '|.$col.qq|' );
 		\$(document).ready(function(){
 
 			\$('|.$col.qq|').ckeditor();
-			
+
 			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
 			\$('#|.$col.qq|_button').click(function(){
 
@@ -4924,13 +4924,13 @@ sub form_wysihtml {
 			});
 		});
 		</script>
-		</td></tr>	
-	|;	
+		</td></tr>
+	|;
 
 
 }
 
-# 				var content = \$('#|.$col.qq|').val(); 
+# 				var content = \$('#|.$col.qq|').val();
 # 			\$('#|.$col.qq|_button').hide();
 
 
@@ -4946,7 +4946,7 @@ sub form_rules {
 
 	my $rulesinfo = qq|<span class="small_nav">[<a href="http://grsshopper.downes.ca/rules.htm" target="_new">Rules Help</a></span>]|;
 	$output .= &form_textarea($record,$col,$colspan,$advice.$rulesinfo);
-	
+
 	return $output;
 
 }
@@ -4980,29 +4980,29 @@ sub form_keylist {
 		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 		<span style="float:left;">Enter $col name: </span>
 		<span id="|.$col.qq|" contenteditable="true" style="float:left; width:20em;" ></span><span id="|.$col.qq|_button"><button>Update</button></span><br>
-		<span>$key_title List: <a href="#" id="$col"></a><br> 
+		<span>$key_title List: <a href="#" id="$col"></a><br>
 		<span id="|.$col.qq|_result">$keylist_text</span>$advice
 		</td></tr>
-		
+
 		<script>
 		\$(document).ready(function(){
 			\$('#|.$col.qq|_button').hide();
 			\$('#|.$col.qq|').click(function() { onclick_function("$col","persist");  });
 			\$('#|.$col.qq|_button').click(function(){
-				var content = \$('#|.$col.qq|').text(); 
+				var content = \$('#|.$col.qq|').text();
 				submit_function("$table","$id","$col",content,"keylist");
 				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 				\$('#|.$col.qq|').text("");
-				
+
 			});
 		});
-		</script>		
-		
+		</script>
+
 	|;
-	
-	
-	
-	
+
+
+
+
 	return qq|		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
 		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 \$('#|.$col.qq|_result').show();
@@ -5011,15 +5011,15 @@ sub form_keylist {
       \$('#$col').editable({
          type: 'text',
 		 mode: 'inline',
-         url: '|.$Site->{st_cgi}.qq|api.cgi',    
-         pk: 1,  
+         url: '|.$Site->{st_cgi}.qq|api.cgi',
+         pk: 1,
          placement: 'top',
          title: '',
          display: function(value, response) {
             //render response into element
             \$(this).html('Enter $key name');
          },
-         params: function (params) {  
+         params: function (params) {
             var data = {table_name:'$table',table_id:$id,name:params.name,value:params.value,updated:1,type:'keylist'};
             return data;
          },
@@ -5034,18 +5034,18 @@ sub form_keylist {
    </div></td></tr>
 |;
 
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
 
@@ -5058,14 +5058,14 @@ sub form_keylist {
 sub form_heading {
 
 	my ($col,$size) = @_;
-	
+
 	return qq|<tr><td align="left" valign="top"  colspan=4 >
    <div>
    <h$size>|.ucfirst($col).qq|</h$size>
    </div></td></tr>|;
-	
-	
-	
+
+
+
 }
 
 
@@ -5076,8 +5076,8 @@ sub form_heading {
 
 sub form_submit {
 
-	
-	if (defined($vars->{raw_form})) { 
+
+	if (defined($vars->{raw_form})) {
 		return qq|<tr><td colspan="4"><input type="submit" value="Update Record" class="button"></td></tr>|;
 	}
 
@@ -5091,22 +5091,22 @@ sub form_submit {
 sub form_file_select {
 
 	my ($dbh,$table,$id,$name) = @_;
-	
+
 	$col = "post_file";
 	my $plugindir = $Site->{st_url}."assets/jQuery-File-Upload-master/";
 	# my ($table,$id,$col,$value,$size,$advice) = @_;
-	
-	
-	my $admin = 1 if ($Person->{person_status} eq "admin");	
-	
+
+
+	my $admin = 1 if ($Person->{person_status} eq "admin");
+
 	# Old Style Form
-	if (defined($vars->{raw_form})) { 
-		
+	if (defined($vars->{raw_form})) {
+
 		my $content = qq|<tr><td>|.$table.qq|_file</td><td>Upload an image or a file...<br/><br/>
 		By URL: <input type="text" name="file_url" size="40"><br />
 		Or Select: <input type="file" accept="image/*;capture=camera" name="file_name" />
 		<input type="hidden" name="$countname" value="$value"><br>
-		File(s)... <br>|;	
+		File(s)... <br>|;
 		$content .= &form_graph_list($table,$id,"file");
 		$content .= qq|</td></tr>\n\n\n|;
 
@@ -5121,7 +5121,7 @@ sub form_file_select {
 
 
 	# Create list of options for the form
-	my $options = ""; 
+	my $options = "";
 	my $select = qq|File type: <select name='category'>|;
 	my @opts = split ";",$opts->{optlist_data};
 	foreach my $opt (@opts) {
@@ -5131,49 +5131,49 @@ sub form_file_select {
 		$options .= qq|<option value='$ovalue'>$oname</option>|;
 	}
 	$select = $select . $options . qq|</select>|;
-	
+
 
 	# Create list of already associated files
 	my $keylist_text = &form_graph_list($table,$id,"file");
-	$keylist_text ||= "None";	
-	
+	$keylist_text ||= "None";
+
 return qq|
 		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
 		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
    <div>
-   
+
 <!-- Existing Uploaded Files -->
   <span id="file_url_okindicator"></span>
   <span id="|.
 		$col
 	.qq|_okindicator">|.$keylist_text.qq|</span><br>
-	
+
    </div>
-   <div>	
+   <div>
  <!-- URL Input -->
- 
+
  		<span id="|.$col.qq|" contenteditable="true" style="width:40em; float:left; line-height:1.8em;" >Enter File URL, or...</span>
 		<span id="|.$col.qq|_button" style="float:left;"><button>Update</button></span>
 		<span id="|.$col.qq|_result" style="float:left;"></span>$advice<br><br>
-		
 
- 
+
+
  		<script>
 		\$(document).ready(function(){
 			\$('#|.$col.qq|_button').hide();
 			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
 			\$('#|.$col.qq|_button').click(function(){
-				var content = \$('#|.$col.qq|').text(); 
+				var content = \$('#|.$col.qq|').text();
 				submit_function("$table","$id","$col",content,"file_url");
 				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 			});
 		});
 		</script>
    </div>
-		
+
 <!-- File Upload -->
 
-<!-- JQuery code adapted from https://blueimp.github.io/jQuery-File-Upload/ by Downes  -->	
+<!-- JQuery code adapted from https://blueimp.github.io/jQuery-File-Upload/ by Downes  -->
 <!-- CSS to style the file input field as button and adjust the Bootstrap progress bars -->
 <link rel="stylesheet" href="|.$plugindir.qq|css/jquery.fileupload.css">
 <hr size=1 width=15%>
@@ -5185,11 +5185,11 @@ return qq|
         <i class="glyphicon glyphicon-plus"></i>
         <span>Add files...</span>
         <!-- The file input field used as target for the file upload widget -->
-        <input id="fileupload" type="file" name="myfile" 
+        <input id="fileupload" type="file" name="myfile"
 		multiple data-form-data='{"table_name": "|.$table.qq|",
-			"table_id": "|.$id.qq|",		
+			"table_id": "|.$id.qq|",
 			"col_name": "|.$col.qq|",
-			"type": "file",		
+			"type": "file",
 			"value": "json input",
 			"updated":1}'>
     </span>
@@ -5199,13 +5199,13 @@ return qq|
     <div id="progress" class="progress">
         <div class="progress-bar progress-bar-success" style="height:10px;background:green;width:0%"></div>
     </div>
-    
+
     <!-- The container for the uploaded files -->
     <div id="files" class="files"></div>
     <br>
 
    </div></td></tr>
-   
+
 
 <!-- The jQuery UI widget factory, can be omitted if jQuery UI is already included -->
 <script src="|.$plugindir.qq|js/vendor/jquery.ui.widget.js"></script>
@@ -5255,7 +5255,7 @@ return qq|
             });
     \$('#fileupload').fileupload({
         url: url,
-        dataType: 'json',   
+        dataType: 'json',
         autoUpload: false,
         maxFileSize: 10000999000,
         // Enable image resizing, except for Android and Opera,
@@ -5330,27 +5330,27 @@ return qq|
 });
 </script>
 
-		
- |;
- 
- 
- 
 
- 
- 
- 
+ |;
+
+
+
+
+
+
+
  return qq|
- 
- 
- 
+
+
+
  <script>
 	\$(function(){
 	    \$('#file_url').editable({
  		mode: 'inline',
         	url: '|.$Site->{st_cgi}.qq|api.cgi',
         	title: 'Enter file_url',
-        	emptytext: '[Enter file URL here, or upload using the button below]', 
-       		params: function (params) {  
+        	emptytext: '[Enter file URL here, or upload using the button below]',
+       		params: function (params) {
         		var data = {graph_table:'$table',graph_id:$id,name:params.name,value:params.value,updated:1,type:"file_url"};
         		return data;
        		},
@@ -5372,23 +5372,23 @@ return qq|
 }
 
 sub form_boolean {
-	
-	
+
+
 	my ($col,$data,$table,$record) = @_;
 
 	my $output = "";
 	unless (defined $data) { $data = 1; }
 
-	
+
 	foreach my $opt ("TRUE","FALSE") {
 		my $optbin; if ($opt eq "TRUE") { $optbin=1; } else { $optbin=0; }
 		my $selected; if ($optbin eq $data) { $selected = " selected"; } else { $selected=""; }
-		$output .= qq|    <option value="$optbin"$selected>$opt</option>\n|;				
-		
-	}
-	
+		$output .= qq|    <option value="$optbin"$selected>$opt</option>\n|;
 
-	$output = qq|<select name="$col" style="width:12em;">$output</select>|; 
+	}
+
+
+	$output = qq|<select name="$col" style="width:12em;">$output</select>|;
 
 	my $open="";my$close="";
 	if ($Site->{newrow} eq "1") {
@@ -5398,10 +5398,10 @@ sub form_boolean {
 		$Site->{newrow} = 1;
 		$open = "<tr>";
 	}
-	
+
 	my $cname = $col; $cname =~ s/$table//; $cname =~s/_//; $cname=ucfirst($cname);
-	return qq|$open<td>$cname</td><td>$output</td>$close|;	
-	
+	return qq|$open<td>$cname</td><td>$output</td>$close|;
+
 }
 
 # Form Data
@@ -5411,8 +5411,8 @@ sub form_boolean {
 
 
 sub form_data {
-	
-	
+
+
 	my ($col,$data,$id,$table) = @_;
 
 	my $output = qq|
@@ -5421,51 +5421,51 @@ sub form_data {
 	<input type="hidden" name="table_id" value="$id">
 	<input type="hidden" name="col_name" value="$col">
 	<input type="hidden" name="type" value="data">
-	<input type="hidden" name="value" value="data input">	
+	<input type="hidden" name="value" value="data input">
 	<input type="hidden" name="updated" value="1">
 	<table border=0>|;
-	
+
 	# Assign default data to initialize the grid
 	unless ($data) {
 		$data = qq|fieldname1,fieldname2,fieldname3;value1,value2,value3;value1,value2,value3|;
 	}
-	
-	
+
+
 	my $rows=0; my $maxcols=0;
 
 	# For each row (delimited by ; in storage)
-	my @data_items = split /;/,$data; 
+	my @data_items = split /;/,$data;
 	foreach my $data_item (@data_items) {
-		
+
 		# For each column (delimeted by , in storage)
 		$output .= "<tr>"; my $cols=0;
 		@data_bits = split /,/,$data_item; my $datacol = 0;
 		foreach my $databit (@data_bits) {
 
 
-		
-			
+
+
 			# Create an input form
 			$cols++; if ($cols > $maxcols) { $maxcols = $cols; }
 			if ($rows) { $output .= qq|<td style="padding-top: 12px;"><input name="$rows-$cols" type="text" value="$databit" style="width:15em"></td>\n|; }
 			else {  $output .= qq|<td style="border-bottom: 1px solid black;"><input name="$rows-$cols" type="text" value="$databit"  style="width:15em"></td>\n|; }
-			
+
 		}
 		$output .= "</tr>"; $rows++;
 	}
-	
+
 	# Add an extra row for new data
 	$output .= "<tr>";
 	for (my $i=0; $i < $maxcols; $i++) { $output .= qq|<td style="padding-top: 12px;"><input name="$rows-$i" type="text" value="" style="width:15em"></td>\n|; }
-	
-	$output .= qq|</tr><tr><td><input type="Submit"> <span id="|.$col.qq|_okindicator"></span></form></td></tr></table>|;
-			
 
-	
-	
+	$output .= qq|</tr><tr><td><input type="Submit"> <span id="|.$col.qq|_okindicator"></span></form></td></tr></table>|;
+
+
+
+
 	#$output .= qq|<textarea style="font-family: Courier;" name="$col" rows="$rows" cols=60>$data</textarea>|;
-	
-$output .= qq|	
+
+$output .= qq|
 <script type="text/javascript">
     var frm = \$('#$col');
     frm.submit(function (e) {
@@ -5477,7 +5477,7 @@ $output .= qq|
             success: function (data) {
 		\$("#form_commit_button_text").show();
 		\$("#form_commit_button_done").hide();
-		\$('#|.$col.qq|_okindicator').show();		
+		\$('#|.$col.qq|_okindicator').show();
 		\$('#|.$col.qq|_okindicator').html(data);
 		\$('#|.$col.qq|_okindicator').hide(4000);
             },
@@ -5487,54 +5487,54 @@ $output .= qq|
             },
         });
     });
- 
+
  </script>\n\n|;
-			
+
 
 
 	return qq|
 		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
 		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 	<div>$output</div></td></tr><form>
-	
-	
-	
-	
-	|;	
-	
-	
-	
+
+
+
+
+	|;
+
+
+
 }
 
 
 
 sub form_graph_list {
-	
+
 	my ($table,$id,$key,$type) = @_;
-	my $output = ""; 
+	my $output = "";
 	my $admin = 1 if ($Person->{person_status} eq "admin");
-	
+
 	my @keylist = &find_graph_of($table,$id,$key,$type);
-	
+
 	foreach my $keyid (@keylist) {
 		next unless ($keyid > 0);
-		my $keyname = &get_key_name($key,$keyid);	
+		my $keyname = &get_key_name($key,$keyid);
 		if ($admin) {
 			$editlink = qq|[<a href="$Site->{st_cgi}admin.cgi?$key=$keyid&action=edit">Edit</a>]|;
-			$removelink = qq|[<a href="$Site->{st_cgi}admin.cgi?table=$table&id=$id&remove=$key/$keyid&action=remove_key">Remove</a>]|;	
-		}		
+			$removelink = qq|[<a href="$Site->{st_cgi}admin.cgi?table=$table&id=$id&remove=$key/$keyid&action=remove_key">Remove</a>]|;
+		}
 		$output .= qq|<a href="$Site->{st_url}$key/$keyid">$keyname</a> $editlink $removelink<br/>|;
 		#$output .= $keyid." ".$keyname."<p>";
 	}
-	
 
-	
-	
 
-			
+
+
+
+
 	unless ($output) { $output .= "None"; }
 	return $output;
-	
+
 }
 
 # -------  Date Select -----------------------------------------------------
@@ -5547,19 +5547,19 @@ sub form_date_select {
 	my ($table,$id,$col,$value,$size) = @_;
 
 	# Default to today's date
-	unless ($value) { 
+	unless ($value) {
 		$value = &cal_date(time);
 	}
-	
+
 
 	# Old-Style Form Alternative
-	if (defined($vars->{raw_form})) { 
+	if (defined($vars->{raw_form})) {
 		my $dateformat = 'yyyy/mm/dd';
 		my $datetype = "date";
 		my $output = &form_dates_general($table,$id,$title,$col,$value,$dateformat,$datetype);
 		return $output;
-	}	
-		
+	}
+
 
 	return qq |
 		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
@@ -5575,16 +5575,16 @@ sub form_date_select {
 				dateFormat: "yy/mm/dd",
 				onSelect: function(date, instance) {
 
-					var content = \$('#|.$col.qq|').val(); 
+					var content = \$('#|.$col.qq|').val();
 					submit_function("$table","$id","$col",content,"text");
 					\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
-				}	
+				}
 			});
-  
+
 ;
 		} );
 		</script>
-	|;	
+	|;
 
 }
 
@@ -5605,30 +5605,30 @@ sub form_date_time_select {
 	# Time Zone - default to site defined time zone
 	my $tzkey = $table."_timezone";
 	unless ($record->{$tzkey}) { $record->{$tzkey} = $Site->{st_timezone};	}
-	
+
 	# Date-time - convert epoch into date-time
-	if ($value =~ /^[0-9,.E]+$/) { $value = &cal_date($value,"min",$record->{$tzkey}); } 
-	
+	if ($value =~ /^[0-9,.E]+$/) { $value = &cal_date($value,"min",$record->{$tzkey}); }
+
 	my $dateformat = 'yyyy/mm/dd hh:ii';
 	my $datetype = "datetime";
-	
+
 	my $output = &form_dates_general($table,$id,$title,$col,$value,$dateformat,$datetype);
 	return $output .$value;
 }
 
 # -------  Dates General -----------------------------------------------------
 
-# Implementation of x-editables plus datetimepicker 
+# Implementation of x-editables plus datetimepicker
 # and requires additional datetimepicker.css and datetimepicker.js
 # from https://github.com/smalot/bootstrap-datetimepicker
 # Select format and formtype to toggle between date and datetime
 
 sub form_dates_general {
-	
+
 	my ($table,$id,$title,$col,$value,$dateformat,$datetype) = @_;
-	
-	
-	
+
+
+
 	# Old-Style Form Alternative
 	$value =~ s/"/\\"/sg;
 	if (defined($vars->{raw_form})) { return qq|<tr><td class="column-name" align="right" width="200">$col</td><td><input type="text" name="$col" value="$value"></td></tr>|; }
@@ -5639,23 +5639,23 @@ sub form_dates_general {
 		<span id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" >$value</span>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
 		<span id="|.$col.qq|_result"></span>
-		
+
 		<script>
 		\$(document).ready(function(){
 			\$('#|.$col.qq|_button').hide();
 			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
 			\$('#|.$col.qq|_button').click(function(){
-				var content = \$('#|.$col.qq|').text(); 
+				var content = \$('#|.$col.qq|').text();
 				submit_function("$table","$id","$col",content,"text");
 				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 			});
 		});
 		</script>
-		</td></tr>	
+		</td></tr>
 	|;
-	
-	
-	
+
+
+
 }
 
 
@@ -5664,52 +5664,52 @@ sub form_dates_general {
 
 
 sub form_timezone {
-	
-	my ($name,$value,$table,$record) = @_;	
-	
-	
+
+	my ($name,$value,$table,$record) = @_;
+
+
 	# Time Zone - default to site defined time zone
 	my $tzkey = $table."_timezone";
 	unless ($record->{$tzkey}) { $record->{$tzkey} = $Site->{st_timezone};	}
-	
+
 	my @dt = DateTime::TimeZone->all_names;
 	my $dtstr = qq|<select name="|.$table.qq|_timezone" style="height:18pt;">\n|; foreach my $dts (@dt) {
 		my $sel; if ($dts eq $record->{$tzkey}) { $sel = " selected"; } else { $sel = ""; }
-		$dtstr .= qq|<option value="$dts" $sel>$dts</option>\n|; 
+		$dtstr .= qq|<option value="$dts" $sel>$dts</option>\n|;
 	}
-	
-	$dtstr .= "</select>\n";	
 
-	
+	$dtstr .= "</select>\n";
+
+
 	return qq|<tr><td valign="top">Time Zone</td><td colspan="3">$dtstr</td></tr>|;
-			
-	
+
+
 }
 
 # -------  Date-Time Parse -----------------------------------------------------
 
 sub date_time_parse {
 	my ($value) = @_;
-	
+
 	$value =~ /(.*?)(\/|-)(.*?)(\/|-)(.*?) (.*?):(.*?)/;
 	my $year = $1; my $month = $3; my $day = $5; my $hour = $6, my $min = $7;
-	
-	return ($year,$month,$day,$hour,$min);
-	
 
-	
+	return ($year,$month,$day,$hour,$min);
+
+
+
 }
 
 # -------  Date-Time Find -----------------------------------------------------
 
 sub date_time_find {
-	
+
 	my ($time) = @_;
 	unless ($time) { $time = time; }
 	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($time);
 	if ($sec < 10) { $sec = "0".$sec; }
-	if ($min < 10) { $min = "0".$min; }	
-	if ($hour < 10) { $hour = "0".$hour; } 
+	if ($min < 10) { $min = "0".$min; }
+	if ($hour < 10) { $hour = "0".$hour; }
 	if ($mday < 10) { $mday = "0".$mday; }
 	$mon++; if ($mon < 10) { $mon = "0".$mon; }
 	if ($year < 2000) { $year += 1900; }
@@ -5730,37 +5730,47 @@ sub date_time_find {
 sub form_optlist {
 
 	# Organize field data
-	my ($table,$id,$col,$selected_value,$fieldsize,$advice) = @_;	
+	my ($table,$id,$col,$selected_value,$fieldsize,$advice,$ajax) = @_;
 
 	# Find eligible options
 	my $opts = &db_get_record($dbh,"optlist",{optlist_title=>$col});
 
 	# Default to varchar if we can't find eligible options
-	unless ($opts->{optlist_data} || $opts->{optlist_list}) { 
-		$output .= form_textinput($table,$id,$col,$value,$size,$advice);
-		return $output;
+	unless ($opts->{optlist_data} || $opts->{optlist_list}) {
+		return &form_textinput($table,$id,$col,$value,$size,$advice);
 	}
 
 	# Create list of options
-	my $options = "";
+	my $options = "";my $option_lables="";
 	my @opts = split ";",$opts->{optlist_data};
+	my $lablecounter=1;
 	foreach my $opt (@opts) {
 		my ($oname,$ovalue) = split ",",$opt;
 		next unless ($oname && $ovalue);
 		if ($opted eq $ovalue) { $selected_value = $ovalue; }
 		$options .= qq|\n<option value="$ovalue">$oname</option>|;
+
+
+		my $lableid = $col.$lablecounter; $lablecounter++;
+		$option_lables .= qq|
+            <span class="form__answer"> <input type="radio" id="$lableid" name="$col" value="$ovalue" style="display:none;">
+            <label for="$lableid">$oname</label> </span>|;
 	}
-	
-	return form_select_general($table,$id,$col,$selected_value,$fieldsize,$advice,$options);
-	
+
+	if ($ajax) {
+	    return form_select_general($table,$id,$col,$selected_value,$fieldsize,$advice,$options);
+	} else {
+	    return qq|$option_lables|;
+	}
+
 }
 
 
 sub form_select_general {
-	
+
 	my ($table,$id,$col,$selected_value,$fieldsize,$advice,$options) = @_;
-	
-	
+
+
 	return qq|
 		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
 		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
@@ -5776,10 +5786,10 @@ sub form_select_general {
 		});
  	});
 	</script>
-	</div></td></tr>|;	
+	</div></td></tr>|;
 
-	
-}	
+
+}
 
 
 
@@ -5790,12 +5800,12 @@ sub form_select_general {
 #   Returns a name for table $key and id $id
 
 sub get_key_name {
-	
+
 	my ($key,$id) = @_;
 	my $field = get_key_namefield($key);
 	my $name = &db_get_single_value($dbh,$key,$field,$id);
 	return $name;
-		
+
 }
 
 # -------- get key name array ---------------------------------------
@@ -5804,22 +5814,22 @@ sub get_key_name {
 #   Use for form typeahead lookup
 
 sub get_key_name_array {
-	
+
 	my ($key) = @_;
 	my $field = get_key_namefield($key);
 	my $names_ref = &db_get_column($dbh,$key,$field);
 	return $names_ref;
-		
+
 }
 
 # -------- get key namefield ---------------------------------------
 
 sub get_key_namefield {
-	my ($key) = @_; 
+	my ($key) = @_;
 	my $field = $key."_title";
 	if ($key eq "person" || $key eq "author") { $field = $key."_name"; }
-	return $field;	
-	
+	return $field;
+
 }
 
 # -------  Key Input -----------------------------------------------------
@@ -5831,17 +5841,17 @@ sub form_keyinput {
 
 	if ($name =~ m/id$/) { $name =~ s/(.*?)id$/$1/; }		# Remove 'id' from end of field name
 	my $title = $name;									# This gives us our table name
-								
+
 
 	$title =~ s/(.*?)_(.*?)/$2/;
 	$title = ucfirst($title);
-	my $editlink; if ($value) { 
+	my $editlink; if ($value) {
 		$editlink = qq|[<a href="$Site->{st_cgi}admin.cgi?|.lc($title)."=".$value.qq|&action=edit">Edit</a>]|;
 	}
 
 	return qq |
 		<tr><td>Key: $title</td><td colspan="3">
-		<input type="text" name="$name" value="$value" size="10" style="height:1.8em;"> 
+		<input type="text" name="$name" value="$value" size="10" style="height:1.8em;">
 		$editlink
 		</td>
 		</tr>
@@ -5862,7 +5872,7 @@ sub form_page_options {
 
 	my ($table,$id_number,$record) = @_;
 
-	
+
 	return unless (&is_viewable("publish","page"));
 	return unless ($table eq "page");
 	return unless ($Site->{script} =~ /admin/);
@@ -5873,18 +5883,18 @@ sub form_page_options {
 	my @dhour = qw|00 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23|;
 	my @dmin = qw|00 05 10 15 20 25 30 35 40 45 50 55|;
 	my @noyes = qw|no yes|;
-	
+
 	my $archivelink = "";
-	if ($record->{page_archive} eq "yes") { 
+	if ($record->{page_archive} eq "yes") {
 		my $archivefile = $record->{page_location};
 		$archivefile =~ s/\//_/g;
-		$archivelink=qq|[<a href="$Site->{st_cgi}archive.cgi?page=$archivefile">View Page Archive</a>]|; 
+		$archivelink=qq|[<a href="$Site->{st_cgi}archive.cgi?page=$archivefile">View Page Archive</a>]|;
 	}
-		
+
 	my $autopubpanel = qq|
 		<br/><h3>Publishing Options</h3>
 		<div class="adminpanel" style="text-align:left;"><table><tr><td>
-		Publish to: $Site->{st_url}<input style="height:1.8em;" type="text" 
+		Publish to: $Site->{st_url}<input style="height:1.8em;" type="text"
 		name="page_location" value="$record->{page_location}" />\n
 		<br>Archive page? |.&form_opt_multiple("page_archive",$record,\@noyes,1,100,0)." $archivelink".
 		qq|<br>Autopublish? |.&form_opt_multiple("page_autopub",$record,\@noyes,1,100,0).
@@ -5893,8 +5903,8 @@ sub form_page_options {
 		qq|<br>Note that pages are also autopublished and archived when sent as newsletters.\n
 		</td></tr></table></div>
 	|;
-	
-	
+
+
 	my $newsletter_panel = qq|
 		<br/><h3>Newsletter Options</h3>
 		<div class="adminpanel" style="text-align:left;">
@@ -5912,14 +5922,14 @@ sub form_page_options {
 		<td valign="top">|.&form_opt_multiple("page_subhour",$record,\@dhour,1,60,0).qq|:|.
 		&form_opt_multiple("page_submin",$record,\@dmin,1,60,0).qq|</td></tr>
 		<tr><td colspan="3">When should the newsletter be published and sent?
-		Select more than one weekday or date as desired</td></tr>				
+		Select more than one weekday or date as desired</td></tr>
 		</table><p><input value="Update Record" class="button" type="submit"></p></div>
 	|;
 	my $text = "";
 	$text .=  qq|
-		<p>[<a href="$Site->{st_cgi}admin.cgi?db=page&action=list">List Pages</a>] 
+		<p>[<a href="$Site->{st_cgi}admin.cgi?db=page&action=list">List Pages</a>]
 		[<a href="$Site->{st_cgi}admin.cgi?page=$id_number&force=yes">View Generated Version of Page</a>]
-		[<a href="$Site->{st_cgi}admin.cgi?action=publish&page=$id_number&force=yes">Publish Page</a>] 
+		[<a href="$Site->{st_cgi}admin.cgi?action=publish&page=$id_number&force=yes">Publish Page</a>]
 		[<a href="$Site->{st_url}$record->{page_location}">View Published Page</a>]</p>|.
 		$autopubpanel .
 		$newsletter_panel .
@@ -5940,27 +5950,27 @@ sub form_badge_options {
 
 	my ($table,$id_number,$record) = @_;
 
-	
+
 	return unless (&is_viewable("publish","badge"));
 	return unless ($table eq "badge");
 	return unless ($Site->{script} =~ /admin/);
 
-		
-		
+
+
 	my $autopubpanel = qq|
 		<br/><h3>Publishing Options</h3>
 		<div class="adminpanel" style="text-align:left;">
-		Publish to: $Site->{st_url}<input style="height:1.8em;" type="text" 
+		Publish to: $Site->{st_url}<input style="height:1.8em;" type="text"
 		name="badge_location" value="$record->{badge_location}" />\n
-                <input value="Update Record" class="button" type="submit">     
+                <input value="Update Record" class="button" type="submit">
 		</div>
 	|;
-	
-		
+
+
 	my $text = "";
 	$text .=  qq|
 		<p>
-		[<a href="$Site->{st_cgi}admin.cgi?action=publish&badge=$id_number&force=yes">Publish Badge</a>] 
+		[<a href="$Site->{st_cgi}admin.cgi?action=publish&badge=$id_number&force=yes">Publish Badge</a>]
 		[<a href="$Site->{st_url}$record->{page_location}">View Published Badge</a>]</p>|.
 		$autopubpanel .
 		qq||;
@@ -5976,7 +5986,7 @@ sub form_badge_options {
 
 
 sub form_opt_multiple {
-	
+
 	my ($field,$record,$list,$size,$width,$multiple) = @_;
 	my @selected = split ",",$record->{$field};
 	my $multi = ""; if ($multiple) { $multi = qq| multiple="multiple"|; }
@@ -5992,16 +6002,16 @@ sub form_opt_multiple {
 
 
 sub form_commit {
-	
+
 	my ($table,$col,$id_value,$record) = @_;
-	
+
 	return unless ($table eq "form");
-	
+
 	my $button_text = qq|<div id="form_commit_button_text"><form><span style="color:red;">Database changes must be committed to take effect...</span>
 		<button id="|.$col.qq|_button" value="val_1" class="ajax-file-upload-green" style="line-height: normal;" name="but1">Commit</button></form></div>
 		<div id="form_commit_button_done">Committed</div>
-		<span id="|.$col.qq|_okindicator"></span>|; 
-	
+		<span id="|.$col.qq|_okindicator"></span>|;
+
 	return qq|		<tr><td align="right" class="column-name" style="width:10%;min-width:50px;" valign="top">$col</td>
 		<td class="column-content" colspan=3 style="width:90%; min-width:200px;" valign="top">
 <div>
@@ -6039,62 +6049,62 @@ $button_text
 </script>
 </div></td></tr>
 |;
-			
-	
+
+
 }
 
 sub form_publish {
 
 	my ($table,$id,$col,$value,$fieldsize,$advice) = @_;
 
-	
+
 	# List of supported social media sites
-	my @accounts = qw(Web Twitter Facebook RSS JSON);			
+	my @accounts = qw(Web Twitter Facebook RSS JSON);
 										# Future work - get this from the list of accounts
-	# Set up return content 
+	# Set up return content
 	my $return_text = qq|
-	    <div class="publish" style="width:100%; clear:all;">Publish!|;	
+	    <div class="publish" style="width:100%; clear:all;">Publish!|;
 
 	foreach my $account (@accounts) {
-		
+
 		$return_text .= qq|
 		<div style="height:2em; clear:all">
 		   <span class="account_name" style="min-width:50px;width:40%;float:left;">$account: </span> |;
 		if ($value =~ /$account/i) { $return_text .= qq|
 		   <span id="|.$col.qq|" style="border:0px; width:60%;float:left;">Published</span>
-		</div>|; }	
-		else { 
-			
-			$return_text .= qq|		
+		</div>|; }
+		else {
+
+			$return_text .= qq|
 		    <span style="border:0px; float:left; width:60%" id="|.$col."_".$account.qq|">
 			<button id="|.$col."_".$account.qq|_button" value="$account">Publish</button>
-		    </span>	
+		    </span>
 		 </div>
 			<script>
 			\$(document).ready(function(){
 				\$('#|.$col."_".$account.qq|_button').click(function(){
-					var content = \$('#|.$col."_".$account.qq|_button').val(); 
+					var content = \$('#|.$col."_".$account.qq|_button').val();
 					submit_function("$table","$id","$col",content,"publish");
 					\$('#|.$col."_".$account.qq|').text("Published");
-				});		
+				});
 			});
 			</script>
 			|;
-		
-		}		
-		
+
+		}
+
 	}
-	
+
 	$return_text .= qq|
 	        <div><span id="|.$col.qq|_result"></span><span>$advice</span></div>
 	    </div>|;
 	return $return_text;
 
-	
+
 	my $button_text;
 	if ($value == 1) { $button_text = "Published"; }
 	else { $button_text = qq|<button id="|.$col.qq|_button" value="val_1" class="ajax-file-upload-green" style="line-height: normal;" name="but1">Publish</button>|; }
-	
+
 	return qq|<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
 <div>
 <div id="|.$col.qq|">
@@ -6130,78 +6140,78 @@ $button_text
 
 }
 sub form_socialmedia {
-	
+
 	my ($table,$id_number,$col,$value,$fieldsize,$advice) = @_;
-	
+
 	my $return_text = qq|<tr><td>Publish</td><td colspan="3">|;
-	
+
 	my @socialmedias = qw(twitter facebook web);				# List of supported social media sites
-	
+
 	foreach my $socialmedia (@socialmedias) {
 		$return_text .= ucfirst($socialmedia).": ";
-	
-		if ($record->{post_social_media} =~ /$socialmedia/i) { $return_text .= "Published&nbsp;&nbsp;&nbsp;"; }	
-		else { 
+
+		if ($record->{post_social_media} =~ /$socialmedia/i) { $return_text .= "Published&nbsp;&nbsp;&nbsp;"; }
+		else {
 			$return_text .= qq|<select name="post_|;
 			$return_text .= $socialmedia;
 			$return_text .= qq|"><option value="">Later</option>
 			<option value="yes">Publish Now</option>
-			</select>&nbsp;&nbsp;&nbsp;|;	}		
+			</select>&nbsp;&nbsp;&nbsp;|;	}
 	}
-	
+
 
 	$return_text .= qq|<input type="submit" value="Publish" class="button"></td></tr>|;
-	return $return_text;	
-	
+	return $return_text;
+
 	return qq|
 		<tr><td align="right" valign="top">$col</td><td colspan=3 valign="top">
 		<span id="|.$col.qq|" contenteditable="true" style="width:40em; line-height:1.8em;" >$value</span>
 		<span id="|.$col.qq|_button"><button>Update</button></span>
 		<span id="|.$col.qq|_result"></span>$advice
-		
+
 		<script>
 		\$(document).ready(function(){
 			\$('#|.$col.qq|_button').hide();
 			\$('#|.$col.qq|').click(function() { onclick_function("$col");});
 			\$('#|.$col.qq|_button').click(function(){
-				var content = \$('#|.$col.qq|').text(); 
+				var content = \$('#|.$col.qq|').text();
 				submit_function("$table","$id","$col",content,"text");
 				\$('#record_summary').load("admin.cgi?$table=$id&format=summary");
 			});
 		});
 		</script>
-		</td></tr>	
+		</td></tr>
 	|;
 
 
-	
-	
+
+
 }
 
 sub form_twitter {
 
 	my ($record) = @_;
-	
+
 	my $return_text = qq|<tr><td>Publish</td><td colspan="3">|;
-	
+
 	my @socialmedias = qw(twitter facebook web);				# List of supported social media sites
 	foreach my $socialmedia (@socialmedias) {
 		$return_text .= ucfirst($socialmedia).": ";
-	
-		if ($record->{post_social_media} =~ /$socialmedia/i) { $return_text .= "Published&nbsp;&nbsp;&nbsp;"; }	
-		else { 
+
+		if ($record->{post_social_media} =~ /$socialmedia/i) { $return_text .= "Published&nbsp;&nbsp;&nbsp;"; }
+		else {
 			$return_text .= qq|<select name="post_|;
 			$return_text .= $socialmedia;
 			$return_text .= qq|"><option value="">Later</option>
 			<option value="yes">Publish Now</option>
-			</select>&nbsp;&nbsp;&nbsp;|;	}		
+			</select>&nbsp;&nbsp;&nbsp;|;	}
 	}
-	
+
 
 	$return_text .= qq|<input type="submit" value="Publish" class="button"></td></tr>|;
 	return $return_text;
-	
-		
+
+
 }
 
 
@@ -6209,15 +6219,15 @@ sub form_twitter {
 sub jq_panel {
 	my ($message,$content,$height) = @_;
 	$height ||= "280px";
-	return qq|<script type="text/javascript"> 
+	return qq|<script type="text/javascript">
 \$(document).ready(function(){
 \$(".flip").click(function(){
     \$(".panel").slideToggle("slow");
   });
 });
 </script>
- 
-<style type="text/css"> 
+
+<style type="text/css">
 div.panel,p.flip
 {
 margin:0px;
@@ -6232,15 +6242,15 @@ height: $height;
 display:none;
 }
 </style>
- 
+
 <div class="panel">$content</div>
- 
+
 <p class="flip">$message</p>
- 
+
 
 	|;
-	
-	
+
+
 }
 
 # -------  Thread Options -----------------------------------------------------
@@ -6269,14 +6279,14 @@ sub form_update_submit_data {
 
 	my ($dbh,$query,$table,$id_number,$data) = @_;
 	my $vars = $data || $query->Vars;
-		
+
 	if ($table eq "post") {
 
 		if ($Person->{person_status} eq "admin") { $vars->{$table."_source"} = "admin"; }
 
-	}		
-		
-		
+	}
+
+
 	if ($id_number eq "new") {	# Create Record, or
 
 		$vars->{$table."_crdate"} = time;
@@ -6289,16 +6299,16 @@ sub form_update_submit_data {
 			if ($vars->{$table."_thread"} =~ /:/) {	($ctable,$cid) = split /:/,$vars->{$table."_thread"}; }
 			else { $ctable = "post"; $cid = $vars->{$table."_thread"}; }					# and increment its comment count
 			$rep .= "<br>Incrementing $ctable $cid <br>";
-			&db_increment($dbh,$ctable,$cid,$table."_comments","form_update_submit_data");				
+			&db_increment($dbh,$ctable,$cid,$table."_comments","form_update_submit_data");
 		}
 
-	
-	
+
+
 
 	} else {				# Update Record
 
 		my $where = { $table."_id" => $id_number};
-		
+
 		$id_number = &db_update($dbh,$table, $vars, $id_number);
 		$vars->{msg} .= ucfirst($table)." $id_number successfully updated<br/>";
 	}
@@ -6308,7 +6318,7 @@ sub form_update_submit_data {
 		&error($dbh,$query,"","I attempted to create this record, but failed, sorry.");
 		exit;
 	}
-	
+
 
 	return $id_number;
 }
@@ -6334,13 +6344,13 @@ sub showcolumns {
 		width:100%;
 		border-collapse:collapse;
 		}
-		#columns td, #columns th 
+		#columns td, #columns th
 		{
 		font-size:1em;
 		border:1px solid #98bf21;
 		padding:3px 7px 2px 7px;
 		}
-		#columns th 
+		#columns th
 		{
 		font-size:1.1em;
 		text-align:left;
@@ -6349,7 +6359,7 @@ sub showcolumns {
 		background-color:#A7C942;
 		color:#ffffff;
 		}
-		#columns tr.alt td 
+		#columns tr.alt td
 		{
 		color:#000000;
 		background-color:#EAF2D3;
@@ -6358,31 +6368,31 @@ sub showcolumns {
 
 	my ($sdb,$stable) = split /\./,$vars->{stable};
 	unless ($stable) { $stable = $sdb; }
-	
-	my $columns = qq|<h3>Table: $stable </h3>\n$colstyle\n<table  id="columns" cellpadding=3 cellspacing=0 border=1">	
+
+	my $columns = qq|<h3>Table: $stable </h3>\n$colstyle\n<table  id="columns" cellpadding=3 cellspacing=0 border=1">
 		<tr><td>Key</td><td>Field</td>
 		<td>Type</td><td>Null</td>
 		<td>Default</td><td>Extra</td></tr>\n|;
-	
 
-	
+
+
 #	my $showstmt = qq|SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = ? AND table_schema = ? ORDER BY column_name|;
-	# Replaces:  
+	# Replaces:
 	my $showstmt = "SHOW COLUMNS FROM $stable";
-	
-	
+
+
 	my $sth = $dbh -> prepare($showstmt)  or die "Cannot prepare: $showstmt FOR $vars->{stable}, $Site->{db_name} " . $dbh->errstr();
 #	$sth -> execute($stable,$Site->{db_name})  or die "Cannot execute: $showstmt " . $dbh->errstr();
-	$sth -> execute()  or die "Cannot execute: $showstmt " . $dbh->errstr();	
+	$sth -> execute()  or die "Cannot execute: $showstmt " . $dbh->errstr();
 
 	my $alt; # Toggle to shade table rows
-	while (my $showref = $sth -> fetchrow_hashref()) { 
-#print "Content-type: text/html\n\n";		
+	while (my $showref = $sth -> fetchrow_hashref()) {
+#print "Content-type: text/html\n\n";
 #print "Data: <p>";
-#while (my($cx,$cy) = each %$showref) { print "$cx = $cy <br>"; }	
+#while (my($cx,$cy) = each %$showref) { print "$cx = $cy <br>"; }
 
-	
-		if($alt) { $alt=""; } else { $alt=qq| class="alt"|;} 
+
+		if($alt) { $alt=""; } else { $alt=qq| class="alt"|;}
 		unless ($showref->{COLUMN_DEFAULT}) { $showref->{COLUMN_DEFAULT} = "none"; }
 		unless ($showref->{COLUMN_KEY}) {  $showref->{COLUMN_KEY} = "-"; }
 		unless ($showref->{EXTRA}) {  $showref->{EXTRA} = "-"; }
@@ -6398,7 +6408,7 @@ sub showcolumns {
 	&admin_database($dbh,$query,$vars->{stable},$columns);
 	exit;
 }
-	
+
 sub addcolumn {
 	my ($table,$column) = @_;
 
@@ -6406,15 +6416,15 @@ sub addcolumn {
 		(($col+0) > 0) ||
 		($col =~ /['"`#!$%&@]/)
 		);
-	
-	
+
+
 	# Normalize column name - column names *must* be prefixed with the table name 'table_colmname'
 	my $tabstring = $table."_";
-	unless ($column =~ /^$tabstring/) { 
-		$column = $tabstring.$column; 
+	unless ($column =~ /^$tabstring/) {
+		$column = $tabstring.$column;
 	}
-	
-	
+
+
 	$dbh->do("ALTER TABLE $table ADD $column text NULL");
 	#$dbh->do("ALTER TABLE $tab ADD $col text NULL");
 	return "Column $column added to $table";
@@ -6423,7 +6433,7 @@ sub addcolumn {
 
 
 sub removecolumnwarn {
-	
+
 	my ($dbh,$query) = @_;
 	my $vars = $query->Vars;
 	my $col = $vars->{col};
@@ -6437,10 +6447,10 @@ sub removecolumnwarn {
 		<form method="post" action="$Site->{st_cgi}admin.cgi">
 		<input type="hidden" name="col" value="$col">
 		<input type="hidden" name="stable" value="$tab">
-		<input type="hidden" name="action" value="removecolumndo">	
+		<input type="hidden" name="action" value="removecolumndo">
 		<input type="submit" value="Remove Column">
-		</form></body><html>|;	
-		
+		</form></body><html>|;
+
 }
 
 sub removecolumndo {
@@ -6452,11 +6462,11 @@ sub removecolumndo {
 		($col =~ /_id/) || ($col =~ /_name/) || ($col =~ /_title/) || ($col =~ /_description/)
 		);
 	my $tab = $vars->{stable};
-	
+
 	$dbh->do("ALTER TABLE $tab DROP COLUMN $col");
 	my $msg = "Column $col dropped from $tab";
 
-	
+
 	&showcolumns($dbh,$query,$msg);
 
 }
@@ -6466,58 +6476,58 @@ sub removecolumndo {
 
 
 sub import_json {
-	
+
 	my ($file,$table) = @_;
-	
+
 	use JSON::XS;
 	my $json_text = &get_file($file->{file_location});
 
-#print $json_text;	
+#print $json_text;
 	my $perl_scalar = decode_json $json_text;
-	
+
 	my $normalize = &import_json_schema($perl_scalar,$table);
-	
+
 #	print $perl_scalar;
 
 	while (my ($x,$y) = each %$perl_scalar) {
 		#print "Importing chat record with foreign ID of $x. ";
-		
+
 		# Normalize column names (note - in a table, all columns begin with 'tablename_' )
 		if ($normalize) {
 			while (my ($xx,$xy) = each %$y) {
-				
+
 				my $tabstring = $table."_";
-				unless ($xx =~ /^$tabstring/) { 
+				unless ($xx =~ /^$tabstring/) {
 					$y->{$tabstring.$xx} = delete $y->{$xx}
-				}									
+				}
 			}
 
 		}
 		my $new_record = &db_insert($dbh,$query,$table,$y);
 		#print "Saved as chat record $new_record.<br>";
 	}
-	
 
-	#$perl_scalar = decode_json $json_text	
-	
+
+	#$perl_scalar = decode_json $json_text
+
 }
 
 # This function allows you to import data from JSON, creating new
-# database columns as needed, in case the current schema doesn't 
+# database columns as needed, in case the current schema doesn't
 # support the column
 
 sub import_json_schema {
-	
+
 	my ($perl_scalar,$table) = @_;
-	
+
 	# get the current list of columns for the table
 	my @columns = &db_columns($dbh,$table);
 	my $normalize = 0;
-	
+
 	# Get the list of columns (cycle through the whole list so we don't miss any)
 	my %hash;
 	while (my ($x,$y) = each %$perl_scalar) {
-		while (my ($xx,$xy) = each %$y) {		
+		while (my ($xx,$xy) = each %$y) {
 			$hash{$xx} = 1;
 		}
 	}
@@ -6525,27 +6535,27 @@ sub import_json_schema {
 	# Compare the new columns with the existing columns and add the column to the table if needed
 	foreach my $column (keys %hash) {
 
-		
+
 		# Normalize column name
 		my $tabstring = $table."_";
-		unless ($column =~ /^$tabstring/) { 
-			$column = $tabstring.$column; 
+		unless ($column =~ /^$tabstring/) {
+			$column = $tabstring.$column;
 			$normalize=1;
 		}
-		
+
 		# skip if we already have this column
 		next if ( grep( /^$key$/, @columns ));
-		
+
 		push @column,$column;
-		$msg = &addcolumn($table,$column);		
+		$msg = &addcolumn($table,$column);
 		#print "Added $column to list<br>";
 		# do something with $key
-	}	
-	
-	
-	return $normalize;	
-				
-	
+	}
+
+
+	return $normalize;
+
+
 }
 
 
@@ -6553,7 +6563,7 @@ sub import_json_schema {
 
 #-------------------------------------------------------------------------------
 #
-#           Database Functions 
+#           Database Functions
 #
 #-------------------------------------------------------------------------------
 
@@ -6564,10 +6574,10 @@ sub import_json_schema {
 sub db_open {
 
 	my ($dsn,$user,$password) = @_;
-	
+
 	die "Database dsn note specified in db_open" unless ($dsn);
 	die "Database user note specified in db_open" unless ($user);
-	
+
 	my $dbh = DBI->connect($dsn, $user, $password)
 		or die "Database connect error: $! \n";
 	# Uncomment next line to trace DB errors
@@ -6579,7 +6589,7 @@ sub db_open {
 
 
 sub db_get_record {
-	
+
 	my ($dbh,$table,$value_arr) = @_;
 	&error($dbh,"","","Database not ready") unless ($dbh);
 	if ($diag eq "on") { print "Get Record ($table $value_arr)<br/>\n"; }
@@ -6587,7 +6597,7 @@ sub db_get_record {
 	while (my($kx,$ky) = each %$value_arr) { push @value_list,"$kx=?"; push @value_vals,$ky; }
 	my $value_str = join " AND ",@value_list;
 	unless ($value_vals[0]) { warn "No value input to db_get_record"; return; }
-	my $stmt = "SELECT * FROM $table WHERE $value_str LIMIT 1";	
+	my $stmt = "SELECT * FROM $table WHERE $value_str LIMIT 1";
 	my $sth = $dbh -> prepare($stmt);
 	$sth -> execute(@value_vals);
 	my $ref = $sth -> fetchrow_hashref();
@@ -6603,7 +6613,7 @@ sub db_get_record {
 # updated 12 May 2013
 
 sub db_get_record_list {
-	
+
 	my ($dbh,$table,$value_arr,$field) = @_;
 	&error($dbh,"","","Database not ready") unless ($dbh);
 	if ($diag eq "on") { print "Get Record List ($table $value_arr)<br/>\n"; }
@@ -6615,19 +6625,19 @@ sub db_get_record_list {
 
 	my $idfield = $table ."_id";
 	$field ||= $idfield;
-	my $stmt = "SELECT $field FROM $table WHERE $value_str";	
+	my $stmt = "SELECT $field FROM $table WHERE $value_str";
 
 	my $sth = $dbh -> prepare($stmt);
 	$sth -> execute(@value_vals);
 
-	
-	
+
+
 	my @record_list;
 	while (my $hash_ref = $sth->fetchrow_hashref) {
-		push @record_list,$hash_ref->{$field}; 
-	}	
+		push @record_list,$hash_ref->{$field};
+	}
 	$sth->finish(  );
-	
+
 	return @record_list;
 }
 
@@ -6639,26 +6649,26 @@ sub db_get_record_list {
 #  Eventually I'mm combine all these three into one function
 
 sub db_get_text {
-	
+
 	my ($dbh,$table,$title) = @_;
-	
-	
+
+
 	my $fname = "db_get_text";								# Error Check
 	unless ($title) { &error($dbh,$query,"",&printlang("Required in","title",$fname)); }
-	unless ($table) { &error($dbh,$query,"",&printlang("Required in","table",$fname)); }	
-	
+	unless ($table) { &error($dbh,$query,"",&printlang("Required in","table",$fname)); }
+
 	my $viewcache = $table.$title;									# Never get the same thing from the db twice
 	if (defined $cache->{$viewcache}) { return $cache->{$viewcache}; }
-			
-	my $stmt = "SELECT ".$table."_text FROM $table WHERE ".$table."_title = '$title'";	# Get Data from DB		
+
+	my $stmt = "SELECT ".$table."_text FROM $table WHERE ".$table."_title = '$title'";	# Get Data from DB
 	my $ary_ref = $dbh->selectcol_arrayref($stmt) or &error($dbh,$query,"",&printlang("Cannot execute SQL",$fname,$sth->errstr(),$stmt));
 	my $templ = $ary_ref->[0];									# Fail silently
-	
-	$cache->{$viewcache} = $templ;									# Save in cache and return
-	
 
-	return $templ;	
-	
+	$cache->{$viewcache} = $templ;									# Save in cache and return
+
+
+	return $templ;
+
 }
 
 
@@ -6670,30 +6680,30 @@ sub db_get_text {
 #  Specialized function to get the content only, used for making boxes on the fly
 
 sub db_get_content {
-	
+
 	my ($dbh,$table,$title) = @_;
-	
+
 	my $fname = "db_get_content";								# Error Check
 	unless ($title) { &error($dbh,$query,"",&printlang("Required in","title",$fname)); }
-	unless ($table) { &error($dbh,$query,"",&printlang("Required in","table",$fname)); }	
-	
+	unless ($table) { &error($dbh,$query,"",&printlang("Required in","table",$fname)); }
+
 	my $viewcache = $table.$title;									# Never get the same thing from the db twice
 	if (defined $cache->{$viewcache}) { return $cache->{$viewcache}; }
-			
-	my $stmt = "SELECT ".$table."_content FROM $table WHERE ".$table."_title = '$title'";	# Get Data from DB		
+
+	my $stmt = "SELECT ".$table."_content FROM $table WHERE ".$table."_title = '$title'";	# Get Data from DB
 	my $ary_ref = $dbh->selectcol_arrayref($stmt) or &error($dbh,$query,"",&printlang("Cannot execute SQL",$fname,$sth->errstr(),$stmt));
 	my $templ = $ary_ref->[0];									# Fail silently
-	
+
 	$cache->{$viewcache} = $templ;									# Save in cache and return
-	return $templ;	
-	
+	return $templ;
+
 }
 
-# -------   Get Template -------------------------------------------------------- 
+# -------   Get Template --------------------------------------------------------
 
 sub db_get_template {
 
-	my ($dbh,$title,$page_title) = @_; 
+	my ($dbh,$title,$page_title) = @_;
 
 
 	if ($title =~ /'/) { &error($dbh,"","","Cannot put apostraphe in template title"); }  # '
@@ -6701,7 +6711,7 @@ sub db_get_template {
 	return unless ($title);							# Just pass by blank template requests
 
 
-	my $stmt = qq|SELECT template_description FROM template WHERE template_title='$title' LIMIT 1|; 
+	my $stmt = qq|SELECT template_description FROM template WHERE template_title='$title' LIMIT 1|;
 
 
 	my $ary_ref = $dbh->selectcol_arrayref($stmt);
@@ -6718,12 +6728,12 @@ sub db_get_template {
 #
 
 sub get_template {
- 
+
 	my ($dbh,$query,$template_title,$title) = @_;
  	if ($diag>9) { print "Get Template <br>"; }
-	
+
 														# Get Template From DB
-					
+
 	return unless ($template_title);			                   		#     - Can print 'blank' remplate (ie., nothing)
 	my $template_record = &printlang($template_title) || $template_title;		#     - Try to find a translated title of template
 	my $template = &db_get_description($dbh,"template",$template_record) ||		#     - Get the template text from the database
@@ -6731,24 +6741,24 @@ sub get_template {
 
 
 														# Format the template
-	&make_boxes($dbh,\$template);									# 	- Make boxes	
+	&make_boxes($dbh,\$template);									# 	- Make boxes
 	&make_admin_nav($dbh,\$template);							# Admin Table Navigation Box
-	&make_counter($dbh,\$template);								# 	- Make counter	 
-	
+	&make_counter($dbh,\$template);								# 	- Make counter
+
 	&make_keywords($dbh,$query,\$template);							# 	- Make Keywords
-	
+
 	&autodates(\$template);										# 	- Autodates
 
 														# More Formatting
 
 	$template =~ s/&#39;/'/g;									# 	- Makes scripts work
 	&make_site_info(\$template);									#	- Template and Site Info
-	
+
 														# Write Page Title
 	$template =~ s/\Q[*page_title*]\E/$title/g;
-	$template =~ s/\Q<page_title>\E/$title/g;	
+	$template =~ s/\Q<page_title>\E/$title/g;
 
-	if ($diag>9) { print "/ Get Template <br>"; }							
+	if ($diag>9) { print "/ Get Template <br>"; }
 	return $template;
 
 
@@ -6760,30 +6770,30 @@ sub get_template {
 #  Specialized function to get the description only, used for get_template()
 
 sub db_get_description {
-	
+
 	my ($dbh,$table,$title) = @_;
-	
+
 	my $fname = "db_get_description";								# Error Check
 	unless ($title) { &error($dbh,$query,"",&printlang("Required in","title",$fname)); }
-	unless ($table) { &error($dbh,$query,"",&printlang("Required in","table",$fname)); }	
-	
+	unless ($table) { &error($dbh,$query,"",&printlang("Required in","table",$fname)); }
+
 	my $viewcache = $table.$title;									# Never get the same thing from the db twice
 	if (defined $cache->{$viewcache}) { return $cache->{$viewcache}; }
-			
-	my $stmt = "SELECT ".$table."_description FROM $table WHERE ".$table."_title = '$title'";	# Get Data from DB		
+
+	my $stmt = "SELECT ".$table."_description FROM $table WHERE ".$table."_title = '$title'";	# Get Data from DB
 	my $ary_ref = $dbh->selectcol_arrayref($stmt) or &error($dbh,$query,"",&printlang("Cannot execute SQL",$fname,$sth->errstr(),$stmt));
 	my $templ = $ary_ref->[0];									# Fail silently
-	
+
 	$cache->{$viewcache} = $templ;									# Save in cache and return
-	return $templ;	
-	
+	return $templ;
+
 }
 
 
 # -------   Get Column --------------------------------------------------------
 
 sub db_get_column {
-	
+
 	my ($dbh,$table,$field) = @_;
 	&error($dbh,"","","Database not ready") unless ($dbh);
 	if ($diag eq "on") { print "Get Column ($table $value_arr)<br/>\n"; }
@@ -6795,8 +6805,8 @@ sub db_get_column {
 # -------   Get Record Cache --------------------------------------------------------
 
 # Cache is a pre-assembled version of complex records all ready for display
-# 
-# Cache is either 
+#
+# Cache is either
 #       *expired*   if time-$Site->{st_cache} > cache_update
 #       or *active*
 #
@@ -6804,26 +6814,26 @@ sub db_get_column {
 
 
 sub db_cache_check {
-	
+
 	my ($dbh,$table,$record,$format) = @_;
-	
+
 	return 0 if ($format =~ /_edit/i);			# never cache edit screen
 
 	return 0 if ($vars->{force} eq "yes");			# command line force
-	
+
 	$format ||= "html";					# format defaults to html
 	return unless ($table && $record);			# must specify table and record
-	
+
 	my $cache = &db_cache_get($dbh,$table,$record,$format);
-	
+
 
 	my $expired = time+$Site->{pg_update};
-	if ($cache->{cache_text} && ( $expired > $cache->{cache_update} )) { 
-		return $cache->{cache_text}; 
+	if ($cache->{cache_text} && ( $expired > $cache->{cache_update} )) {
+		return $cache->{cache_text};
 	}
 	return 0;
 
-	
+
 }
 
 # --------- Back Up Database -------------------------------------------------------
@@ -6831,24 +6841,24 @@ sub db_cache_check {
 # Note - uses mysqldump - won't work for different db
 
 sub db_backup {
-	
+
 	my ($table) = @_;
 	my $output =  qq|"$table"|;
 	if ($table eq "all") { $table = ""; }
-	
 
-  	my $data_file = $Site->{data_dir} . "multisite.txt";							
+
+  	my $data_file = $Site->{data_dir} . "multisite.txt";
 	open IN,"$data_file" or die "Couldn't open $data_file $!";
 	my $dbinfo;
 
-	
+
 	# Find the line beginning with site URL
 	# and read site database information from it
-	
-	my $url_located = 0;							
+
+	my $url_located = 0;
   	while (<IN>) {
-		my $line = $_; $line =~ s/(\s|\r|\n)$//g;			
-		if ($line =~ /^$Site->{st_home}/) {				
+		my $line = $_; $line =~ s/(\s|\r|\n)$//g;
+		if ($line =~ /^$Site->{st_home}/) {
 			( $dbinfo->{st_home},
 			  $dbinfo->{database}->{name},
 			  $dbinfo->{database}->{loc},
@@ -6862,22 +6872,22 @@ sub db_backup {
 		}
 	}
 	close IN;
-	
 
-	
+
+
 	$table =~ s/$dbinfo->{database}->{name}\.//;
 	unless (-d $Site->{st_urlf}."files/backup/") { mkdir $Site->{st_urlf}."files/backup/"; }
 	my $backup_filename = $Site->{st_urlf}."files/backup/".$dbinfo->{database}->{name}."-".$table."-".time.".sql";
 	$backup_filename =~ s/--/-/;
 	`mysqldump --user=$dbinfo->{database}->{usr} --password=$dbinfo->{database}->{pwd} $dbinfo->{database}->{name} $table > $backup_filename`;
-	
-	
-	$Site->{database}="";							# Clear site database info so it's not available later				
+
+
+	$Site->{database}="";							# Clear site database info so it's not available later
 	$_ = "";								# Prevent accidental (or otherwise) print of config file.
 
 	return $backup_filename;
-		
-	
+
+
 }
 
 
@@ -6889,7 +6899,7 @@ sub db_backup {
 sub db_cache_get {
 
 	my ($dbh,$table,$record,$format) = @_;
-	
+
 	return if ($format =~ /_edit/i);			# never cache edit screen
 	$format ||= "html";					# format defaults to html
 	return unless ($table && $record);			# must specify table and record
@@ -6898,7 +6908,7 @@ sub db_cache_get {
 	my $stmt = "SELECT * FROM cache WHERE cache_table=? AND cache_record=? AND cache_format=? LIMIT 1";
 	my $sth = $dbh -> prepare($stmt);
 	$sth -> execute($table,$record,$format);
-	
+
 	my $ref = $sth -> fetchrow_hashref();
 	$sth->finish(  );
 	if ($ref->{cache_text}) { return $ref; } else { return 0; }
@@ -6907,7 +6917,7 @@ sub db_cache_get {
 # -------   Save Record Cache --------------------------------------------------------
 
 sub db_cache_save {
-	
+
 	my ($dbh,$table,$record,$format,$text) = @_;
 	push @{$Site->{cache}},"$table:$record:$format:$text";
 
@@ -6922,25 +6932,25 @@ sub db_cache_save {
 sub db_cache_write {
 
 	my ($dbh) = @_;
-	
+
 	foreach my $cache (@{$Site->{cache}}) {
-		
+
 		my @cachearr = split /:/,$cache;
 		my $table = shift @cachearr;
 		my $record = shift @cachearr;
 		my $format = shift @cachearr;
-		my $text = join ":",@cachearr;		
+		my $text = join ":",@cachearr;
 
 		next if ($format =~ /_edit/i);			# never cache edit screen
 		$format ||= "html";					# format defaults to html
-		die "table and record not specified for cache save" unless ($table && $record);			# must specify table and record	
-	
+		die "table and record not specified for cache save" unless ($table && $record);			# must specify table and record
+
 		my $cache_update = time;				# record time of current update
 								# used in db_cache_check()
-		
-		&db_cache_remove($dbh,$table,$record,$format);		# remove previous entry		
-	
-									
+
+		&db_cache_remove($dbh,$table,$record,$format);		# remove previous entry
+
+
 								# insert new entry
 		&db_insert($dbh,$query,"cache",
 			{	cache_table => $table,
@@ -6949,7 +6959,7 @@ sub db_cache_write {
 				cache_text => $text,
 				cache_update => $cache_update	});
 	}
-	 
+
 }
 
 # -------   Remove Record Cache --------------------------------------------------------
@@ -6957,28 +6967,28 @@ sub db_cache_write {
 # Short and simple, remove cached records, nothing permanent is touched
 
 sub db_cache_remove {
-	
-	
+
+
 	my ($dbh,$table,$record,$format) = @_;
-	return unless ($table);		
-	
+	return unless ($table);
+
 	my $where = "cache_table = '$table'";
 	if ($record) { $where .= " AND cache_record = '$record'"; }
-	if ($format) { $where .= " AND cache_format = '$format'"; }	
-	
+	if ($format) { $where .= " AND cache_format = '$format'"; }
+
 	my $sql = "DELETE from cache WHERE $where";
 
 	my $sth = $dbh->prepare($sql);
     	$sth->execute();
-		
+
 }
 
 
-# -------   Get Single Value-------------------------------------------------------- 
+# -------   Get Single Value--------------------------------------------------------
 
 sub db_get_single_value {
 
-my ($dbh,$table,$field,$id) = @_; 
+my ($dbh,$table,$field,$id) = @_;
 
 &error($dbh,"","","Database not initialized in get_single_value") unless ($dbh);
 &error($dbh,"","","Table not initialized in get_single_value") unless ($table);
@@ -7008,16 +7018,16 @@ sub db_drop_table {
 
 	my $dbh = shift || die "Database handler not initiated";
 	my $table = shift || die "Table not specified on drop table";
-	
+
 	&db_backup($table);
 
 	my $sql = qq|DROP TABLE IF EXISTS `$table`|;
-	
+
 	my $sth = $dbh->prepare($sql);
     	$sth->execute();
     	return "Table '$table' dropped.";
 }
-	
+
 
 # -------   Create Table -------------------------------------------------------------
 #
@@ -7037,7 +7047,7 @@ sub db_create_table {
 	my $table = shift || die "Table not specified on create table";
 	my $data = shift;
 	my $return = "";
-	
+
 #  Do not create if the table already exists
 
 	if (&db_table_exist($dbh,$table)) {
@@ -7055,14 +7065,14 @@ sub db_create_table {
 	my $sql = qq|
 CREATE TABLE `|.$table.qq|` (
   `|.$table.qq|_id` int(11) NOT NULL auto_increment,
-  `|.$table.qq|_crdate` int(15) default NULL,  
-    `|.$table.qq|_tst` int(2) default NULL, 
+  `|.$table.qq|_crdate` int(15) default NULL,
+    `|.$table.qq|_tst` int(2) default NULL,
   `|.$table.qq|_creator` int(15) default NULL,|;
-  
+
 
 #  Data provides table elements, in order
 #  Each element as an array or comma-delimited string:  name,type,length,default,extra
-#  List of table elements as array, or semi-colon delimited string: 
+#  List of table elements as array, or semi-colon delimited string:
 #  name,type,length,default,extra;name,type,length,default,extra;name,type,length,default,extra...
 
 	my @fields;
@@ -7070,32 +7080,32 @@ CREATE TABLE `|.$table.qq|` (
 	else { @fields = split /;/,$data; }
 
 	foreach my $field (@fields) {
-		
+
 		my @values;
 		if (ref($field) eq "ARRAY") { @values = @$field; }
 		else { @values = split /,/,$field; }
 		foreach my $v (@values) { $v =~ s/[^a-zA-Z0-9,_]+//g;} # No unusual characters or sql injection
 		unless ($values[0] =~ /^$table/) { $values[0] = $table."_".$values[0]; } # Normalize field names
-		next unless (&index_of($values[0],\@fieldlist) < 0);  # No duplicate field names 
+		next unless (&index_of($values[0],\@fieldlist) < 0);  # No duplicate field names
 		push @fieldlist,$values[0];
-		
+
 		$sql .= qq|`$values[0]` |.$values[1].qq||;
 		if ($values[2]) { $sql .= qq|(|.$values[2].qq|)|; }
 		if ($values[3]) { $sql .= qq| |.$values[2].qq||; }
 		if ($values[4]) { $sql .= qq| |.$values[2].qq||; }
 		$sql .= ",\n";
-		
+
 	}
-   
-    
-  
+
+
+
 	$sql .= qq|
   PRIMARY KEY  (`|.$table.qq|_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;|;
 
 	$return .=qq|<pre>$sql</pre>|;
-	my $sth = $dbh->prepare($sql) or  $return .= "Can't prepare SQL statement in db_create_table : ", $sth->errstr(), "\n"; 
-	
+	my $sth = $dbh->prepare($sql) or  $return .= "Can't prepare SQL statement in db_create_table : ", $sth->errstr(), "\n";
+
     	if ($sth->execute()) { $return .= "Table $table created<p>"; }
 	else { $return .= "Can't execute SQL statement in db_create_table : ", $sth->errstr(), "\n"; }
 
@@ -7112,11 +7122,11 @@ CREATE TABLE `|.$table.qq|` (
 
 sub db_table_exist {
     my ($dbh,$table_name) = @_;
-    
+
     my @tables = &db_tables($dbh);
     if (&index_of($table_name,\@tables) < 0) { return 0; }
     else { return 1; }
-    
+
 }
 
 # -------   Delete -------------------------------------------------------------
@@ -7157,15 +7167,14 @@ sub db_locate {
 		push @whvals,$vy;
 	}
 	$stmt .= $wherestr . " LIMIT 1";
-						
+
 	my $sth = $dbh->prepare($stmt);		# Execute SQL Statement
 
-	$sth->execute(@whvals)
-		or die "Can't execute SQL statement in db_locate $stmt : ", $sth->errstr(), "\n";
-    
+	$sth->execute(@whvals) or return 0;
+
   	my $hash_ref = $sth->fetchrow_hashref;
 	$sth->finish(  );
-	
+
 	return $hash_ref->{$table."_id"};
 
 }
@@ -7193,8 +7202,8 @@ sub db_locate_multiple {
 		push @whvals,$vy;
 	}
 	$stmt .= $wherestr;
-					
-	my $ary_ref = $dbh->selectcol_arrayref($stmt,{},@whvals);	
+
+	my $ary_ref = $dbh->selectcol_arrayref($stmt,{},@whvals);
 	return $ary_ref;
 
 }
@@ -7212,17 +7221,17 @@ sub db_insert {		# Inserts record into table from hash
 	my $table = shift || &error($dbh,"","","Table not specified on insert");
 	my $input = shift || &error($dbh,"","","No data provided on insert");
 
-	
+
     	my $vars = ();
     	if (ref $query eq "CGI") { $vars = $query->Vars; }
 
-	
+
 	my $dtype = ref $input;
-	&error($dbh,"","","Unsupported data type specified to insert (data was $dtype)") 
+	&error($dbh,"","","Unsupported data type specified to insert (data was $dtype)")
 		unless (ref $input eq 'HASH' || ref $input eq 'gRSShopper::Record' || ref $input eq 'gRSShopper::Person' || ref $input eq 'gRSShopper::File');
 	my $data= &db_prepare_input($dbh,$table,$input);
-	
-						
+
+
 	my $sql   = "INSERT INTO $table ";	# Prepare SQL Statement
 
 	my(@sqlf, @sqlv, @sqlq) = ();
@@ -7234,18 +7243,18 @@ sub db_insert {		# Inserts record into table from hash
 	}
 	$sql .= '(' . join(', ', @sqlf) .') VALUES ('. join(', ', @sqlq) .')';
 
-						
+
 	my $sth = $dbh->prepare($sql) or print "Content-type: text/html\n\n".$sth->errstr;;		# Execute SQL Statement
-	
-	if ($diag eq "on") { 
+
+	if ($diag eq "on") {
 		print "Content-type: text/html\n\n";
 		print "$sql <br/>\n @sqlv <br/>\n";
 	}
 
     	$sth->execute(@sqlv) or print "Content-type: text/html\n\n".$sth->errstr;
-	
+
 	if ($sth->errstr) { $vars->{err} = "DB INSERT ERROR: ".$sth->errstr." <p>"; }
-	
+
 	my $insertid = $dbh->{'mysql_insertid'};
 	$sth->finish(  );
 	return $insertid;
@@ -7266,17 +7275,17 @@ sub db_insert_ignore {		# Inserts record into table from hash
 	my $table = shift || &error($dbh,"","","Table not specified on insert");
 	my $input = shift || &error($dbh,"","","No data provided on insert");
 
-	
+
     	my $vars = ();
     	if (ref $query eq "CGI") { $vars = $query->Vars; }
 
-	
+
 	my $dtype = ref $input;
-	&error($dbh,"","","Unsupported data type specified to insert (data was $dtype)") 
+	&error($dbh,"","","Unsupported data type specified to insert (data was $dtype)")
 		unless (ref $input eq 'HASH' || ref $input eq 'gRSShopper::Record' || ref $input eq 'gRSShopper::Person');
 	my $data= &db_prepare_input($dbh,$table,$input);
-	
-	
+
+
 	my $sql   = "INSERT IGNORE INTO $table ";	# Prepare SQL Statement
 
 	my(@sqlf, @sqlv, @sqlq) = ();
@@ -7288,15 +7297,15 @@ sub db_insert_ignore {		# Inserts record into table from hash
 	}
 	$sql .= '(' . join(', ', @sqlf) .') VALUES ('. join(', ', @sqlq) .')';
 
-						
+
 	my $sth = $dbh->prepare($sql);		# Execute SQL Statement
-	if ($diag eq "on") { 
+	if ($diag eq "on") {
 		print "Content-type: text/html\n\n";
 		print "$sql <br/>\n @sqlv <br/>\n";
 	}
 
     	$sth->execute(@sqlv);
-	
+
 	if ($sth->errstr) { $vars->{msg} .= "DB INSERT ERROR: ".$sth->errstr." <p>"; }
 	my $insertid = $dbh->{'mysql_insertid'};
 	$sth->finish(  );
@@ -7317,10 +7326,10 @@ sub db_insert_ignore {		# Inserts record into table from hash
 # Updates record $where (must be ID) in table from hash
 # Adapted from SQL::Abstract by Nathan Wiger
 
-sub db_update {		
-	
+sub db_update {
+
 	my ($dbh,$table,$input,$where,$msg) = @_;
-#print "Content-type: text/html\n\n";	
+#print "Content-type: text/html\n\n";
 	unless ($dbh) { die "Error $msg Database handler not initiated"; }
 	unless ($table) { die "Error $msg Table not specified on update"; }
 	unless ($input) { die "Error $msg No data provided on update"; }
@@ -7332,7 +7341,7 @@ sub db_update {
 	my $data = &db_prepare_input($dbh,$table,$input);
 	#print "Data: $data <br>";
 	#return "No data" unless ($data);
-	
+
 	my $sql = "UPDATE $table SET ";
 	my(@sqlf, @sqlv) = ();
 
@@ -7347,7 +7356,7 @@ sub db_update {
 #print "$sql <br>";
 #foreach $l (@sqlv) { print "$l ; "; }
 	my $sth = $dbh->prepare($sql);
-	
+
 	if ($diag eq "on") { print "$sql <br/>\n @sqlv <br/>\n"; }
     	$sth->execute(@sqlv) or &error($dbh,"","","Update failed: ".$sth->errstr);
 
@@ -7365,7 +7374,7 @@ sub db_update {
 sub db_increment {
 
 	my ($dbh,$table,$id,$field,$from) = @_;
-	
+
 	&error($dbh,"","","Database not initialized in db_increment") unless ($dbh);				# Check Input
 	&error($dbh,"","","Table not initialized in db_increment") unless ($table);
 	&error($dbh,"","","Field not initialized in db_increment") unless ($field);
@@ -7395,27 +7404,27 @@ sub db_increment {
 sub db_prepare_input {	# Filters input hash to contain only columns in given table
 
 	my ($dbh,$table,$input) = @_;
-	#print "DB Prepare Input ($table $input)<br/>\n"; 
+	#print "DB Prepare Input ($table $input)<br/>\n";
 	my $data = ();
 
 
 						# Get a list of columns
 
-	my @columns = &db_columns($dbh,$table);				
+	my @columns = &db_columns($dbh,$table);
 
 						# Clean input for save
 	foreach my $ikeys (keys %$input) {
 
-		
-		next unless (defined $input->{$ikeys});	
-			
-		next if ($ikeys =~ /_id$/i);	
+
+		next unless (defined $input->{$ikeys});
+
+		next if ($ikeys =~ /_id$/i);
 		if (&index_of($ikeys,\@columns) < 0) {
-			# print "Warning: input for aa".$ikeys."aa does not have a corresponding column in aa".$table."aa<p>";	
+			# print "Warning: input for aa".$ikeys."aa does not have a corresponding column in aa".$table."aa<p>";
 			next;
-		}	
-		# print "$ikeys = $input->{$ikeys} <br>"; 	
-		$data->{$ikeys} = $input->{$ikeys};			
+		}
+		# print "$ikeys = $input->{$ikeys} <br>";
+		$data->{$ikeys} = $input->{$ikeys};
 	}
 
 	return $data;
@@ -7429,7 +7438,7 @@ sub db_prepare_input {	# Filters input hash to contain only columns in given tab
 sub db_count {
 
 	my ($dbh,$table,$where) = @_;
-						
+
 	my $stmtc = "SELECT COUNT(*) AS items FROM $table $where";
 	my $sthc = $dbh -> prepare($stmtc);
 	$sthc -> execute();
@@ -7445,16 +7454,16 @@ sub db_count {
 
 sub db_columns {
 
-						
+
 	my ($dbh,$table) = @_;			# Get a list of columns
-	
-	my @columns = ();			 
+
+	my @columns = ();
 	my $showstmt = "SHOW COLUMNS FROM $table";
-	
+
 	my $sth = $dbh -> prepare($showstmt);
 	$sth -> execute();
-	while (my $showref = $sth -> fetchrow_hashref()) { 
-		push @columns,$showref->{Field}; 
+	while (my $showref = $sth -> fetchrow_hashref()) {
+		push @columns,$showref->{Field};
 	}
 	return @columns;
 }
@@ -7492,36 +7501,36 @@ sub db_tables {
 
 
 sub update_vote {
-	
+
 	my ($dbh,$query) = @_;
 	my $vars = $query->Vars;
 	$vars->{vote_table} ||= "post";
-	
-		
+
+
 	# Remove Previous Vote
 	if ($Person->{person_id} && $vars->{vote_table} && $vars->{vote_post} ) {
 		my $dsql = qq|DELETE FROM vote WHERE vote_person='$Person->{person_id}' AND vote_table='$vars->{vote_table}' AND vote_post='$vars->{vote_post}'|;
 		$dbh->do($dsql);
 	}
 
-	
+
 	# Create Current Vote
 	my $crdate = time;
 	$vote_id = &db_insert($dbh,$query,"vote",{vote_person=>$Person->{person_id},
 		vote_post=>$vars->{vote_post},vote_table=>$vars->{vote_table}, vote_value=>$vars->{vote_value},
 		vote_creator=>$Person->{person_id},vote_crdate=>$crdate});
-		
+
 	# Recalculate vote count for the post
 	my $sth1 = $dbh->prepare(qq|SELECT SUM(vote_value) FROM vote WHERE vote_post=? AND vote_table=?|) or return $dbh->errstr;
 	$sth1->execute($vars->{vote_post},$vars->{vote_table}) or return $dbh->errstr;
 	my ($sum) = $sth1->fetchrow_array or $dbh->errstr;
 	&db_update($dbh,"post",{post_votescore=>$sum},$vars->{vote_post},"Update vote in post");
 
-	
-	
+
+
 	# Return the vote value
 	if (sum) { return $sum; } else { return "0"; }
-	
+
 }
 
 
@@ -7584,18 +7593,18 @@ sub find_by_title {
 	my $tfield;
 	if ($table =~ /author|person/) { $tfield = $table."_name"; }
 	else {$tfield = $table."_title"; }
-	
+
 	if ($title =~ /(.*?) - (.*?)/) {
 		$vars->{table} = "feed";
 		return $1;
 	}
-	
+
 	my $newid = &db_locate($dbh,$table,{$tfield => $title});
 	if ($newid) { return $newid; }
-	
+
 				# For select tables, autocreate the record if it doesn't exist
 				# Works only for links from the site
-			
+
 	return unless ($ENV{'HTTP_REFERER'} =~ $Site->{st_url});
 	if ($table =~ /journal/) {
 			$newid = &db_insert($dbh,$query,$table,{journal_title => $title});
@@ -7612,7 +7621,7 @@ sub find_by_title {
 #
 #		$terms is a hash of vield values eg. $terms->{post_id} = 12
 #		$terms must include   table=>$table
-#		to use > or < do this:   field=>">$value" or field=>"<$value" 
+#		to use > or < do this:   field=>">$value" or field=>"<$value"
 #		this finction treats search terms as a conjunction
 #		use com=>"OR" to treat as disjunction
 #		use number=>$num to specify a limit
@@ -7651,7 +7660,7 @@ sub find_records {
 	my $sth = $dbh->prepare($sql);						# Execute Search
 	return $dbh->selectcol_arrayref($sth, {}, @values_array);
 
-} 
+}
 
 sub search {
 
@@ -7666,10 +7675,10 @@ sub search {
 	$page->{table} = $vars->{table} || "post";
 	$page->{format} = $vars->{format} || "html";
 	$page->{title} = "Search ".ucfirst($page->{table})."s";
-	
+
 						# Permissions
-						
-	return unless (&is_allowed("view",$page->{table})); 
+
+	return unless (&is_allowed("view",$page->{table}));
 
 						# Header
 	$page->{page_format} = $format;
@@ -7698,7 +7707,7 @@ sub search {
 			if ($cy =~ /\|/) {
 				push @disjuncts,"($field REGEXP '$cy')";
 			} else {
-				push @disjuncts,"($field LIKE '%$cy%')"; 
+				push @disjuncts,"($field LIKE '%$cy%')";
 			}
 
 
@@ -7724,14 +7733,14 @@ sub search {
 	$page->{page_content} .= qq|<p id="listing">Listing $start to |.($start+$number)." of $count ".$page->{table}."s found</p>";
 
 
-	
+
 						# Execute SQL search
 
 	my $stmt = qq|SELECT * FROM $page->{table} $where $sort $limit|;
 	unless ($vars->{start}) { $vars->{start} = 0; }
 	my $sthl = $dbh->prepare($stmt);
 	$sthl->execute();
-	
+
 
 
 	while (my $list_record = $sthl -> fetchrow_hashref()) {
@@ -7745,7 +7754,7 @@ sub search {
 
 
 						# Set Record Format
-		my $record_format = lc($page->{format});							# default record format	
+		my $record_format = lc($page->{format});							# default record format
 		if ($record_format =~ /html/i) { $record_format = "summary"; }			# special case for HTML pages
 
 
@@ -7756,7 +7765,7 @@ sub search {
 			$page->{table},
 			$record_format,
 			$list_record);
-			
+
 		$page->{page_content} .=  $record_text;
 
 	}
@@ -7801,24 +7810,24 @@ sub sort_start_number {
 #	print "Number: $number <br>";
 
 						# Sort
-	my $sort = "ORDER BY "; 
+	my $sort = "ORDER BY ";
 	if ($vars->{sort}) {
 		$sort .= $vars->{sort};
 	} else {
-		if ($table =~ /box|view|feed|field|page|topic|template|optlist/) { 
-			$sort .= $table."_title" ; 
+		if ($table =~ /box|view|feed|field|page|topic|template|optlist/) {
+			$sort .= $table."_title" ;
 		} elsif ($table =~ /person/) {
 			$sort .= $table."_name";
 		} elsif ($table =~ /event/) {
 			$sort .= $table."_start DESC";
 		} elsif ($table =~ /link/) {
 			$sort .= $table."_id DESC";
-		} else { 
-			$sort .=  $table."_crdate DESC"; 
+		} else {
+			$sort .=  $table."_crdate DESC";
 		}
 	}
 #	print "Sort: $sort <br>";
-	
+
 						# Start
 	my $limit = "";
 	if ($vars->{start}) {
@@ -7839,7 +7848,7 @@ sub sort_start_number {
 #
 #          Creates a 'Next' Button to page lists
 #          Called from list()
-#	     Edited: 27 March 2010	
+#	     Edited: 27 March 2010
 #
 
 sub next_button {
@@ -7875,7 +7884,7 @@ sub next_button {
 
 #-------------------------------------------------------------------------------
 #
-#           DATES 
+#           DATES
 #
 #-------------------------------------------------------------------------------
 
@@ -7890,7 +7899,7 @@ sub next_button {
 #
 #-------------------------------------------------------------------------------
 
-sub autotimezones {		
+sub autotimezones {
 	my ($query,$text_ptr) = @_;
     	my $vars = ();
     	if (ref $query eq "CGI") { $vars = $query->Vars; }
@@ -7913,7 +7922,7 @@ sub autotimezones {
 			<input type="hidden" name="db" value="$vars->{db}">
 			<input type="hidden" name="id" value="$vars->{id}">
 
-			Time Zone: 
+			Time Zone:
 		|;
 		$replace .= &tzdropdown($query,$ctz);
 		$replace .= qq|<input type="submit" value="Select time zone">
@@ -7936,14 +7945,14 @@ sub tzdropdown {
 
 	my ($query,$ctz) = @_;
 	unless (&new_module_load($query,"DateTime::TimeZone")) {
-		return "DateTime::TimeZone module not available in sub tzdropdown"; 
+		return "DateTime::TimeZone module not available in sub tzdropdown";
 	}
 
 	my @TZlist = DateTime::TimeZone->all_names;
 	my $replace = qq|<select name="timezone">\n|;
-	foreach $tzl (@TZlist) { 
+	foreach $tzl (@TZlist) {
 		my $sel=""; if ($ctz eq $tzl) { $sel = " selected"; }
-		$replace .= qq|<option value="$tzl"$sel>$tzl</option>\n|; 
+		$replace .= qq|<option value="$tzl"$sel>$tzl</option>\n|;
 	}
 	$replace .= "</select>\n";
 	return $replace;
@@ -7957,7 +7966,7 @@ sub tzdropdown {
 
 sub escape_hatch {
 	$vars->{escape_hatch}++; die "Endless recursion keyword loop" if ($escape_hatch > 10000);
-	
+
 }
 
 
@@ -7971,14 +7980,14 @@ sub escape_hatch {
 # -------   AutoDates ---------------------------------------------------
 #
 # 		Inserts dates into string
-# 		Provide text pointer 
+# 		Provide text pointer
 #		Format: <date_type>time<END_date_type>
 #
 #		Supported:
 #		<NICE_DATE>		Nice date string
 #		<MON_DATE>		Nice date string, month only
 #           <822_DATE>		RFC 822 Date
-#		<GMT_DATE>		GMT Date	
+#		<GMT_DATE>		GMT Date
 #
 #		I'd like to fix this for nicer syntax
 #		and include other date types
@@ -7986,15 +7995,15 @@ sub escape_hatch {
 
 
 
-sub autodates {		
+sub autodates {
 	my ($text_ptr) = @_;
 
 
-			
+
 	while ($$text_ptr =~ /<date (.*?)>/sg) {
-		
+
 		my $autocontent = $1; my $replace = "date not found";
-		&escape_hatch();				
+		&escape_hatch();
 		my $script = {}; &parse_keystring($script,$autocontent);
 
 		my $time = $script->{time} || time;					# Date / time from record (in epoch format)
@@ -8003,28 +8012,28 @@ sub autodates {
 		my $format = $script->{format} || "nice";				# Format
 
 		if ($format eq "nice") { $replace = &nice_date($time,"day",$tz);	}
-		elsif ($format eq "niceh") { $replace = &nice_date($time,"min",$tz);	}		
+		elsif ($format eq "niceh") { $replace = &nice_date($time,"min",$tz);	}
 		elsif ($format eq "time") { $replace = &epoch_to_time($time,"min",$tz); }
 		elsif ($format eq "rfc822") { $replace = &epoch_to_rfc822($time,"min",$tz); }
 		elsif ($format eq "tzdate") { $replace = &tz_date($time,"day",$tz); }
 		elsif ($format eq "datepicker") { $replace = &tz_date($time,"min",$tz); }
 		elsif ($format eq "iso") { $replace = &iso_date($time,"day",$tz); }
-		elsif ($format eq "isoh") { $replace = &iso_date($time,"min",$tz); }		
+		elsif ($format eq "isoh") { $replace = &iso_date($time,"min",$tz); }
 		else { $replace = "Autodates error"; }
-		
-	
+
+
 		$$text_ptr =~ s/<date $autocontent>/$replace/sg
 	}
-		
-	
-	
-		
-		
-		
-			
+
+
+
+
+
+
+
 	for my $date_type ("NICE_DATE","NICE_DT","822_DATE","MON_DATE","GMT_DATE","YEAR") {
 
-		my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time); 
+		my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
 		$year = $year+1900;
 
 
@@ -8035,17 +8044,17 @@ sub autodates {
 		my $date_type_end = "END_".$date_type;
 		while ($$text_ptr =~ /<$date_type>(.*?)<$date_type_end>/sg) {
 			my $autotext = $1; my $otime; my $replace;
-			$otime = $autotext; 			
-			if ($date_type =~ /822/) { 
-				$replace = &rfc822_date($otime); 
+			$otime = $autotext;
+			if ($date_type =~ /822/) {
+				$replace = &rfc822_date($otime);
 			} elsif ($date_type =~ /GMT_DATE/) {
-				$replace = &nice_date($otime,"GMT"); 
-			} elsif ($date_type =~ /MON/) { 
-				$replace = &nice_date($otime,"month"); 
-			} elsif ($date_type =~ /NICE_DT/) { 
-				$replace = &nice_dt($otime,"month"); 			
-			} else { 
-				$replace = &nice_date($otime); 
+				$replace = &nice_date($otime,"GMT");
+			} elsif ($date_type =~ /MON/) {
+				$replace = &nice_date($otime,"month");
+			} elsif ($date_type =~ /NICE_DT/) {
+				$replace = &nice_dt($otime,"month");
+			} else {
+				$replace = &nice_date($otime);
 			}
 			$$text_ptr =~ s/<$date_type>\Q$autotext\E<$date_type_end>/$replace/sig;
 		}
@@ -8067,7 +8076,7 @@ sub autodates {
 # -------   ISO Date ---------------------------------------------------
 #
 # 		ISO format string supported is either YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
-# 		
+#
 #	      Edited: 21 Jun 2014
 #-------------------------------------------------------------------------------
 
@@ -8075,14 +8084,14 @@ sub iso_date {
 
 
 
-	my ($time,$h,$tz) = @_; 
-	
+	my ($time,$h,$tz) = @_;
+
 	my $dt = &set_dt($time,$tz);
-		
+
 	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);
 
 	if ($h eq "min") { return $year."-".$month."-".$day."T".$hour.":".$minute.":00"; }
-	
+
 	return $dt->year."-".$dt->month."-".$dt->day;
 
 }
@@ -8104,13 +8113,13 @@ sub nice_date {
 	unless (defined $time) { $time = time; }
 
 	my $dt = &set_dt($time,$tz);
-	
+
 	# return locale_date($current, "%e %b %Y", "fr_CA");
-        
-	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
+
+	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);
 	my @months = &month_array();
 	my @days = &day_array();
-	
+
 
 
 	if ($h eq "month") {							# April, 1959
@@ -8118,14 +8127,14 @@ sub nice_date {
 	} elsif ($h eq "day" ) {						# April 6, 1959
 		return "$months[$month] $day, $year";
 	} else {								# April 6, 1959 3:12 p.m.
-		
+
 		$date = "$months[$month] $day, $year";
 		my $midi;
 		if ($hour > 11) { $midi = "p.m."; }
 		else { $midi = "a.m."; }
 		if ($hour > 12) { $hour = $hour - 12; }
 		if ($hour == 0) { $hour = 12; $midi = "a.m."; }
-		
+
 		return "$months[$month] $day, $year $hour:$minute $midi";
 	}
 
@@ -8140,9 +8149,9 @@ sub nice_date {
 sub nice_dt {
 
 	# Get date from input
-	my ($current) = @_; 
+	my ($current) = @_;
 	return &nice_date($current,"hour");
-	
+
 
 
 }
@@ -8162,11 +8171,11 @@ sub rfc822_date {
 	my ($time,$h,$tz) = @_;
 
 	my $dt = &set_dt($time,$tz);
-	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
+	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);
 	my @months = &month_array();
 	my @days = &day_array();
 	unless ($minute) { $minute="00"; }
-	unless ($second) { $second="00"; }	
+	unless ($second) { $second="00"; }
 	return "$days[$dow], $day $months[$month] $year $hour:$minute:$second -0400";
 }
 
@@ -8188,11 +8197,11 @@ sub cal_date {
 	my ($time,$h,$tz) = @_;
 
 	my $dt = &set_dt($time,$tz);
-	
-	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
+
+	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);
 
 	if ($h eq "min") { return $year."/".$month."/".$day." ".$hour.":".$minute; }
-	
+
 	return $year."/".$month."/".$day;
 }
 
@@ -8210,15 +8219,15 @@ sub cal_date {
 
 
 sub tz_date {
-	
+
 	# Get date from input
 	my ($time,$h,$tz) = @_;
 
 	my $dt = &set_dt($time,$tz);
-	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
+	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);
 	my @months = &month_array();
 	my @weekdays = &day_array();
-	
+
 	if ($h eq "min") {
 		return "$year/$month/$day $hour:$minute";
 	} elsif ($h eq "day") {
@@ -8234,53 +8243,53 @@ sub tz_date {
 # -------   set_dt -------------------------------------------------------
 
 sub set_dt {
-	
-	
+
+
 	my ($time,$tz) = @_;
-	
+
 	# Fail silently and return text if text sent instead of epoch
 	unless ($time =~ /^[0-9]+$/) { return; }
 
-					
-	
-	
-	unless (&new_module_load($query,"DateTime")) {				
-		return "DateTime module not available in sub set_dt"; 
+
+
+
+	unless (&new_module_load($query,"DateTime")) {
+		return "DateTime module not available in sub set_dt";
 	}
-		
+
 	my $dt = DateTime->from_epoch( epoch => $time );				# Convert to DateTime
 	my $tz = $tz || $Site->{st_timezone} || "America/Toronto";					# Allows input to specify timezone
-	unless (DateTime::TimeZone->is_valid_name($tz)) { 
+	unless (DateTime::TimeZone->is_valid_name($tz)) {
 		print "Content-type: text/html\n\n"; print "Invalid time zone in set_dt(): $tz <p>"; return; }
 	if ($tz) { $dt->set_time_zone($tz); }
-		
+
 	return $dt;
-	
+
 }
 
 # -------   $dt to array  ---------------------------------------------------
 
 sub dt_to_array {
-	
+
 	my ($dt) = @_;
 	unless (defined $dt) {
 		$Site->{warn} .= "dt_to_array received no input <br>\n";
       	return;
-	}		
+	}
 
 	my $year   = $dt->year;
-	
+
 	my $month  = $dt->month;       # 1-12
-	if ($month < 10) { $month = "0".$month; }	
+	if ($month < 10) { $month = "0".$month; }
 
 	$day    = $dt->day;            # 1-31
 	if ($day < 10) { $day = "0".$day; }
-	
+
 	$dow    = $dt->day_of_week;    # 1-7 (Monday is 1)
-	
+
 	$hour   = $dt->hour;           # 0-23
 	if ($hour < 10) { $hour = "0".$hour; }
-		
+
   	$minute = $dt->minute;         # 0-59
 	if ($minute < 10) { $minute = "0".$minute; }
 
@@ -8289,11 +8298,11 @@ sub dt_to_array {
 
 
 sub month_array {
-	
+
 	return 	("",&printlang("Jan"),&printlang("Feb"),&printlang("Mar"),&printlang("Apr"),
 		&printlang("May"),&printlang("Jun"),&printlang("Jul"),&printlang("Aug"),
 		&printlang("Sept"),&printlang("Oct"),&printlang("Nov"),&printlang("Dec"));
-	
+
 }
 
 
@@ -8302,8 +8311,8 @@ sub day_array {
 											# String Arrays
 	return (&printlang("Sun"),&printlang("Mon"),&printlang("Tue"),
 		&printlang("Wed"),&printlang("Thu"),&printlang("Fri"),&printlang("Sat"));
-	
-	
+
+
 }
 
 #-------------------------------------------------------------------------------
@@ -8327,18 +8336,18 @@ sub locale_date {
 	}
 
 	if ($current eq 0) { return &printlang("N/A"); }
-	
-	# Save old locale	
+
+	# Save old locale
 	my $old_locale = setlocale(LC_TIME);
-	
+
 	# Set current locale to specified value (TODO: add sanity check))
 	setlocale(LC_TIME, $locale);
 
 	# Extract values for date
 	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst);
-	if ($h eq "GMT") { ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = gmtime($date); } 
+	if ($h eq "GMT") { ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = gmtime($date); }
 	else { ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($date); }
-	
+
 	# Format date
 	my $str = strftime($fmt, $sec, $min, $hour, $mday, $mon, $year);
 
@@ -8381,11 +8390,11 @@ sub epoch_to_rfc822 {
 	# Get date from input
 	my ($time,$h,$tz) = @_;
 	my $dt = &set_dt($time,$tz);
-	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
+	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);
 	my @months = &month_array();
 	my @days = &day_array();
 	unless ($minute) { $minute="00"; }
-	unless ($second) { $second="00"; }		
+	unless ($second) { $second="00"; }
 
 	return "$days[$dow], $day $months[$month] $year $hour:$minute:$second -0400";
 
@@ -8396,7 +8405,7 @@ sub epoch_to_rfc822 {
 #
 # -------   Datepicker to eopch ---------------------------------------------------
 #
-#           Converts a datepicker Date 
+#           Converts a datepicker Date
 #		to epoch, GMT value
 #               Datepicker dates have the form:  yyyy/mm/dd hh:mm
 #             Time zone offset (in hours) is $Site->{st_timezone}
@@ -8408,9 +8417,9 @@ sub datepicker_to_epoch {
 	my ($datepick,$tz) = @_;
 
 	unless (&new_module_load($query,"DateTime")) {
-		return "DateTime module not available in epoch_to_datepicker"; 
+		return "DateTime module not available in epoch_to_datepicker";
 	}
-	
+
 	my $s = 0;
 	my ($date,$hour) = split " ",$datepick;
 	my ($y,$m,$d) = split "/",$date;
@@ -8421,8 +8430,8 @@ sub datepicker_to_epoch {
 	$m = int($m); $h = int($h); $y = int($y); $d = int($d); $mm = int($mm);		# Convert datepicker to integers
 
 	my $tz ||= $Site->{st_timezone} || "America/Toronto";	# Needs to be the server time zone setting
-	
-	my $dt = DateTime->new( 
+
+	my $dt = DateTime->new(
 		year 	   => $y,
 		month      => $m,
 		day        => $d,
@@ -8432,7 +8441,7 @@ sub datepicker_to_epoch {
 	);
 
 	my $epoch = $dt->epoch();
-	
+
 	return $epoch;
 
 }
@@ -8443,7 +8452,7 @@ sub datepicker_to_epoch {
 #
 # -------   Epoch to Datepicker ---------------------------------------------------
 #
-#           Converts an epoch Date 
+#           Converts an epoch Date
 #		to Datepicker
 #               Datepicker dates have the form:  yyyy/mm/dd hh:mm
 #             Time zone offset (in hours) is $Site->{st_timezone}
@@ -8455,7 +8464,7 @@ sub epoch_to_datepicker {
 	# Get date from input
 	my ($time,$h,$tz) = @_;
 	my $dt = &set_dt($time,$tz);
-	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
+	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);
 
 	return "$year/$month/$day $hour:$minute";
 }
@@ -8476,8 +8485,8 @@ sub epoch_to_time {
 	# Get date from input
 	my ($time,$h,$tz) = @_;
 	my $dt = &set_dt($time,$tz);
-	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
- 	
+	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);
+
 	return $hour.":".$minute;
 }
 
@@ -8496,9 +8505,9 @@ sub epoch_to_date {
 	# Get date from input
 	my ($time,$h,$tz) = @_;
 	my $dt = &set_dt($time,$tz);
-	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);        
+	my ($year,$month,$day,$dow,$hour,$minute,$second) = &dt_to_array($dt);
 	my @months = &month_array();
-	
+
 	return $months[$month]." ".$day;
 }
 #-------------------------------------------------------------------------------
@@ -8526,7 +8535,7 @@ sub ical_to_epoch {
 
 
     	$val =~ tr/a-zA-Z0-9/X/cs;             	# remove non-alphas from iCal date
-    	$val =~ s/X//g;             			# (complicated because Google throws a weird char in there) 
+    	$val =~ s/X//g;             			# (complicated because Google throws a weird char in there)
 
 								# parse ical vals and create dt
 #print "parsing icaldate<br>";
@@ -8537,7 +8546,7 @@ sub ical_to_epoch {
 	unless ($h) { $h = 0; }
 	unless ($mm) { $mm = 0; }
 	unless ($s) { $s = 0; }
-#print "($y,$m,$d,$h,$mm,$s)";	
+#print "($y,$m,$d,$h,$mm,$s)";
 	my $dt = DateTime->new(
  	     year       => $y,
  	     month      => $m,
@@ -8645,7 +8654,7 @@ sub parse_icaldate {
 
 #-------------------------------------------------------------------------------
 #
-#           ANTI-SPAM 
+#           ANTI-SPAM
 #
 #-------------------------------------------------------------------------------
 
@@ -8663,8 +8672,8 @@ sub make_code {
 
 	my $cc = $year.$yday;
 	my $code = $cc - $lid + 64;
-	my $ecode = crypt($code,"85"); 
-	
+	my $ecode = crypt($code,"85");
+
 	return $ecode;
 }
 
@@ -8686,9 +8695,9 @@ sub check_code {
 	my $gencode = crypt($code,"85");
 	if (crypt($code,"85") eq $check) { return 1; }
 
-	$yday--; if ($yday < 0) { 
+	$yday--; if ($yday < 0) {
 		if( 0 == $year % 4 and 0 != $year % 100 or 0 == $year % 400 ) { $yday=365; } else { $yday=365; }
-		$year--; } 
+		$year--; }
 	$cc = $year.$yday;
 	$code = $cc - $lid + 64;
 	if (crypt($code,"85") eq $check) { return 1; }
@@ -8703,13 +8712,13 @@ sub check_code {
 
 #-------------------------------------------------------------------------------
 #
-#           Utility Functions 
+#           Utility Functions
 #
 #-------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------------
 #
-#           Getting and Storing Data 
+#           Getting and Storing Data
 #
 #-------------------------------------------------------------------------------
 
@@ -8732,14 +8741,14 @@ sub get_url {
 	$feedrecord->{feedstring} = "";
 	my $cache = &feed_cache_filename($feedrecord->{feed_link},$Site->{feed_cache_dir});
 	my $editfeed = qq|<a href="$Site->{st_cgi}admin.cgi?action=edit&feed=$feedid">Edit Feed</a>|;
-	
+
 
 #	if ((time - (stat($cache))[9]) < (60*60)) {			# If the file is less than 1 hour old
 
 #		&diag(1,"Getting file from common cache<br>");
 #		$feedrecord->{feedstring} = &get_file($cache);
 
-#	} else {	
+#	} else {
 
 		&diag(1,"Harvesting $feedrecord->{feed_link}<br>\n");
 
@@ -8751,11 +8760,11 @@ sub get_url {
 	$ua->agent("Mozilla/8.0");
 
 	my $server_endpoint = $feedrecord->{feed_link};
- 
+
 	# set custom HTTP request header fields
 	my $req = HTTP::Request->new(GET => $server_endpoint);
 
-	# set up user agent 
+	# set up user agent
 	my $response = $ua->request($req);
 
 
@@ -8773,16 +8782,16 @@ sub get_url {
 			$response->message. "<br>\n".
 			$server_endpoint. "<br>\n".
 			$editfeed."<br>";
-    
+
 		print $message;
 		#&send_email('stephen@downes.ca','stephen@downes.ca',"gRSShopper Harvest Failed",$message,"htm");
 		return;
 	}
 
 
-	
-		$feedrecord->{feedstring} = $response->decoded_content();		
-		$feedrecord->{feedstring} =~ s/^\s+//;			
+
+		$feedrecord->{feedstring} = $response->decoded_content();
+		$feedrecord->{feedstring} =~ s/^\s+//;
 
 		unless ($feedrecord->{feedstring}) {
 			&diag(1,"ERROR: Couldn't get $feedrecord->{feed_link} <br>\n\n");
@@ -8795,9 +8804,9 @@ sub get_url {
 #		close FOUT;
 #		chmod 0666, $cache or &diag(1,"Couldn't chmod $cache: $! <br>\n");
 #	}
-	
 
-		
+
+
 	return;
 
 }
@@ -8805,25 +8814,25 @@ sub get_url {
 
 
 sub feed_cache_filename  {
-	
+
 
 	my ($feedurl,$feed_cache_dir) = @_;
-	
+
 	my $feed_file = $feedurl;
 	unless ($feed_cache_dir =~ /\/$/) {  $feed_cache_dir .= "/"; }
 	$feed_file =~ s/http:\/\///g;
-	$feed_file =~ s/https:\/\///g;	
-	$feed_file =~ s/\%|\$|\@//g;	
+	$feed_file =~ s/https:\/\///g;
+	$feed_file =~ s/\%|\$|\@//g;
 	$feed_file =~ s/(\/|=|\?)/_/g;
-	
+
 	return $feed_cache_dir.$feed_file;
-	
+
 }
 
 
 #-------------------------------------------------------------------------------
 #
-#           Misc. Utilities 
+#           Misc. Utilities
 #
 #-------------------------------------------------------------------------------
 
@@ -8836,14 +8845,14 @@ sub printlang {						# Print in current language
 	$langstring = $vars[0];
 	$langstring =~ s/&#39;/&apos;/g;                       # (probably need a more generic decoder he
 	$Site->{lang_user} ||= $Site->{lang_default};			# Current language, as selected from cookie
-	
+
 	if ($Site->{$Site->{lang_user}}->{$langstring}) {
 		my $output = $Site->{$Site->{lang_user}}->{$langstring};
 		while () {
 			my $var_number = '#'.$counter;
-			if ($output =~ m/$var_number/) {  
+			if ($output =~ m/$var_number/) {
 				$vars[$counter] =~ s/&#39;/&apos;/g;
-				$output =~ s/$var_number/$vars[$counter]/g;				
+				$output =~ s/$var_number/$vars[$counter]/g;
 			} else { last; }
 			$counter++;
 		}
@@ -8863,23 +8872,23 @@ sub isint{						# Is it an integwer?
 }
 
 sub new_module_load {
-	
+
 							# Load Non-Standard Modules
-						
-	my ($query,$module) = @_; 
-	
-		
+
+	my ($query,$module) = @_;
+
+
 	my $vars = ();
 	if (ref $query eq "CGI") { $vars = $query->Vars; }
 	eval("use $module;"); $vars->{mod_load} = $@;
 	if ($vars->{mod_load}) {
-		
+
 		$vars->{error} .= qq|<p>In order to perform this function gRSShopper requires the $module
 			Perl module. This has not been installed on your system. Please consult
 			your system administratoir and request that the $module Perl mocule
 			be installed.</p>|;
 		return 0;
-		
+
 	}
 
 	return 1;
@@ -8887,7 +8896,7 @@ sub new_module_load {
 
 
 sub random_password {
-	
+
 	my $password;
 	my $_rand;
 
@@ -8926,7 +8935,7 @@ sub random_password {
 sub arrays {
 
 	my ($func,@array1,@array2) = @_;
-	
+
 	@union = @intersection = @difference = ();
 	%count = ();
 
@@ -8937,8 +8946,8 @@ sub arrays {
 	}
 	if ($func eq "union") { return @union; }
 	elsif ($func eq "intersection") { return @intersection; }
-	elsif ($func eq "difference") { return @difference; }	
-}	
+	elsif ($func eq "difference") { return @difference; }
+}
 
 #   -------------------------------------------------------------------------------------
 #
@@ -8948,18 +8957,18 @@ sub arrays {
 
 sub encryptingPsw {
 	my $psw = shift;
-	my $count = shift; 
-	my @salt = ('.', '/', 'a'..'z', 'A'..'Z', '0'..'9');  
+	my $count = shift;
+	my @salt = ('.', '/', 'a'..'z', 'A'..'Z', '0'..'9');
 	my $salt = "";
 	$salt.= $salt[rand(63)] foreach(1..$count);
 	my $encrypted = crypt($psw, $salt);
-	return $encrypted; 
+	return $encrypted;
 }
 
 sub generate_random_string
 {
-  my $count = shift; 
-  my @salt = ('-','/', 'a'..'z', 'A'..'Z', '0'..'9');  
+  my $count = shift;
+  my @salt = ('-','/', 'a'..'z', 'A'..'Z', '0'..'9');
   my $salt = "";
   $salt.= $salt[rand(63)] foreach(1..$count);
   return $salt;
@@ -8974,8 +8983,8 @@ sub error {
 	if (ref $query eq "CGI") { $vars = $query->Vars; }
 
 	if ($vars->{mode} eq "silent") { exit; }
-	
-	
+
+
 	if ($person eq "api") {
 
 		print qq|<p class="notice">$msg</p>|;
@@ -8988,26 +8997,26 @@ sub error {
  print "Content-type: text/html\n\n";
 		print "Status: 404 Not Found\n\n";
 		print '<!-- ' . ' ' x 512 . ' -->'; # IE 512 byte limit cure
-		print "404 - File Not Found\n$supl"; 
+		print "404 - File Not Found\n$supl";
 	} else {
-	
+
 
 							# Page header
-							
-	    my $pagetitle = &printlang("Error");	
+
+	    my $pagetitle = &printlang("Error");
 	    $Site->{header} =~ s/\Q[*page_title*]\E/$pagetitle/g;
-	    $Site->{header} =~ s/\Q<page_title>\E/$pagetitle/g;	    	
+	    $Site->{header} =~ s/\Q<page_title>\E/$pagetitle/g;
 	    print "Content-type: text/html; charset=utf-8\n\n";
-									  
+
                             # Page body
 
 
 		print $Site->{header}.qq|<div id='grey-box-wrapper'><h2>$pagetitle</h2>
                <h3>$Site->{st_name}</h3>|;
-		
+
 		print "<p>$msg</p></div>";
 		print $Site->{footer};
-	
+
 #	my $adr = 'stephen@downes.ca';
 #	my $env_values = &show_environment();
 #	&send_email($adr,$adr,
@@ -9040,17 +9049,17 @@ sub error_inline {
 		print "Content-type: text/html\n\n";
 		print "Status: 404 Not Found\n\n";
 		print '<!-- ' . ' ' x 512 . ' -->'; # IE 512 byte limit cure
-		print "404 - File Not Found\n$supl"; 
+		print "404 - File Not Found\n$supl";
 		exit;
-	} 
-	
-	
+	}
+
+
 	# Other Errors
 	print "Content-type: text/html\n\n";
 	print qq|<h2>@{[&printlang("Error")]}</h2>|;
 	print "<div id='notice_box'>";
 	print "<p>$msg</p></div>";
-	
+
 	if ($dbh) { $dbh->disconnect; }
 	exit unless ($supl eq "nonterminal");
 }
@@ -9068,16 +9077,16 @@ sub show_environment {
 }
 
 sub log_event {
-	return;	
+	return;
 }
 
 sub log_status {
-	
+
 	my ($dbh,$query,$logfile,$message) = @_;
 
 	my $ltime = time;
 	my $lcreator = $Person->{person_id} || 1;
-	
+
 						# Configure log entry
 	my $lvals = {
 		log_crdate =>$ltime,
@@ -9085,31 +9094,31 @@ sub log_status {
 		log_title => $logfile,
 		log_entry => $message
 	};
-		
+
 	if ($message =~ /headers:/) {		# Add headers if they aren't already there, or
-		return if (&db_locate($dbh,"log",{log_title=>$logfile,log_entry=>$message}));	
+		return if (&db_locate($dbh,"log",{log_title=>$logfile,log_entry=>$message}));
 	}
-	
+
 						# Add log entry
 	&db_insert($dbh,$query,"log",$lvals);
 
 }
 
 sub log_cron {
-	
+
 	my ($log) = @_;
 	return unless ($Site->{cron});
-	
+
 											# Get the time
 	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
 	my @wdays = qw|Sunday Monday Tuesday Wednesday Thursday Friday Saturday|;
-	my $weekday = @wdays[$wday]; 
+	my $weekday = @wdays[$wday];
 	if ($min < 10) { $min = "0".$min; }
-	if ($mday < 10) { $mday = "0".$mday; }	
+	if ($mday < 10) { $mday = "0".$mday; }
 	my $logtime="$mon/$mday $hour:$min ";
-	
+
 	# Print Cron Jobs Log
-	
+
 	unless ($log) { $log = $logtime . " No activities to report\n"; }
 	else { $log = $logtime . $log; }
 	my $cronfile = &get_cookie_base($Site->{st_url});
@@ -9123,18 +9132,18 @@ sub log_cron {
 }
 
 sub log_view {
-	my ($dbh,$query,$logfile,$format) = @_;	
+	my ($dbh,$query,$logfile,$format) = @_;
 
 
 						# Table View Defaults
 	my $vars = $query->Vars;
 	$logfile ||= $vars->{logfile};
 	$format ||= $vars->{format};
-	my $border = $vars->{border} || 1; 
+	my $border = $vars->{border} || 1;
 	my $padding = $vars->{padding} || 3;
 	my $spacing = $vars->{spacing} || 0;
-	
-	
+
+
 	print "Content-type:text/html\n\n";
 	print "Retrieving $logfile <br>";
 	if ($logfile eq "cronlog") {
@@ -9142,7 +9151,7 @@ sub log_view {
 		$cronfile =~ s/\./_/g;
 		my $cronlog = $Site->{data_dir} . $cronfile. "_cron.log";
 		if ($vars->{format} eq "tail") {
-			open my $pipe, "-|", "/usr/bin/tail", "-f", $cronlog 
+			open my $pipe, "-|", "/usr/bin/tail", "-f", $cronlog
 				or die "could not start tail on SampleLog.log: $!";
 			print while <$pipe>;
 		}
@@ -9152,21 +9161,21 @@ sub log_view {
 		close CRONLOG;
 		exit;
 	}
-			
 
 
-	
+
+
 						# Retrieve Log
 	my $lsql = qq|SELECT * FROM log WHERE log_title=?|;
 	my $lsth = $dbh -> prepare($lsql);
 	$lsth -> execute($logfile);
-	
+
 						# Process Data
 	my $lcount; my $headers; my $body;
-	while (my $logrow = $lsth -> fetchrow_hashref()) { 
+	while (my $logrow = $lsth -> fetchrow_hashref()) {
 		my $line = $logrow->{log_entry};
-		if ($line =~ /headers:/) { $line =~ s/headers:/headers:date,/; } 
-		else { 
+		if ($line =~ /headers:/) { $line =~ s/headers:/headers:date,/; }
+		else {
 			my $d = $logrow->{log_crdate};
 			$d = &nice_date($d,"min");
 			$d =~ s/,//g;
@@ -9180,14 +9189,14 @@ sub log_view {
 		$line .= "\n";
 		if ($line =~ /headers:/) {
 			$line =~ s|headers:||;
-			$headers = $line; 
+			$headers = $line;
 		} else {
 			$body .= $line;
 		}
-	}	
-	$lsth->finish();	
+	}
+	$lsth->finish();
 						# Print Output
-						
+
 	if ($format eq "table") { print qq|<table border="$border" cellspacing="$spacing" cellpadding="$padding">|; }
 	print $headers;
 	print $body;
@@ -9196,8 +9205,8 @@ sub log_view {
 }
 
 sub log_reset {
-	
-	my ($dbh,$query,$logfile) = @_;		
+
+	my ($dbh,$query,$logfile) = @_;
 	$logfile ||= $vars->{logfile};
 	return unless ($logfile);
 	my $sth = $dbh->prepare("DELETE FROM log WHERE log_title = ?");
@@ -9205,7 +9214,7 @@ sub log_reset {
 	print "Content-type:text/html\n\n";
 	print "Log $logfile wiped clean<br>";
 	exit;
-	
+
 }
 
 sub show_status_message {
@@ -9247,7 +9256,7 @@ sub send_email {
 
 
 	my ($to,$from,$subj,$page) = @_;
-	
+
 	   $page = "Content-Type: text/html; charset=utf-8\n\n".$page;
    my $page_text = $page;
 
@@ -9261,9 +9270,9 @@ sub send_email {
    $page_text =~ s/  //sig;
    $page_text =~ s/\r//sig;
    $page_text =~ s/\n\n/\n/sig;
-   
+
 	# I can make this much more efficient later
-   
+
 
 	$subj = '🍁' .$subj;	# Adds maple leaf emoji
 
@@ -9272,14 +9281,14 @@ sub send_email {
 	open OUTFILE, ">$html_file" or die "could not save $html_file for emailing. $!";
 	print OUTFILE $page;
 	close OUTFILE;
-	
+
 	open OUTFILE, ">$text_file" or die "could not save $text_file for emailing. $!";
 	print OUTFILE $page_text;
 	close OUTFILE;
 
-	
+
     use MIME::Lite::TT::HTML;
-    
+
     my $msg = MIME::Lite::TT::HTML->new(
         From        => $from,
         To          => $to,
@@ -9295,7 +9304,7 @@ sub send_email {
        # TmplOptions => \%options,
        # TmplParams  => \%params,
     );
-    
+
     $msg->send;
 
 return;
@@ -9360,9 +9369,9 @@ sub line_lengths {
 # Returns a mime type based on extension of filename
 
 sub mime_type {
-	
+
 	my ($url) = @_;
-	
+
 	my $mime_table = {
 	      ai => "application/postscript",
 	      aiff => "audio/x-aiff",
@@ -9424,32 +9433,32 @@ sub mime_type {
 	      xls => "application/vnd.ms-excel",
 	      xbm => "image/x-xbitmap'",
 	      zip => "application/zip"
-	     };	
+	     };
 
 
 	my ($dirname,$atts) = split /\?/,$url;
 	my @slices = split /\//,$dirname;
-	my $filename = pop @slices;	
-	my @harray = split /\./,$filename; 
-	my $ext = pop @harray; 
+	my $filename = pop @slices;
+	my @harray = split /\./,$filename;
+	my $ext = pop @harray;
 	$ext = lc($ext);
-	my $mimetype = $mime_table->{$ext};	
+	my $mimetype = $mime_table->{$ext};
 	unless ($mimetype) { $mimetype = "unknown"; }
-	
+
 	return $mimetype;
-	
+
 }
 
 # -------  Conditional print -------------------------------------------------------
 
 sub diag {
-	
+
 	# $diag_level set at top
-	
+
 	my ($score,$output) = @_;
 
-	if ($score < $Site->{diag_level}) { 
-		print $output; 
+	if ($score < $Site->{diag_level}) {
+		print $output;
 	}
 
 	return;
@@ -9462,9 +9471,9 @@ sub diag {
 sub index_of {
 
 
-	my ($item,$array) = @_;			
-	my $index_count = 0;			
-	foreach my $i (@$array) {		
+	my ($item,$array) = @_;
+	my $index_count = 0;
+	foreach my $i (@$array) {
 		if ($item eq $i) { return $index_count; }
 		$index_count++;
 	}
@@ -9495,7 +9504,7 @@ sub site_url {
 sub wikipedia {
 
 	my ($dbh,$term) = @_;
-	
+
 	use constant WIKIPEDIA_URL =>'http://%s.wikipedia.org/w/index.php?title=%s';
 	use CGI qw( escape );
 
@@ -9517,7 +9526,7 @@ sub wikipedia {
 		$article =~ s/<div(.*?)>//sig;
 		$article =~ s|</div>||sig;
 		$article = qq|<div id="wikipedia">\n$article\n</div>|;
-	
+
 		return $article;
 	} else {
 		return "Unable to connect to Wikipedia";
@@ -9535,7 +9544,7 @@ sub wikipedia {
 sub process_wikipedia {
 
 	my ($content) = @_;
-	
+
 	my $output = "";
 	my @graphs = split /\n/,$content;
 	foreach my $graph (@graphs) {
@@ -9568,23 +9577,23 @@ sub wikipedia_entry {
 
 sub iheader {
 	my ($page) = @_;
-	
+
 	return qq|
 		<html><head>
 		<title>gRSShopper Initialization - $page</title>
 		</head><body>
 		<img src="http://demo.downes.ca/images/grsshopper1.png">
 		<h2 style="margin-left:100px;">gRSShopper Initialization - $page</h2>
-		
+
 	|;
-	
-	
+
+
 }
 
 sub ifooter {
-	
+
 		return qq|</body></html>|;
-	
+
 }
 
 
@@ -9600,7 +9609,7 @@ sub ifooter {
 # ---------------------------------------------------------------------------------------------------
 
 sub record_submit {
-	
+
 	my ($dbh,$vars,$return) = @_;
 
 	$vars->{force} = "yes";
@@ -9609,64 +9618,64 @@ sub record_submit {
 	&error($dbh,$query,"api","Database not initialized") unless ($dbh);		# Set database
 	my $table = $vars->{db} || &error($dbh,$query,"api","Table not specified");	# Set table
 
-	&record_sanitize_input($vars);							# Sanitize input		
+	&record_sanitize_input($vars);							# Sanitize input
 	&record_anti_spam($dbh,$table,$vars);						# No Spam!
 
-	&record_autoformat($table,$vars);						# Autoformat text-based input	
+	&record_autoformat($table,$vars);						# Autoformat text-based input
 	&record_convert_dates($table,$vars);						# Convert input dates to epoch
-	
+
 	my $record = &record_load($dbh,$table,$vars);					# Load or create new record
-	my $id = &record_save($dbh,$record,$table,$vars) || 		
+	my $id = &record_save($dbh,$record,$table,$vars) ||
 		&error($dbh,$query,"api","Error saving record");			# Save record
-		
+
 	my $new_record = &record_verify($dbh,$table,$id);				# Verify and return saved record
-	
+
 	&record_graph($dbh,$vars,$table,$new_record);					# Create graph of associated entities
 
-											# Remove Cache 
+											# Remove Cache
 #	&db_cache_remove($dbh,$table,$id);						# (So people can see their updates)
 #	&db_cache_remove($dbh,$table,$vars->{$table."_thread"});
 
 	if ($return) { return $record->{$table."_".$return}; }				# Quick return without preview
-	
+
 	$preview .= &record_preview($dbh,$table,$id,$vars);				# Generate Preview version
 
 	$vars->{msg} .= &record_notifications($dbh,$vars,$table,$record,$preview);			# Send email notifications to admin
-	
+
 	return ($id,$preview);								# Full return with preview
 }
 
 
 # -------  Graph Record ---------------------------------------------
 #
-#   This function associates a just-saved record with records in other tables 
+#   This function associates a just-saved record with records in other tables
 #   Values for these other records are submitted in $vars and always have the prefix 'keyname_'
 #   For example, a field named 'keyname_author' will refer to the name of an author in the 'author' table
-#   The function produces a record in the graph table  
+#   The function produces a record in the graph table
 #   It will also create a new record in the other table, if necessary
 #   Be sure to set $new_record->{type} before sending $new_record to this function (where 'type' = new_record's table)
-# 
+#
 sub record_graph {
-	
+
 	my ($dbh,$vars,$table,$new_record) = @_;
-	
+
 	# return unless ($vars->{$table."_status"} eq "Final");				# Can be commented out, but really
 											# graphs entries shouldn't be created
 											# until the user commits
-	$new_record->{type} ||= $table;	# Just in case					
-								
-	while (my ($vkey,$vval) = each %$vars) {	
-		
+	$new_record->{type} ||= $table;	# Just in case
+
+	while (my ($vkey,$vval) = each %$vars) {
+
 		if ($vkey =~ /^keyname_(.*?)$/) {				# Eg. 'keyname_author'
 			my $keytable = $1; 					# This is a record in another table associated with this one Eg. 'author'
 			my @keynamelist = parse_csandv($vval);  		# Find eg. authors, split: first, second and third  (but leave values in quotes intact)
 			foreach my $keyname (@keynamelist) {			# For each., eg. author...
-				
+
 				$keyname =~ s/^ | $//g;	 			# Trim leading, trailing white space
 
 				my $keyfield = &get_key_namefield($keytable);	# Are we looking for _name, _title ...?
 				my $keyrecord = &db_get_record($dbh,$keytable,{$keyfield=>$keyname});	# can we find a record with that name or title?
-				
+
 				unless ($keyrecord) {				# Record wasn't found, create a new record, eg., a new 'author'
 					$keyrecord = {
 						$keytable."_creator"=>$Person->{person_id},
@@ -9675,25 +9684,25 @@ sub record_graph {
 					};
 					$keyrecord->{$keytable."_id"} = &db_insert($dbh,$query,$keytable,$keyrecord);
 					&error($dbh,"","api","New $keytable crash and burn") unless ($keyrecord->{$keytable."_id"});
-				}	
+				}
 
 
-				$keyrecord->{type}=$keytable;	
+				$keyrecord->{type}=$keytable;
 								# Create Graph Record
-				if ($keytable eq "author") { $keytype = "by"; }						
+				if ($keytable eq "author") { $keytype = "by"; }
 				else { $keytype = "in"; }
-				&save_graph($keytype,$new_record,$keyrecord);					
+				&save_graph($keytype,$new_record,$keyrecord);
 			}
-		}						 
-	}	
-} 
+		}
+	}
+}
 
 # -------  Sanitize ------------------------------------------------------
 #
 # Clean hashes of programs, injection code, etc
-#  
+#
 sub record_sanitize_input {
-  	
+
 
 	my ($vars) = @_;
 
@@ -9707,39 +9716,39 @@ sub record_sanitize_input {
 		$vars->{$vkey} =~ s/\x{2019}/'/g;	# '
 		$vars->{$vkey} =~ s/\x{2026}/.../g;	# ...
 		$vars->{$vkey} =~ s/'/&apos;/g;	#     No SQL injections
-	
+
 		# If it's not from a JS editor, auto-insert spaces
-		unless ($vars->{$vkey} =~ /^<p>/i) { 
+		unless ($vars->{$vkey} =~ /^<p>/i) {
 			$vars->{$vkey} =~ s/\r//g;
 			$vars->{$vkey} =~ s/\n/\n\n/g;   # Adds an extra LF for single returns - converts MS Doc paras to extra LFs
-			$vars->{$vkey} =~ s/\n\n\n/\n\n/g; $vars->{$vkey} =~ s/\n/<br\/>/g; 
+			$vars->{$vkey} =~ s/\n\n\n/\n\n/g; $vars->{$vkey} =~ s/\n/<br\/>/g;
 		}
 	}
-	
-	
+
+
 	return if ($Person->{person_status} eq "Admin");
-	
+
 	$vars->{$vkey} =~ s/<(\/|)(scr|if|ob|e|t)(.*?)>//sig;	# No scripts, iframes, embeds, tables
 
 	return if ($Person->{person_status} eq "Registered");
-	
+
 	$vars->{$vkey} =~ s/<(\/|)(a|img)(.*?)>//sig;	# No links, images
-	
+
 }
 
 
 # -------  Anti-Spam ------------------------------------------------------
 #
 # Like the title says
-# 
+#
 
 sub record_anti_spam {		# Checks input for spam content and kills on contact
 
 	my ($dbh,$table,$vars) = @_;
-	
+
 	# die "Commenting disabled due to persistent and annoying spammers." unless $Person->{person_status} eq "admin";
-	
-	
+
+
 								# Define test text
 
 	my $d = $table."_description";
@@ -9760,13 +9769,13 @@ sub record_anti_spam {		# Checks input for spam content and kills on contact
 #	unless (&is_viewable("spam","code_match")) {
 #
 #		unless (&check_code($vars->{post_thread},$vars->{code}) || $table ne "post" || $vars->{code} eq "override") {
-#			&error($dbh,$query,"api",qq|Spam code mismatch - $vars->{post_thread},$vars->{code}  - (used to prevent robots from 
-#			submitting comments). Try this: copy your comment (highlight and ctl/c), 
-#			reload the web page ( do a shift-reload #for force a full reload), 
+#			&error($dbh,$query,"api",qq|Spam code mismatch - $vars->{post_thread},$vars->{code}  - (used to prevent robots from
+#			submitting comments). Try this: copy your comment (highlight and ctl/c),
+#			reload the web page ( do a shift-reload #for force a full reload),
 #			paste the comment into the form, and submit again.|,"CONTENT: $test_text");
 #		}
 #	}
-	
+
 								# Ban multiple links
 	unless (&is_viewable("spam","many_links")) {
 		my $c; while ($test_text =~ /http/ig) { $c++ }
@@ -9775,42 +9784,42 @@ sub record_anti_spam {		# Checks input for spam content and kills on contact
 			&error($dbh,$query,"api","This post is link spam. Go away. (Too many links)","CONTENT: $test_text");
 		}
 	}
-	
+
 								# Ban scripts
 	unless (&is_viewable("spam","scripts")) {
 		if ($test_text =~ /<(.*?)(script|embed|object)(.*?)>/i) {
 			&error($dbh,$query,"api","No scripts in the comments please.","CONTENT: $test_text");
-		}	
+		}
 	}
 
 								# Ban links
 	unless (&is_viewable("spam","links")) {
 		if ($test_text =~ /<a(.*?)>/i) {
 			&error($dbh,$query,"api","No links in the comments please.","CONTENT: $test_text");
-		}	
+		}
 	}
-	
-	
+
+
 								# Ban words
 	unless (&is_viewable("spam","links")) {
 		if ($test_text =~ /(You are invited|viagra|areaseo|carisoprodol|betting|pharmacy|poker|holdem|casino|roulette|phentermine|ringtone|insurance|diet|ultram| pills| loans|tramadol|cialis|penis|handbag| shit | cock | fuck | fucker | cunt | motherfucker | ass )/i) {
 			&error($dbh,$query,"api","Spam in the text.","CONTENT: $test_text");
-		}	
+		}
 	}
 
 
 								# Ban short comments
 	unless (&is_viewable("spam","length")) {
-		my $test_text_length = length ($test_text); 
+		my $test_text_length = length ($test_text);
 		if ($test_text_length < 150) {
 			&error($dbh,$query,"api","Comments must be long enough to mean something.","CONTENT: $test_text");
-		}	
+		}
 	}
 
 
 								# Semantic Test
 								# applied to post only
-								
+
 	unless (&is_viewable("spam","semantic")) {
 
 		unless ($sem_text =~ / and | or | but | the | is | If | you | my | me | he | she | was | will | all | some | I /i) {
@@ -9820,7 +9829,7 @@ sub record_anti_spam {		# Checks input for spam content and kills on contact
 		}
 	}
 
-					
+
 
 	# Filter by IP
 	unless (&is_viewable("spam","ip")) {
@@ -9838,49 +9847,49 @@ sub record_anti_spam {		# Checks input for spam content and kills on contact
 #   All dates input are turned to epoch
 #   That's just how I roll
 #
-#  
+#
 
 sub record_convert_dates {
 
 	my ($table,$vars) = @_;
-	
+
 											#Set default timezones, durations
-	$vars->{$table."_timezone"} ||= $Site->{st_timezone} || "America/Toronto";	# Allows input to specify timezone						
-	unless ($vars->{$table."_duration"}) {$vars->{$table."_duration"} = "1:00";}	
-	unless ($vars->{$table."_duration"} =~ /:/) {$vars->{$table."_duration"} .= ":00";}										
-	
+	$vars->{$table."_timezone"} ||= $Site->{st_timezone} || "America/Toronto";	# Allows input to specify timezone
+	unless ($vars->{$table."_duration"}) {$vars->{$table."_duration"} = "1:00";}
+	unless ($vars->{$table."_duration"} =~ /:/) {$vars->{$table."_duration"} .= ":00";}
+
 										# Convert datepicker input to epoch
-	$vars->{$table."_start"} = &datepicker_to_epoch($vars->{$table."_start"},$vars->{$table."_timezone"});							
+	$vars->{$table."_start"} = &datepicker_to_epoch($vars->{$table."_start"},$vars->{$table."_timezone"});
 	$vars->{$table."_finish"} = &datepicker_to_epoch($vars->{$table."_finish"},$vars->{$table."_timezone"});
-	
+
 }
 
 # -------  Autoformat ------------------------------------------------------
 #
 #   Autoformatting for comment-form based input
 #
-#  
+#
 
 sub record_autoformat {
 
 	my ($table,$vars) = @_;
 
 	return if ($vars->{autoformat} eq "off");				# May be turned off from form
-	foreach (qw(description content)) {					
+	foreach (qw(description content)) {
 		my $element = $table."_".$_;
-		
 
-										
+
+
 		unless ($vars->{$element} =~ /^<p|^<div/i) { 				# Unless from text-fromatter (eg TinyMCE)...
-			
+
 			$vars->{$element} =~ s/\n/<br\/><br\/>/g; 			# Auto line feed
 			$vars->{$element} =~ s/<br\/><br\/><br\/>/<br\/><br\/>/g;	# (Double to enable seamless MS-Word paste)
-										
-			$vars->{$element} =~ s/\s\*(.*?)\*(\s|\.|,|;|:)/ <b>$1<\/b> /g;	# Auto bold			
-										
+
+			$vars->{$element} =~ s/\s\*(.*?)\*(\s|\.|,|;|:)/ <b>$1<\/b> /g;	# Auto bold
+
 			$vars->{$element} =~ s/\s_(.*?)_(\s|\.|,|;|:)/ <i>$1<\/i> /g;	# Auto italics
 		}
-							
+
 	}
 
 }
@@ -9889,41 +9898,41 @@ sub record_autoformat {
 #
 #   Loads the new record into memory, combining existing record information with new form submission info
 #
-#  
+#
 sub record_load {
-	
+
 	my ($dbh,$table,$vars) = @_;
 	my $record;
 #identifier
-	my $id = &db_locate($dbh,$table,{$table."_identifier"=>$vars->{identifier}}) || $vars->{id} || "new";								
+	my $id = &db_locate($dbh,$table,{$table."_identifier"=>$vars->{identifier}}) || $vars->{id} || "new";
 	&record_defaults($table,$vars);
-	
+
 	if ($id =~ /new/i) { 					# Create New Record
-	
-	
-		&error($dbh,$query,"api","Permission denied to create $table") unless (&is_allowed("create",$table)); 
-		
-		&error($dbh,$query,"api","This $table already exists, you can't recreate it") 
-			unless (&record_unique($dbh,$table,$vars)); 		
+
+
+		&error($dbh,$query,"api","Permission denied to create $table") unless (&is_allowed("create",$table));
+
+		&error($dbh,$query,"api","This $table already exists, you can't recreate it")
+			unless (&record_unique($dbh,$table,$vars));
 		$vars->{$table."_id"} = "new";
 		$record = gRSShopper::Record->new({tag=>$table});
 		&record_creation_info($table,$vars);							# Set creation info
-		
+
 	} else { 						# Load Existing Record
-		
+
 		$record = &db_get_record($dbh,$table,{$table."_id"=>$id});
-		&error($dbh,$query,"api","Record ID $id not found") unless ($record->{$table."_id"}); 
+		&error($dbh,$query,"api","Record ID $id not found") unless ($record->{$table."_id"});
 		$vars->{$table."_id"} = $record->{$table."_id"};
 		$vars->{id} = $record->{$table."_id"};
-		&error($dbh,$query,"api","Permission denied to edit $table record $id") unless (&is_allowed("edit",$table,$record)); 
+		&error($dbh,$query,"api","Permission denied to edit $table record $id") unless (&is_allowed("edit",$table,$record));
 		&record_update_info($table,$vars);							# Set update info
 	}
-	
+
 								# Load vars into Record and return record
 								# Note: record is NOT saved at this point, only loaded
 
 	while (my($vx,$vy) = each %$vars) { $record->{$vx} = $vy;  }
-	
+
 	return $record;
 }
 
@@ -9936,18 +9945,18 @@ sub record_load {
 #
 
 sub record_unique {
-	
+
 	my ($dbh,$table,$vars) = @_;
 
 	if ($table eq "event") {
-		return 0 if (&db_locate($dbh,$table,{event_title=>$vars->{event_title},event_start=>$vars->{event_start}})); 
+		return 0 if (&db_locate($dbh,$table,{event_title=>$vars->{event_title},event_start=>$vars->{event_start}}));
 	} elsif ($table eq "post" && $vars->{post_type} eq "link") {
-		return 0 if (&db_locate($dbh,$table,{post_link=>$vars->{post_link}})); 	
+		return 0 if (&db_locate($dbh,$table,{post_link=>$vars->{post_link}}));
 	}
-	
+
 	return 1;
-	
-	
+
+
 }
 
 
@@ -9955,124 +9964,124 @@ sub record_unique {
 #
 # Save record (*update or create) and return record id
 #
- 
+
 sub record_save {
-	
+
 	my ($dbh,$record,$table,$vars) = @_;
 	my $record_id;						# ID of saved record
-		
+
 	if ($record->{$table."_id"} && $record->{$table."_id"} ne "new") {
-		$record_id = &db_update($dbh,$table,$vars,$record->{$table."_id"});	
+		$record_id = &db_update($dbh,$table,$vars,$record->{$table."_id"});
 		$vars->{msg} .= "Updated $table ($record_id)";
 	} else {
 		$record_id = &db_insert($dbh,$query,$table,$vars);
 		$vars->{id} = $record_id;
-		$record->{$table."_id"} = $record_id;	
-		#$vars->{msg} .= "Created new $table ($record_id)";			
+		$record->{$table."_id"} = $record_id;
+		#$vars->{msg} .= "Created new $table ($record_id)";
 	}
 	return $record_id;
-} 
- 
- 
- 
+}
+
+
+
 # -------  Verify ------------------------------------------------------
 #
 # Returns newly saved record with type info for further processing
-# 	
- 
+#
+
 sub record_verify {
-	
+
 	my ($dbh,$table,$id) = @_;
 	my $new_record=&db_get_record($dbh,$table,{$table.+"_id"=>$id});
 	&error($dbh,"","api","New $table record not created properly.") unless ($new_record);
 	$new_record->{type} = $table;
-} 
+}
 
 # -------  Creation Info ------------------------------------------------------
 #
 # Set record creator crdate, creation IP and identifier
 #
- 
+
 sub record_creation_info {
-  	
+
 	my ($table,$vars) = @_;
-	
+
 	$vars->{$table."_creator"} = $Person->{person_id};
-	
+
 	$vars->{$table."_crdate"} = time;
-	$vars->{$table."_crip"} = $ENV{'REMOTE_ADDR'};		
+	$vars->{$table."_crip"} = $ENV{'REMOTE_ADDR'};
 	$vars->{$table."_identifier"} = $vars->{identifier};
 
-  	
+
 }
 
 
- 
+
 # -------  Update Info ------------------------------------------------------
 #
 # Set record creator crdate, creation IP and identifier
 #
- 
+
 sub record_update_info {
-  	
+
 	my ($table,$vars) = @_;
-	
+
 	$vars->{$table."_updater"} = $Person->{person_id};
 	$vars->{$table."_updated"} = time;
-	$vars->{$table."_upip"} = $ENV{'REMOTE_ADDR'};		
-  	
+	$vars->{$table."_upip"} = $ENV{'REMOTE_ADDR'};
+
 }
 
 
 
 
 
- 
+
 # -------  Defaults ------------------------------------------------------
 #
 # Set record defaults
 #
- 
+
 sub record_defaults {
-  	
+
 	my ($table,$vars) = @_;
-	
+
 								# Status  (Need some work to standardize on this)
 	$vars->{$table."_status"} ||= "None";
 	if ($vars->{pushbutton} eq "preview") { $vars->{$table."_status"} = "Draft"; }
-	elsif ($vars->{pushbutton} eq "done") { $vars->{$table."_status"} = "Final"; }	
-	if ($Person->{person_status} eq "Admin") { 
+	elsif ($vars->{pushbutton} eq "done") { $vars->{$table."_status"} = "Final"; }
+	if ($Person->{person_status} eq "Admin") {
 		if ($vars->{pushbutton} eq "rejected") { $vars->{$table."_status"} = "Rejected"; }
 		else { $vars->{$table."_status"} = "Approved"; }
-	}	
-	
+	}
+
 								# Type
-								
+
 	if ($vars->{newautoblog}) { $vars->{post_type} = "link"; }				# Autoblog, first input, default to Link
-	unless ($Person->{person_status} eq "admin") { $vars->{post_type} ||= "comment"; }	# Default to comment						
-	
+	unless ($Person->{person_status} eq "admin") { $vars->{post_type} ||= "comment"; }	# Default to comment
+
 								# Source
 	if ($vars->{newautoblog}) { $vars->{$table."_source"} = "autoblog"; }
 	else  { $vars->{$table."_source"} = "page"; }
-	
+
 								# Title, Description, Dates
-								
+
 	&error($dbh,$query,"api",ucfirst($table)." requires a title") unless ($vars->{$table."_title"});
 	&error($dbh,$query,"api",ucfirst($table)." requires a description") unless ($table eq "feed" || $vars->{$table."_description"});
 	if ($table eq "feed") { &error($dbh,$query,"api",ucfirst($table)." requires a link") unless ($vars->{$table."_link"}); }
 	if ($table eq "event") {
 		&error($dbh,$query,"api",ucfirst($table)." requires a start time") unless ($vars->{$table."_start"});
-	} 
-	
+	}
+
 								# Link
-								
-	if ($vars->{post_type} eq "link") { unless ($vars->{post_link}) { &error($dbh,$query,"api","Link post requires a link"); } }	
-	unless ($vars->{$table."_link"}	=~ /http/) { $vars->{$table."_link"} = "http://".$vars->{$table."_link"}; }	
-	unless ($vars->{$table."_html"}	=~ /http/) { $vars->{$table."_html"} = "http://".$vars->{$table."_html"}; }					
-	
+
+	if ($vars->{post_type} eq "link") { unless ($vars->{post_link}) { &error($dbh,$query,"api","Link post requires a link"); } }
+	unless ($vars->{$table."_link"}	=~ /http/) { $vars->{$table."_link"} = "http://".$vars->{$table."_link"}; }
+	unless ($vars->{$table."_html"}	=~ /http/) { $vars->{$table."_html"} = "http://".$vars->{$table."_html"}; }
+
 								# Author
 	$vars->{$table."_author"} ||= $Person->{person_name} || $Person->{person_title} || $Site->{st_anon} || "Any Mouse";
-  	
+
 }
 
 # -------  Record Preview ------------------------------------------------------
@@ -10081,61 +10090,61 @@ sub record_defaults {
 #
 
 sub record_preview {
-	
+
 	my ($dbh,$table,$id,$vars) = @_;
-	
+
 	my $preview = &db_get_record($dbh,$table,{$table."_id" => $id});			# Get record
-	
-	
-	
+
+
+
 
 	my $wp = {}; 									# Format Record
 	$vars->{comments} = "no";
 	$wp->{table} = $table;
 	$wp->{page_content} = &format_record($dbh,$query,$table,"preview",$preview);
 	&format_content($dbh,$query,$options,$wp);
-	
-	my $hh; 
+
+	my $hh;
 	if ($table eq "event") { $hh = qq|<section>@{[&printlang("Start")]} <h3>|.&nice_date($preview->{$table."_start"}) ."</h3>"; }
 	elsif ($table eq "post") { $hh = qq|<h3>@{[&printlang("Preview")]}</h3><p>@{[&printlang("Continue editing")]}</p>|; }
-	
-	
-	
-	
+
+
+
+
 											# Return text
 	return $hh.
 		qq|$wp->{page_content}|.
-		qq|</section>|;	
-	
-	
-	
-	
+		qq|</section>|;
+
+
+
+
 }
 
 
 sub record_notifications {
-	
+
 	my ($dbh,$vars,$table,$record,$preview) = @_;
-	
+
 #	$Site->{st_crea} = "stephen\@downes.ca";
-		
+
 	# If User is done editing - status = "Final" (or feed)
-	
-	if ($record->{$table."_status"} eq "Final" || $table eq "feed") {	
-		
-		
+
+	if ($record->{$table."_status"} eq "Final" || $table eq "feed") {
+
+
 		if ($Person->{person_status} eq "admin") {
 			$vars->{msg} = qq|<p class="notice">@{[&printlang("Automatic approval",&printlang($table))]} </p>|;
-			return;			
+			return;
 		}
-		
-		
-		
-		# Compose notification message	
-		
+
+
+
+		# Compose notification message
+
 		my $readername = $Person->{person_name} || $Person->{person_title};
 		my $mailtext = qq|
-			@{[&printlang("Dear")]} <name> <email>,<br><br>	
+			@{[&printlang("Dear")]} <name> <email>,<br><br>
 			@{[&printlang("New submitted approval needed",&printlang($table),$Site->{st_name},$readername)]}<br/><br/>
 			$preview<br/><br/>
 			[<a href="$Site->{st_cgi}admin.cgi?$table=$record->{$table."_id"}&action=approve&from=email">Approve</a>]
@@ -10144,44 +10153,44 @@ sub record_notifications {
 			[<a href="$Site->{st_cgi}admin.cgi?$table=$record->{$table."_id"}&action=delete&from=email">Delete</a>]
 			[<a href="$Site->{st_cgi}admin.cgi?$table=$record->{$table."_id"}&action=spam&from=email">Spam</a>]</p>|;
 
-		
+
 	        my $subject = &printlang("New submitted",&printlang($table),$record->{$table."_id"},$Site->{st_name});
 	        &send_notifications($dbh,$vars,$table,$subject,$mailtext);
- 
+
 	        my $return_message .= qq|<p class="notice">@{[&printlang("Has been submitted",&printlang($table),$Site->{st_name})]}|;
 	        if ($table eq "feed") { $return_message .=  &printlang("Check feed status",$Site->{st_cgi}."login.cgi?action=Options"); }
 	        $return_message .= "</p>";
-			
+
 		return $return_message;
 	} else {
 
 		return;
 	}
-	
-	
+
+
 	# Not working yet, temporary storage of legacy code
-	if ($record->{$table."_status"} eq "Approved") {		
-	
-	
+	if ($record->{$table."_status"} eq "Approved") {
+
+
 					# Update email notification list
 	if ($vars->{anon_email}) {						# Detect anonymous email
 		$vars->{post_email_checked} = "checked";
 		$Person->{person_email} = $vars->{anon_email};
 	}
-				
-	if ($vars->{post_email_checked} eq "checked") {			
+
+	if ($vars->{post_email_checked} eq "checked") {
 		&add_to_notify_list($dbh,$Person->{person_email},$vars->{$table."_thread"});
 	} else {
-		&del_from_notify_list($dbh,$Person->{person_email},$vars->{$table."_thread"});	
-	}	
-	
-	
+		&del_from_notify_list($dbh,$Person->{person_email},$vars->{$table."_thread"});
+	}
+
+
 					# Get Email Addresses
 		my $elist = &db_get_single_value($dbh,"post","post_emails",$vars->{$table."_thread"});
 
 		my @earray = split ",",$elist;
-	
-		
+
+
 					# Send Emails
 					# To Email List
 		my $adr = $Site->{em_discussion};
@@ -10192,37 +10201,37 @@ sub record_notifications {
 			$eml .= $e." <br/>\n";
 			last if ($e eq "none");
 			&send_email($e,$adr,$ttitle,$emailcontent,"htm");
-		}	
+		}
 	}
 }
 
 
 sub send_notifications {
-	
+
 	my ($dbh,$vars,$table,$subject,$mailtext) = @_;
-	
-	
+
+
 	# List who gets notified?
-	
+
 	my $req = lc($Site->{"approve_".$table});
 	my @rlist = db_get_record_list($dbh,"person",{person_status=>$req});
-	my @alist = db_get_record_list($dbh,"person",{person_status=>'admin'});	
+	my @alist = db_get_record_list($dbh,"person",{person_status=>'admin'});
 	my @list = arrays("union",@rlist,@alist);
-	
+
 	# Send each one the message
-	
+
 	foreach my $approver (@list) {
-			
+
 		my $apers = &db_get_record($dbh,"person",{person_id=>$approver});
 		my $admintext = $mailtext;
-		$admintext =~ s/<name>/$apers->{person_name}/g; 
-		$admintext =~ s/<email>/$apers->{person_email}/g; 
-		&send_email($apers->{person_email},$Site->{st_pub},$subject,$admintext,"htm");			 
-		
-	}	
-	
-	
-	
+		$admintext =~ s/<name>/$apers->{person_name}/g;
+		$admintext =~ s/<email>/$apers->{person_email}/g;
+		&send_email($apers->{person_email},$Site->{st_pub},$subject,$admintext,"htm");
+
+	}
+
+
+
 }
 
 #----------------------------------------------------------------------------------------------------------
@@ -10236,24 +10245,24 @@ package gRSShopper::Temp;
    use strict;
   use warnings;
   our $VERSION = "1.00";
- 
+
 
   sub new {
-  	
+
   	my($class, $context, $args) = @_;
    	my $self = bless({}, $class);
-	
+
    	$self->{context} = $context;
    	while (my ($ax,$ay) = each %$args) {
 		$self->{$ax} = $ay;
    	}
-   	
+
   	$self->{process} = time;					# Make process name
   	$self->{site_url} = $self->home();
- 	
+
  	return $self;
   }
-  
+
  1;
 #----------------------------------------------------------------------------------------------------------
 #
@@ -10265,55 +10274,55 @@ package gRSShopper::Temp;
   package gRSShopper::Site;
 
   # $Site = gRSShopper::Site->new({name=>value});
-  
-   
+
+
   use strict;
   use warnings;
   our $VERSION = "1.00";
- 
+
 
   sub new {
-  	
+
   	# Load Site object
-  	my($class, $args) = @_;								
+  	my($class, $args) = @_;
    	my $self = bless({}, $class);
 
 	# Assign default values when Site created, eg. location of site configuration file multisite.txt
 	#   context =>	$context,
 	#   data_dir =>	'/var/www/cgi-bin/data/',
 	#   secure => 1,
-	
+
    	while (my ($ax,$ay) = each %$args) { $self->{$ax} = $ay; }
-   	
-   	
+
+
    	# Make process name
-  	$self->{process} = time;							
+  	$self->{process} = time;
 
 
 	# Define Site home URL from $ENV data
 	# (Used to find database info in multisite.txt)
-  	$self->__home();								
+  	$self->__home();
 
 
-	unless ($self->{no_db}) { 
-		
+	unless ($self->{no_db}) {
+
 		# Find db info from multisite.txt
 		$self->__dbinfo();
-		
+
 		$self->__db_connect();
-			
+
 		unless ($self->{dbh}) { die "Cannot connect to site database"; }
-		
-	}				
+
+	}
 
 
 
- 
- 	
+
+
  	# Load language translation packages
  	$self->__load_languages();
 
- 	
+
  	return $self;
   }
 
@@ -10322,48 +10331,48 @@ package gRSShopper::Temp;
 #  	- Determines site URL based on CGI or Cron request
 
   sub __home {
-  	
+
   	my($self, $args) = @_;
-  	
+
   	# Check whether URLs are https or http
   	my $http;
   	if ($self->{st_secure}) { $http = "https://" } else { $http = "http://"; }
-  	
+
 	# Determine site URL from HTTP or Cron
   	my $numArgs = $#ARGV + 1;
-  	
+
   	# Determine site host for HTTP
-  	if ($ENV{'HTTP_HOST'}) { 
+  	if ($ENV{'HTTP_HOST'}) {
   		$self->{st_host} = $ENV{'HTTP_HOST'};
-   		$self->{script} = $ENV{'SCRIPT_URI'}; 
-		unless ($self->{script}) {  $self->{script} = $ENV{'SERVER_NAME'}.$ENV{'SCRIPT_NAME'}; } 	
-  		
+   		$self->{script} = $ENV{'SCRIPT_URI'};
+		unless ($self->{script}) {  $self->{script} = $ENV{'SERVER_NAME'}.$ENV{'SCRIPT_NAME'}; }
+
   	}
-  	
+
   	# Determine site host for cron
-  	elsif ($numArgs > 1) { 
-  		$self->{st_host} = $ARGV[0]; 
-		$self->{script} = "http://" . $ARGV[0] . "/cgi-bin/admin.cgi";		
-  		
+  	elsif ($numArgs > 1) {
+  		$self->{st_host} = $ARGV[0];
+		$self->{script} = "http://" . $ARGV[0] . "/cgi-bin/admin.cgi";
+
   	}
-  	
+
   	# Or die
-  	else { die "Cannot find website host from HTTP or Cron input." } 
-  	
-  	
+  	else { die "Cannot find website host from HTTP or Cron input." }
+
+
   	# Set derived URLs based on st_host
    	$self->{st_url} = $http . $self->{st_host} . "/";
-	$self->{st_cgi} = $self->{st_url} . "cgi-bin/";	  	
-  	
-  	# Set cookie host 
- 	$self->{co_host} = $self->{st_host};						  	
-  	
+	$self->{st_cgi} = $self->{st_url} . "cgi-bin/";
+
+  	# Set cookie host
+ 	$self->{co_host} = $self->{st_host};
+
    	# Set Default Directories
 	# Assign or override defaults
-	$self->{site_language}  ||= 'en';						
+	$self->{site_language}  ||= 'en';
 	$self->{st_urlf}  ||= '/var/www/html/';
-	$self->{st_cgif}  ||= '/var/www/cgi-bin/'; 
- 	
+	$self->{st_cgif}  ||= '/var/www/cgi-bin/';
+
   }
 
 
@@ -10374,26 +10383,26 @@ package gRSShopper::Temp;
 #          - data is in cgi-bin/data/multisite.txt   (this can be changed at the top of this file)
 #          - format:   site_url\tdatabase name\tdatabase host\tdatabase user\tdatabase user password\n
 #
- 
+
   sub __dbinfo {
-  
- 	
+
+
   	my ($self,$args) = @_;
 
 	# Open the multisite configuration file,
 	# Initialize if file can't be found or opened
-	
-  	my $data_file = $self->{data_dir} . "multisite.txt";							
+
+  	my $data_file = $self->{data_dir} . "multisite.txt";
 	open IN,"$data_file" or $self->__initialize("file");  # -------------------------------------------------------------> Initialize file
 
-	
+
 	# Find the line beginning with site URL
 	# and read site database information from it
-	
-	my $url_located = 0;							
+
+	my $url_located = 0;
   	while (<IN>) {
-		my $line = $_; $line =~ s/(\s|\r|\n)$//g;			
-		if ($line =~ /^$self->{st_host}/) {				
+		my $line = $_; $line =~ s/(\s|\r|\n)$//g;
+		if ($line =~ /^$self->{st_host}/) {
 			( $self->{st_home},
 			  $self->{database}->{name},
 			  $self->{database}->{loc},
@@ -10409,14 +10418,14 @@ package gRSShopper::Temp;
 	close IN;
 
 
-	# Initialize if line beginning with site URL can't be found										
+	# Initialize if line beginning with site URL can't be found
 	unless ($url_located) { $self->__initialize("url"); } # -------------------------------------------------------------> Initialize url
 
 
 	# Assign or override defaults
-	$self->{site_language}  ||= 'en';						
+	$self->{site_language}  ||= 'en';
 	$self->{st_urlf}  ||= '/var/www/html';
-	$self->{st_cgif}  ||= '/var/www/cgi-bin/';	
+	$self->{st_cgif}  ||= '/var/www/cgi-bin/';
 	return;
   }
 
@@ -10426,9 +10435,9 @@ package gRSShopper::Temp;
   #    - which is used by printlang() to print text in the right language
 
   sub __db_connect {
-  	
-    	my ($self,$args) = @_;	
-    	
+
+    	my ($self,$args) = @_;
+
     	# Make variables easy to read :)
     	my $dbname = $self->{database}->{name};
     	my $dbhost = $self->{database}->{loc};
@@ -10440,61 +10449,61 @@ package gRSShopper::Temp;
 
 	# Catch connection error
 	if( ! $self->{dbh} ) {
-		
+
 		# Catch initialization error
 		if ($args->{initialize} eq "new") { print "Database initialization failed. Use 'Back' key, check variables, and try again.<br>"; }
-		
+
 		# Or Generic runtime error
 		else { 		print "Content-type: text/html\n\n";
 				print "Database connection error for db '$dbname'. Please contact the site administrator.<br>";   }
-		
+
 		# Print error report and exit
 		print "Error String Reported: $DBI::errstr <br>";
 		exit;
-	
-	# I'll put more error-checking here			
+
+	# I'll put more error-checking here
 	} else {
 		eval {
 		#$self->{dbh}->do( whatever );
 		#$self->{dbh}->do( something else );
 		};
- 
+
 		if( $@ ) {
 			print "Ugg, problem: $@\n";
 		}
 	}
-  	
-  	
+
+
   }
 
   sub __load_languages {
-  	
+
   	my ($self,$args) = @_;
-  	
+
   	# Set default language
   	$self->{site_language} ||= "en";
-  	
-  	# Cycle through list of languages from multisite.txt (separated by commas)							
+
+  	# Cycle through list of languages from multisite.txt (separated by commas)
   	my @languages = split /,/,$self->{site_language};
 	foreach my $lang (@languages) {
-		
+
 		# Set current site and user defaults (the first language in the list)(
 		unless ($self->{lang_default}) { $self->{lang_default} = $lang; }
 		unless ($self->{lang_user}) { $self->{lang_user} = $lang; }
 
 		# Determine language file name, this is where translations are stored
 		my $lang_filename = $self->{st_cgif} . "/languages/".$lang . ".pl";
-			
+
 		# Execute the language file (stores translations into a hash)
-		if (-e $lang_filename) { 	
-			do $lang_filename; 
-		} else { 
-			die "Was expecting to find $lang_filename but it was not found.";	
-		}		
+		if (-e $lang_filename) {
+			do $lang_filename;
+		} else {
+			die "Was expecting to find $lang_filename but it was not found.";
+		}
 	}
-  	
+
   }
-  
+
 
 
   sub __initialize {
@@ -10520,7 +10529,7 @@ package gRSShopper::Temp;
 
 
   package gRSShopper::Page;
- 
+
   use strict;
   use warnings;
   our $VERSION = "1.00";
@@ -10530,31 +10539,31 @@ package gRSShopper::Temp;
    	my $self = bless({}, $class);
  	my $target = exists $args{target} ? $args{target} : "world";
 	$self->{target} = $target;
-	
+
 	$self->{site} = $site;
 	$self->{context} = $site->{context};
-	
 
-	
+
+
  	return $self;
   }
-  
+
   sub header {
-  	
+
 	my $self = shift;
 
 	my $template = $self->{context} . "_header";
 
 
   }
-  
-  
+
+
   sub footer {
-  	
+
   	my $self = shift;
-  	
+
   	my $template = $self->{context} . "_header";
-  	
+
   }
 
   sub target {
@@ -10589,8 +10598,8 @@ package gRSShopper::Temp;
   package gRSShopper::File;
 
   # $item = gRSShopper::Record->new("count",$itemcount);
-  
-   
+
+
   use strict;
   use warnings;
   our $VERSION = "1.00";
@@ -10603,23 +10612,23 @@ package gRSShopper::Temp;
  	$self->{file_title} = "";;
  	$self->{file_dir} = "";;
  	$self->{file_type} = "";
- 	
- 	
+
+
  	$self->{filename} = "";
  	$self->{filedirname} = "";
 	$self->{fullfilename} = "";
 	$self->{dir} = "";
 	$self->{filetype} = "";
-	
+
  	return $self;
   }
 
 
 
-  
+
 1;
 
-  
+
 
 #----------------------------------------------------------------------------------------------------------
 #
@@ -10634,8 +10643,8 @@ package gRSShopper::Temp;
   package gRSShopper::Record;
 
   # $item = gRSShopper::Record->new("count",$itemcount);
-  
-   
+
+
   use strict;
   use warnings;
   our $VERSION = "1.00";
@@ -10646,13 +10655,13 @@ package gRSShopper::Temp;
    	my $self = bless({}, $class);
 
 	foreach ( keys %args ) { $self->{$_} = $args{$_}; }					# Import values from call
-   	   	
-     	unless ($self->{type}) { 
+
+     	unless ($self->{type}) {
      		if ($self->{tag}) { $self->set_type($self->{tag}); }
 	}
-	
+
 	if ($self->{parent}->{type}) {
-		
+
 		&flow_values($self->{parent},$self->{parent}->{type},$self,$self->{type});	# Inherit values from the parent
 	}											# Actual values may override
 
@@ -10673,7 +10682,7 @@ package gRSShopper::Temp;
 
   }
 
-  	
+
 #----------------------------- Flow Values ------------------------------
 #
 #  Flow values from one type of record to another
@@ -10682,36 +10691,36 @@ package gRSShopper::Temp;
 
 
    sub flow_values {
-	
+
 	my ($from,$from_prefix,$to,$to_prefix) = @_;
-	
-	while (my ($fx,$fy) = each %$from) {	
+
+	while (my ($fx,$fy) = each %$from) {
 		my $fprefix = $from_prefix."_";
 		my $tprefix = $to_prefix."_";
 		next unless ($fx =~ /$fprefix/i);					# Only flow through record values (signified by the presence of the prefix)
 		next if ($to_prefix =~ /feed_/);					# Never flow *to* feed
 		next if ($fx =~ /_id$/i);							# Never flow-through ID
-		next if ($fx =~ /_type$/i);							# Never flow-through type		
-		
+		next if ($fx =~ /_type$/i);							# Never flow-through type
+
 		if ($fx =~ /genre|section|author|publisher|title|descxription/) {		# Limited list of flow-through values
 			my $tx = $fx;												# These are intended to be defaults and
 			$tx =~ s/$fprefix/$tprefix/ig;									# re over-written by actual discovered values
-			$to->{$tx} ||= $from->{$fx}; 
-		}			
+			$to->{$tx} ||= $from->{$fx};
+		}
 	}
-	
-	
-	
+
+
+
    }
-   
-   
-   
+
+
+
 
   sub load_from_db {
 
     my $self = shift;
     my ($dbh,$id) = @_;
-    
+
     unless ($self->{type}) { $self->{error} = "Record type not defined on load from db"; return 0; }
     my $idfield = $self->{type}."_id";
     my $stmt = "SELECT * FROM $self->{type} WHERE $idfield=? LIMIT 1";
@@ -10720,46 +10729,46 @@ package gRSShopper::Temp;
     my $data = $sth -> fetchrow_hashref();
     $sth->finish(  );
     unless ($data) { $self->{error} = "$self->{type} '$id' not found in database."; return 0; }
-    while (my($dx,$dy) = each %$data) { $self->{$dx} = $data->{$dx}; }	
-    return 1;	
+    while (my($dx,$dy) = each %$data) { $self->{$dx} = $data->{$dx}; }
+    return 1;
   }
-  
+
   #
   #   Add a value to the end of a list of values in an element
   #   Delimeter defaults to ;
-  
-  
+
+
   # Adding values to elements
-  
+
   sub set_value {
-	
+
 	my ($self,$tag,$con) = @_;
 	$self->{$tag} = $con; 					# Just set a value, eg. title
-	$self->{$self->{type}."_".$tag} = $con;   		# Set a value for db storage, eg. feed_title	
+	$self->{$self->{type}."_".$tag} = $con;   		# Set a value for db storage, eg. feed_title
   }
-   
+
   sub extend_list {
-	
+
 	my ($self,$tag,$con,$delimiter) = @_;
 	$delimiter ||= ";";
-	if ($con) { 
+	if ($con) {
 		if ($self->{$tag}) { $self->{$tag} .= $delimiter; }  	# Just set a value, eg. title
-		$self->{$tag} .= $con; 	
+		$self->{$tag} .= $con;
 									# Set a value for db storage, eg. feed_title
 		if ($self->{$self->{type}."_".$tag}) { $self->{$self->{type}."_".$tag} .= $delimiter; }
-		$self->{$self->{type}."_".$tag} .= $con; 
-	
+		$self->{$self->{type}."_".$tag} .= $con;
+
 	}
   }
-  
+
     sub do_not_replace {
-	
+
 	my ($self,$tag,$con) = @_;
 	unless ($self->{$tag}) { $self->{$tag} = $con; 	}	# Just set a value, eg. title
 	unless ($self->{$self->{type}."_".$tag}) {
-		$self->{$self->{type}."_".$tag} = $con;   }		# Set a value for db storage, eg. feed_title	
+		$self->{$self->{type}."_".$tag} = $con;   }		# Set a value for db storage, eg. feed_title
   }
-  
+
   sub target {
 	my $self = shift;
 	if( @_ ) {
@@ -10779,11 +10788,11 @@ package gRSShopper::Temp;
   	my $self = shift;
    	print $self->to_string(), "\n";
   }
-  
+
 1;
 
 
-  
+
 
 
 #----------------------------------------------------------------------------------------------------------
@@ -10801,8 +10810,8 @@ package gRSShopper::Temp;
   package gRSShopper::Feed;
 
   # $item = gRSShopper::Feed->new("count",$itemcount);
-  
-   
+
+
   use strict;
 
   use warnings;
@@ -10825,34 +10834,34 @@ package gRSShopper::Temp;
  	$self->{error} = "";
  	$self->{feedstring} = "";				# Feed as single string
  	$self->{stack} = [];					# array of tags used in processing
- 
+
 
 	if ($args->{id}) {
 		$self->load_feed($args->{dbh},$args->{id});
 	}
- 	
+
 
  	return $self;
   }
 
 
   sub load_feed {
-  	
+
 	my $self = shift;
 	my $dbh = shift;
 	my $id = shift;
-	
+
 	die "Database not ready in _load_feed" unless ($dbh);
 	my $stmt = "SELECT * FROM feed WHERE feed_id = ?";
 	my $sth = $dbh->prepare($stmt);
 	$sth -> execute($id);
 	my $ref = $sth -> fetchrow_hashref();
-	while (my($fx,$fy) = each %$ref) { 	
-		$self->{$fx} = $fy; 
+	while (my($fx,$fy) = each %$ref) {
+		$self->{$fx} = $fy;
 	}
 
 	return;
-	
+
   }
 ## use padre_syntax_check
   sub get_feed {
@@ -10862,10 +10871,10 @@ package gRSShopper::Temp;
 	my $cache = &feed_cache_filename($self->{feed_link});
 	if ((time - (stat($cache))[9]) < (60*60)) {			# If the file is less than 1 hour old
 		$self->{feedstring} = &get_file($cache);
-#print "Getting feedstring from cache<p>";		
-	} else {	
-	
-#print "Getting feedstring from web<p>";	
+#print "Getting feedstring from cache<p>";
+	} else {
+
+#print "Getting feedstring from web<p>";
 		my $ua = LWP::UserAgent->new();
 		my $response = $ua->get($self->{feed_link},{
 			'User-Agent' => 'gRSShopper 0.3',
@@ -10873,8 +10882,8 @@ package gRSShopper::Temp;
 			'Accept-Charset' => 'iso-8859-1,*,utf-8',
 			'timeout' => '30'
 		});
-  
-		if (! $response->is_success) { 
+
+		if (! $response->is_success) {
 			my $err = $response->status_line;
 			my $as_string = $response->as_string;
 			my ($r_header,$r_body) = split "<",$as_string;
@@ -10882,34 +10891,34 @@ package gRSShopper::Temp;
 			#$err .= $response->head;
 			return "ERROR:  $err ".$r_header." <br>$r_body<br>";
 		}
-	
+
 		$self->{feedstring} =~ s/^\s+//;			# Remove leading spaces
-		$self->{feedstring} = $response->content;		
+		$self->{feedstring} = $response->content;
 		return "ERROR: Couldn't get $self->{feed_link} <br>" unless ($self->{feedstring});
-	
+
 									# Save common cache
 		open FOUT,">$cache" or die "Error opening $cache: $!";
 		print FOUT $self->{feedstring}  or die "Error writing to $cache: $!";
 		close FOUT;
 	}
-	
+
 	return;
 
 }
 
 sub feed_cache_filename  {
-	
+
 
 	my ($feedurl,$feed_cache_dir) = @_;
-	
+
 	my $feed_file = $feedurl;
 	$feed_file =~ s/http:\/\///g;
-	$feed_file =~ s/https:\/\///g;	
-	$feed_file =~ s/\%|\$|\@//g;	
+	$feed_file =~ s/https:\/\///g;
+	$feed_file =~ s/\%|\$|\@//g;
 	$feed_file =~ s/(\/|=|\?)/_/g;
-	
+
 	return $feed_cache_dir.$feed_file;
-	
+
 }
 
 # -------   Get File ---------------------------------------------------
@@ -10926,7 +10935,7 @@ sub get_file {
 	}
 	close FIN;
 	return $content;
-	
+
 }
 1;
 
@@ -10944,8 +10953,8 @@ package gRSShopper::Person;
 
 # $Person = gRSShopper::Person->new({person_title=>'title',person_password=>'password'});
 # Note that password will be encrypted in save
-  
-   
+
+
 use strict;
 use warnings;
 our $VERSION = "1.00";
@@ -10954,7 +10963,7 @@ our $VERSION = "1.00";
 sub new {
   	my($class, $args) = @_;
    	my $self = bless({}, $class);
-   	while (my($ax,$ay) = each %$args) { 
+   	while (my($ax,$ay) = each %$args) {
    		print "$ax = $ay <br>";
    		$self->{$ax} = $ay; }
  	return $self;
@@ -10962,17 +10971,17 @@ sub new {
 
 
 sub create {
-	
+
 	my ($self,$dbh) = @_;
 
 	return "no database handler" unless $dbh;
 	return "no person title defined" unless $self->{person_title};
 	return "no person password defined" unless $self->{person_password};
-	return "no person emaild defined" unless $self->{person_email};	
+	return "no person emaild defined" unless $self->{person_email};
 
 	$self->{person_password} = _password_encrypt($self->{person_password},4);
-	$self->{person_crdate} = time;	
-	$self->{person_status} = "reg";					
+	$self->{person_crdate} = time;
+	$self->{person_status} = "reg";
 	$self->{person_id} = &db_insert($dbh,"","person",$self);
 	unless ($self->{person_id}) { &error($dbh,"","","Error, no new account was created."); 	}
 
@@ -10980,17 +10989,17 @@ sub create {
 
 sub _password_encrypt {
 	my ($pwd,$count) = @_;
-	my @salt = ('.', '/', 'a'..'z', 'A'..'Z', '0'..'9');  
+	my @salt = ('.', '/', 'a'..'z', 'A'..'Z', '0'..'9');
 	my $salt = "";
 	$salt.= $salt[rand(63)] foreach(1..$count);
 	my $encrypted = crypt($pwd, $salt);
-	return $encrypted; 
+	return $encrypted;
 }
-	
 
 
 
-		
+
+
 
 
   sub target {
@@ -11012,7 +11021,7 @@ sub _password_encrypt {
   	my $self = shift;
    	print $self->to_string(), "\n";
   }
-  
+
 1;
 
 #----------------------------------------------------------------------------------------------------------
@@ -11026,8 +11035,8 @@ package gRSShopper::Database;
 
 # $Person = gRSShopper::Person->new({person_title=>'title',person_password=>'password'});
 # Note that password will be encrypted in save
-  
-   
+
+
 use strict;
 use warnings;
 our $VERSION = "1.00";
@@ -11037,11 +11046,11 @@ our $VERSION = "1.00";
 sub new {
   	my($class, $args) = @_;
    	my $self = bless({}, $class);
-   	while (my($ax,$ay) = each %$args) { 
+   	while (my($ax,$ay) = each %$args) {
    		print "$ax = $ay <br>";
    		$self->{$ax} = $ay; }
-   		
-   		
+
+
 
 }
 

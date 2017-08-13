@@ -20,8 +20,8 @@
 
 #-------------------------------------------------------------------------------
 #
-#	    gRSShopper 
-#           Harvester 
+#	    gRSShopper
+#           Harvester
 #
 #-------------------------------------------------------------------------------
 
@@ -32,22 +32,22 @@ use strict;
 
 print "Content-type: text/html; charset=utf-8\n\n";
 print "OK";
-use CGI::Carp qw(warningsToBrowser fatalsToBrowser); 
+use CGI::Carp qw(warningsToBrowser fatalsToBrowser);
 our $DEBUG = 1;							# Toggle debug
 
 
 
 # Forbid bots
 
-	die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);	
-						
+	die "HTTP/1.1 403 Forbidden\n\n403 Forbidden\n" if ($ENV{'HTTP_USER_AGENT'} =~ /bot|slurp|spider/);
+
 
 # Load gRSShopper
 
-	use File::Basename;												
+	use File::Basename;
 	use CGI::Carp qw(fatalsToBrowser);
-	my $dirname = dirname(__FILE__);								
-	require $dirname . "/grsshopper.pl";	
+	my $dirname = dirname(__FILE__);
+	require $dirname . "/grsshopper.pl";
 
 # Load modules
 
@@ -57,31 +57,31 @@ our $DEBUG = 1;							# Toggle debug
 
 # Load Site
 
-	our ($Site,$dbh) = &get_site("admin");									
+	our ($Site,$dbh) = &get_site("admin");
 	if ($vars->{context} eq "cron") { $Site->{context} = "cron"; }
 
 
 # Get Person  (still need to make this an object)
 
-	our $Person = {}; bless $Person;				
-	&get_person($dbh,$query,$Person);		
+	our $Person = {}; bless $Person;
+	&get_person($dbh,$query,$Person);
 	my $person_id = $Person->{person_id};
-	
+
 
 # Initialize system variables
 
-	my $options = {}; bless $options;		
-	our $cache = {}; bless $cache;	
+	my $options = {}; bless $options;
+	our $cache = {}; bless $cache;
 
 
 # Restrict to Admin
 
-	if ($vars->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }		
-	
+	if ($vars->{context} eq "cron") { &cron_tasks($dbh,$query,$ARGV); } else { &admin_only(); }
 
 
 
-$vars->{feed} = 7433;
+
+$vars->{feed} = 1146;
 $vars->{action} = "harvest";
 
 my $action = $vars->{action};
@@ -107,24 +107,25 @@ for ($action) {					# There is always an action
 # Harvests feed specified on input
 
 sub harvest_feed {
-	
+
 	my ($feedid) = @_;
-print "Hatrvesting $feedid";
+print "JSON-Harvest<br>";
+print "Harvesting $feedid";
 	my $feedrecord = gRSShopper::Feed->new({dbh=>$dbh,id=>$feedid});
 	$feedrecord->{crdate} = time;
 
 	unless ($feedrecord) {
 		&diag(1,"Could not find a record for feed number $feedid<br>\n");
 		return;
-	}	
-	
-	
+	}
+
+
 	if ($feedrecord->{feed_type} =~ /twitter/i) {
 		&harvest_twitter($feedrecord);
 	} elsif ($feedrecord->{feed_type} =~ /facebook/i){
 		&harvest_facebook($feedrecord);
 	} else {
-		
+
 		use LWP::Simple;
 		$feedrecord->{feedstring} = get($feedrecord->{feed_link});
 		&get_url($feedrecord,$feedid);
@@ -136,11 +137,11 @@ my $str;
 
 
     use JSON::Parse 'parse_json';
-    
-    
+
+
     # Test file
 	# open IN,"/var/www/downes/files/edx.json";
-	# while (<IN>) { 
+	# while (<IN>) {
 	# chomp;
 	# $str .= $_;
 	# }
@@ -148,93 +149,101 @@ my $str;
 
 	# Beak JSON Lines file into courses
 	my @courses;
-	while ($feedrecord->{feedstring} =~ s/{(.*?)}//s) { push @courses, $1; }
+	#while ($feedrecord->{feedstring} =~ s/{(.*?)}//s) { push @courses, $1; }
+while ($feedrecord->{feedstring} =~ s/(.*?)\n//s) {
+
+	push @courses, $1;
+
+}
 
 	# For each course
 	my $courseinfo;
-	foreach my $course (@courses) { 
+	my $numcourses = @courses+0;
+	print "Found $numcourses courses<br>";
+	foreach my $course (@courses) {
+
+
+	#	$course =~ s/$\{//; $course =~ s/}^//;  # Remove leading and trailing {}
 print "$course <hr>";
 
 		# Parse the JSON Data
-		my $coursedata = parse_json ("{$course}");
-		
-		
+		my $coursedata = parse_json ($course);
+
+
 		&save_course($coursedata);
 
-		
-	
+
+
 	}
-	
+
 
 
 exit;
 
-	
 
-	
-}	
+
+
+}
 
 sub save_course {
-	
-	my ($coursedata) = @_;
-	
 
-	
-	# Normalize Harvested Data 
+	my ($coursedata) = @_;
+
+
+
+	# Normalize Harvested Data
 	my $fr;	# Feed Record holding new course data
-	while (my ($fx,$fy) = each %$coursedata) { 
-		$fr->{"course_".$fx} = $fy; 
+	while (my ($fx,$fy) = each %$coursedata) {
+		$fr->{"course_".$fx} = $fy;
 	}
 
 	# Initialize Course Data
 	$fr->{course_crdate} = time;
 	$fr->{course_creator} = $Person->{person_id};
 
-	while (my ($fx,$fy) = each %$fr) { 
-		print "$fx = $fy <br>"; 
+	while (my ($fx,$fy) = each %$fr) {   																					# %$ corrects colouring in Atom
+		print "$fx = $fy <br>";
 	}
-			
+
 	# Save the Course
 	my $courseid = &db_insert($dbh,$query,"course",$fr);
 	print $courseid;
-	
+
 	# Search for Provider
 	my $providerid = &db_locate($dbh,"provider",{provider_title=>$fr->{course_provider}});
-	
+
 	# Create provider if not found
 	unless ($providerid) {
 		$providerid = &save_provider($fr->{course_provider});
 	}
-	
+
 	# Save graph of provider and course
 	my $graphid = &db_insert($dbh,$query,"graph",{
 		graph_tableone=>"course", graph_idone=>$courseid, graph_urlone=>$fr->{course_url},
 		graph_tabletwo=>"provider", graph_idtwo=>$providerid, graph_urltwo=>"",
-		graph_creator=>$Person->{person_id}, graph_crdate=>$fr->{course_crdate}, graph_type=>"course provider", graph_typeval=>""}); 
-	
+		graph_creator=>$Person->{person_id}, graph_crdate=>$fr->{course_crdate}, graph_type=>"course provider", graph_typeval=>""});
+
 	return $graphid;
-	
+
 }
 
 
 
 sub save_provider {
-	
-	
+
+
 	my ($provider_title) = @_;
 	my $pr;
-	
+
 	# Initialize Provider Data
 	$pr->{provider_title} = $provider_title;
 	$pr->{provider_crdate} = time;
-	$pr->{provider_creator} = $Person->{person_id};	
-		
+	$pr->{provider_creator} = $Person->{person_id};
+
 	# Save Provider Data
-	my $providerid = &db_insert($dbh,$query,"provider",$pr);	
-	
+	my $providerid = &db_insert($dbh,$query,"provider",$pr);
+
 	# Return new provider ID
 	return $providerid;
-	
+
 }
-	
-	

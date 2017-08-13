@@ -22,7 +22,8 @@
 #           Public Page Script 
 #
 #-------------------------------------------------------------------------------
-		
+
+	
 
 # Load gRSShopper
 
@@ -74,7 +75,7 @@ if ($vars->{q}) {
 	my @tables = &db_tables($dbh);
 	foreach $t (@tables) { 
 	
-		if ((!$action || $action =~ /^edit$/i || $action =~ /^list$/i || $action =~ /^Delete$/i) && $vars->{$t}) { 
+		if ((!$action || $action =~ /^edit$/i || $action =~ /^list$/i || $action =~ /^Delete$/i || $action =~ /^rd$/i) && $vars->{$t}) { 
 			$table = $t;	
 			$id = $vars->{$t}; 
 			$vars->{id} = $id;
