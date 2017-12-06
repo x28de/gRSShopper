@@ -176,7 +176,7 @@ print "$course <hr>";
 
 	}
 
-
+print "<p>",$Site->{languages},"<p>";
 
 exit;
 
@@ -201,13 +201,14 @@ sub save_course {
 	$fr->{course_crdate} = time;
 	$fr->{course_creator} = $Person->{person_id};
 
-	while (my ($fx,$fy) = each %$fr) {   																					# %$ corrects colouring in Atom
-		print "$fx = $fy <br>";
-	}
 
-	# Save the Course
-	my $courseid = &db_insert($dbh,$query,"course",$fr);
-	print $courseid;
+
+  # Convert languages array to a string
+	foreach my $l (@{$fr->{course_languages}}) { print $l,"<br>";}
+	$fr->{course_language}  = join ",",@{$fr->{course_languages}};
+ unless ($Site->{languages} =~ /$fr->{course_language}/) {$Site->{languages} .= ", $fr->{course_language}";}
+
+
 
 	# Search for Provider
 	my $providerid = &db_locate($dbh,"provider",{provider_title=>$fr->{course_provider}});
@@ -216,6 +217,20 @@ sub save_course {
 	unless ($providerid) {
 		$providerid = &save_provider($fr->{course_provider});
 	}
+
+	while (my ($fx,$fy) = each %$fr) {   																					# %$ corrects colouring in Atom
+		print "$fx = $fy <br>";
+	}
+
+  # Does this course exist? Test using course URL.  Just return the ID number if it exists
+	my $courseid = &db_locate($dbh,"course",{course_url => $fr->{course_url}});
+	if ($courseid) { return $courseid; }
+
+
+	# Save the Course
+	my $courseid = &db_insert($dbh,$query,"course",$fr);
+	print $courseid;
+
 
 	# Save graph of provider and course
 	my $graphid = &db_insert($dbh,$query,"graph",{
@@ -239,6 +254,11 @@ sub save_provider {
 	$pr->{provider_title} = $provider_title;
 	$pr->{provider_crdate} = time;
 	$pr->{provider_creator} = $Person->{person_id};
+
+	# Does this provider exist? Test using provider title.  Just return the ID number if it exists
+	my $providerid = &db_locate($dbh,"provider",{provider_title => $fr->{provider_title}});
+	if ($providerid) { return $providerid; }
+
 
 	# Save Provider Data
 	my $providerid = &db_insert($dbh,$query,"provider",$pr);

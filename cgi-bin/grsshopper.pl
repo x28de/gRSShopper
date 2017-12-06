@@ -2078,25 +2078,40 @@ sub twitter_post {
 		unless ($Site->{tw_cckey} && $Site->{tw_csecret} && $Site->{tw_token} && $Site->{tw_tsecret});
 
 
+										# Create Array of Post Sentences
+	my $post_description = $record->{$table."_description"};
+	$post_description =~ s/<(.*?)>//g;
+	my @sentences = split /\. /,$post_description;
 
 
-										# Compose Tweet
+										# Compose Title and URL
 	my $tw_url = $Site->{st_url}.$table."/".$id;
 	if ($Site->{tw_use_tag}) { $tw_url = $Site->{st_tag}." ".$tw_url; }
 	my $url_length = length($tw_url)+1;
 	$tweet ||= $record->{$table."_title"};
+	$tweet =~ s/&#39;/'/g;
 	my $tweet_length = length($tweet);
 
-										# Shorten Tweet
-	if (($url_length + $tweet_length) > 137) {
+										# Create Initial Tweet (Abbreviating title if necessaey)
+	if (($url_length + $tweet_length) > 277) {
 		my $etc = "...";
-		my $trunc_length = 137 - $url_length;
+		my $trunc_length = 277 - $url_length;
 		$tweet = substr($tweet,0,$trunc_length);
 		$tweet =~ s/(\w+)[.!?]?\s*$//;
 		$tweet.=$etc;
 	}
 
 	$tweet = $tweet . " " . $tw_url;
+
+	foreach my $sentence (@sentences) {					# Add sentences to tweet if they fit
+		$sentence =~ s/&#39;/'/;
+		$sentence =~ s/&#38;/'/;
+		$sentence =~ s/&quot;/"/;
+		last if (length($tweet)+length($sentence)+2 > 280);
+
+		$tweet = $tweet ." ". $sentence .".";
+	}
+
 
 
 	$tweet =~ s/\xe2\x80\x99/\'/gs;						# Convert smartquotes
@@ -3865,6 +3880,8 @@ sub upload_file {
 	# Set File Upload Directory
 	($file->{filetype},$file->{file_dir}) = &file_upload_dir($ffextension);
 	my $fulluploaddir = $Site->{st_urlf} . $file->{file_dir};
+      my $filesdir = $Site->{st_urlf}."files/";
+      unless (-d $filesdir) { mkdir $Site->{urlf}."files",0755 or die "Error 1890 creating $filesdir subdirectory $!"; }
 	unless (-d $fulluploaddir) { mkdir $fulluploaddir, 0755 or die "Error 3868 creating upload directory $fulluploaddir $!"; }
 
 	# Store the File
@@ -3925,6 +3942,8 @@ sub upload_url {
 	my $ffextension = "." . pop @pparts;
 	($file->{filetype},$file->{file_dir}) = &file_upload_dir($ffextension);
 	my $fulluploaddir = $Site->{st_urlf} . $file->{file_dir};
+      my $filesdir = $Site->{st_urlf}."files/";
+      unless (-d $filesdir) { mkdir $Site->{urlf}."files",0755 or die "Error 1891 creating $filesdir subdirectory $!"; }
 	unless (-d $fulluploaddir) { mkdir $fulluploaddir, 0755 or die "Error 1892 creating upload directory $upload_dir $!"; }
 	$file->{filedirname} = $file->{file_dir}.$file->{file_title};
 	$file->{fullfilename} = $Site->{st_urlf}.$file->{filedirname};
@@ -4120,6 +4139,18 @@ sub make_thumbnail {
 
 	my ($dir,$img,$icondir,$iconname) = @_;
 
+        my $rc = eval
+        {
+        require Image::Magick;
+        Image::Magick->import();
+        1;
+        };
+
+        unless($rc)
+        {
+            # Image::Magick not loaded
+            return;
+        }
 
 	return "Error: need both directory and file" unless ($img && $dir);
 	my $tmb = $img;
@@ -7441,7 +7472,7 @@ sub db_count {
 
 	my $stmtc = "SELECT COUNT(*) AS items FROM $table $where";
 	my $sthc = $dbh -> prepare($stmtc);
-	$sthc -> execute();
+	$sthc -> execute()  || die "Error: " . $dbh->errstr . " -- ".$sql;
 	my $refc = $sthc -> fetchrow_hashref();
 	my $count = $refc->{items};
 	$sthc->finish( );
@@ -7665,9 +7696,8 @@ sub find_records {
 sub search {
 
 	my ($dbh,$query) = @_;
-
-	print "Content-type: text/html; charset=utf-8\n\n";
-   	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
+print "Content-type: text/html; charset=utf-8\n\n";
+ 	my $vars = (); if (ref $query eq "CGI") { $vars = $query->Vars; }
 
 
 						# Initialize Page
@@ -8844,7 +8874,9 @@ sub printlang {						# Print in current language
 	@vars = @_; $counter = 1;
 	$langstring = $vars[0];
 	$langstring =~ s/&#39;/&apos;/g;                       # (probably need a more generic decoder he
-	$Site->{lang_user} ||= $Site->{lang_default};			# Current language, as selected from cookie
+	$Site->{lang_user} ||= $Site->{site_language};			# Current language, as selected from cookie
+
+
 
 	if ($Site->{$Site->{lang_user}}->{$langstring}) {
 		my $output = $Site->{$Site->{lang_user}}->{$langstring};
@@ -10361,6 +10393,7 @@ package gRSShopper::Temp;
 
 
   	# Set derived URLs based on st_host
+      unless ($self->{script} =~ /http/) { $self->{script} = $http.$self->{script}; }
    	$self->{st_url} = $http . $self->{st_host} . "/";
 	$self->{st_cgi} = $self->{st_url} . "cgi-bin/";
 
@@ -10372,6 +10405,8 @@ package gRSShopper::Temp;
 	$self->{site_language}  ||= 'en';
 	$self->{st_urlf}  ||= '/var/www/html/';
 	$self->{st_cgif}  ||= '/var/www/cgi-bin/';
+      unless ($self->{st_urlf} =~ /\/$/) { $self->{st_urlf} .= "/"; }
+      unless ($self->{st_cgif) =~ /\/$/) { $self->{st_cgif} .= "/"; }
 
   }
 
@@ -10492,11 +10527,19 @@ package gRSShopper::Temp;
 		unless ($self->{lang_user}) { $self->{lang_user} = $lang; }
 
 		# Determine language file name, this is where translations are stored
-		my $lang_filename = $self->{st_cgif} . "/languages/".$lang . ".pl";
+		my $lang_filename = $self->{st_cgif} . "languages/".$lang . ".pl";
 
 		# Execute the language file (stores translations into a hash)
 		if (-e $lang_filename) {
-			do $lang_filename;
+			open LIN,"$lang_filename" or die "Language file $lang_filename not found.";
+			while (<LIN>) {
+				my $l = $_;
+				$l =~ m/'(.*?)'(.*?)('|")(.*?)('|")/;
+				$self->{$lang}->{$1} = $4;
+
+			}
+			close LIN;
+
 		} else {
 			die "Was expecting to find $lang_filename but it was not found.";
 		}

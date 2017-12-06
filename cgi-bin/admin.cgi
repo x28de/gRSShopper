@@ -120,10 +120,14 @@
 #}
 
  #$dbh->do("DELETE FROM project WHERE author_name='theartguy'");
-#  $dbh->do("ALTER TABLE organization MODIFY organization_category varchar(32)");
-
+#  $dbh->do("ALTER TABLE course MODIFY course_title varchar(256)");
+#  $dbh->do("ALTER TABLE course MODIFY course_url varchar(256)");
 #&db_drop_table($dbh,"element");
 #&db_create_table($dbh,"form",$data);
+#$sth = $dbh->prepare("TRUNCATE TABLE provider");
+#$sth->execute();
+#$sth = $dbh->prepare("TRUNCATE TABLE course");
+#$sth->execute();
 
 # Analyze Request --------------------------------------------------------------------
 
@@ -254,7 +258,9 @@ if ($action) {
 
 		/fixmesubs/ && do { &fixmesubs($dbh,$query,$table); last;		};
 
+                       # API Functions
 
+    /access_api/ && do { &access_api($dbh,$query); last; };
 
 		/export_users/ && do { &export_user_list($dbh,$query); last;			};
 		/import/ && do { &import($dbh,$query,$table); last;		};
@@ -659,6 +665,9 @@ sub admin_general {
 	$content .= &admin_configtable($dbh,$query,"Site Information",
 		("Site Name:st_name","Site Tag:st_tag","Publisher:st_pub","Creator:st_crea","License:st_license","Time Zone:st_timezone","Reset Key:reset_key","Cron Key:cronkey"));
 
+
+	$content .= &admin_api($dbh,$query);
+
 #	$content .= &admin_configtable($dbh,$query,"Base URLs and Directories",
 #		("Base URL:st_url","Base Directory:st_urlf","CGI URL:st_cgi","CGI Directory:st_cgif","Login URL:st_login"));
 
@@ -803,6 +812,42 @@ sub admin_logs {
 
 
 	&admin_frame($dbh,$query,"Admin General",$content);					# Print Output
+	exit;
+
+
+
+}
+
+
+sub admin_api {
+
+	my ($dbh,$query) = @_;
+
+
+
+	my $content = qq|<h2>Access API</h2><p>
+	 <ul><table cellspacing="0" cellpadding="2" border="0"><tr><td>
+   <form method="post" action="$Site->{st_cgi}admin.cgi">
+	 <input type="hidden" name="action" value="access_api">
+	 Method: <select name="method"><option value="get"> GET </option> <option value="post" selected> POST </option></select><br>
+	 URL: <input type="text" name="url" size="40" value="http://www.mooc.ca/cgi-bin/api.cgi">
+	 JSON: <textarea rows=10 cols="40" name="postdata">
+{
+ "action": "search",
+ "table": "course",
+ "query": "agriculture",
+ "language": "en",
+ "sort": "course_title"
+}
+	 </textarea>
+	 <input type="submit">
+	 </form>
+   </table></ul>
+
+	|;
+
+   return $content;
+
 	exit;
 
 
@@ -2333,11 +2378,11 @@ sub news_rollup {
 	# Sort and Display Content
 	my @index = sort keys %$issues;
 	foreach my $iss (@index) {
-		print "<p><b>ISSUE: $iss</b><ul>\n";
+		print "<p><b>ISSUE: $iss</b><br>\n";
 		foreach my $pp (@{$issues->{$iss}}) {
-			print "<li>$pp </li>\n";
+			print "- $pp <br/>\n";
 		}
-		print "</ul></p>\n";
+		print "</p>\n";
 	}
 	print $Site->{footer};
 	exit;
@@ -3285,6 +3330,79 @@ sub count_feed {
 	&admin_menu($dbh,$query);
 }
 
+# --------------------------------------------------------------------------------------
+#
+#          API requests
+#
+# -------------------------------------------------------------------------------------
+
+# Access API
+
+sub access_api {
+
+	my ($dbh,$query) = @_;
+	my $vars = $query->Vars;
+
+print "Content-type: text/html\n\n";
+print "Accessing API <p>";
+
+  my $server_endpoint = $vars->{url};
+  my $postdata = $vars->{postdata};
+  my $message;  # from remote server
+
+  if ($vars->{method} eq "get") {
+
+		use LWP::Simple;
+		$message = get($server_endpoint);
+		unless (defined $message) {
+			 print "HTTP GET Error!";
+			 return;
+		}
+
+
+	} else {
+
+  	use LWP::UserAgent;
+
+  	my $ua = LWP::UserAgent->new;
+
+
+
+    # set custom HTTP request header fields
+    my $req = HTTP::Request->new(POST => $server_endpoint);
+    $req->header('content-type' => 'application/json');
+
+    # add POST data to HTTP request body
+    $req->content($postdata);
+
+    my $resp = $ua->request($req);
+    unless ($resp->is_success) {
+
+      print "HTTP POST error code: ", $resp->code, "\n";
+      print "HTTP POST error message: ", $resp->message, "\n";
+			return;
+    }
+
+		$message = $resp->decoded_content;
+
+  }
+
+		#print "Received reply: $message\n";
+		use JSON::Parse 'parse_json';
+		my $response_data = parse_json($message);
+		#print $response_data->{entries};
+		foreach my $entry (@{$response_data->{entries}}) {
+			print qq|
+				<b><a href="$entry->{course_url}">$entry->{course_title}</a></b><br>$entry->{course_description}<br><br>
+			|;
+
+			#while (my ($x,$y) = each %$entry) {	print "$x = $y <br>";	}
+		}
+
+		print qq|<form><textarea cols=60 rows=20>$message</textarea></form>|;
+		#print $response_data;
+
+}
 #--------------------------------------------------------
 #
 #       CRON TASKS
@@ -3575,6 +3693,8 @@ sub send_nl {
 			my $customcontent = $pgcontent;
 			$customcontent =~ s/SUBSCRIBER/$subdata->{person_email}/sg;				# Customize
 			$customcontent =~ s/PERSON/$subdata->{person_id}/sg;
+			$customcontent =~ s/SUBSCRIBER/$subscriber/sg;
+
 
 			&send_email($subdata->{person_email},$Site->{st_pub},$pgtitle,$customcontent,$pgformat);
 			$report .= ": $subdata->{person_email}\n";
