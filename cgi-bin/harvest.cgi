@@ -96,11 +96,60 @@
 	# Don't keep big MP3s, they'll just fill up the hard drive
 	&clean_podcast_directory($Site->{st_urlf}."files/podaudio",30);
 
+
+	# SELECTOR - what feed are we harvesting?
+
+	  my $feedid; # Local database feed ID for the feed we're harvesting
+		for ($action) {
+		  /harvest/ && do { $feedid = $vars->{feed}; last; }; # Harvest a specific feed
+		  /url/ && do { $feedid = &harvest_url($vars->{url}); last; }; # Harvest a specific URL
+			/queue/ && do { $feedid = &harvest_queue(); last; }; # Harvest next in the queue
+	  }
+
+	# GETTER - get the feed we are harvesting
+
+		# Get Feed Data (Exit if not found) and store in $feedrecord
+		my $feedrecord = gRSShopper::Feed->new({dbh=>$dbh,id=>$feedid});
+	  &diag(2,qq|Feed Title: |.$feedrecord->{feed_title}.qq| <br>\n\n|);
+		unless ($feedrecord) {
+			&diag(2,qq|<div class="harvestererror">Could not find a record for feed number $feedid</div>|);
+			exit;
+		}
+
+    # Perform The Harvest, storing data into $feedrecord->{feedstring}
+		&harvest_feed($feedrecord,$feedid);
+
+  # PARSER - Process Data and organize into a hierarchy (depending onb the parser selected)
+	  &harvest_process_data($feedrecord);
+
+  # SCRAPER - Optionally scrape unorganized data - perform any NLP here
+		require $Site->{cgif}."harvest/scraper.pl";
+		&scrape_items($feedrecord);
+
+  # CLEANER - get rid of garbage and make save for databases
+		&clean_feed_input($feedrecord);
+
+  # RULES - apply processing rules to the data
+		require $Site->{cgif}."harvest/rules.pl";
+
+  # SAVER - save data into the appropriate database tables
+		require $Site->{cgif}."harvest/save_feed.pl";
+		&save_records($feedrecord);
+
+  # DISPLAY
+		#&post_processing($feed);
+		#&diag(9,"<form><textarea cols=140 rows=80>".$feed->{feedstring}."</textarea><form>");
+		#my $file = "/var/www/feeds/feeds.feedburner.com_wordpress_ACyV_format_xml";
+		#my $last = (stat($file))[9];
+
+
+		#$feed->{feedstring} = &get_file($file);
+
+		# Extras
+
 	for ($action) {					# There is always an action
 
-		/queue/ && do { &harvest_queue(); last; 		};
-		/harvest/ && do { &harvest_feed($vars->{feed}); last; };
-		/url/ && do { &harvest_url($vars->{url}); last; };
+
 		/export/ && do { &export_opml($dbh,$query); last;	};
 		/import/ && do { &import_opml($dbh,$query); last;	};
 		/opmlopts/ && do { &opmlopts($dbh,$query); last;	};
@@ -152,17 +201,10 @@ sub harvest_queue {
 
 sub harvest_feed {
 
-	my ($feedid) = @_; 	my $now = time;
+	my ($feedrecord,$feedid) = @_; 	my $now = time;
 	&diag(2,qq|<div class="function">Harvest Feed<div class="info">|);
 	&diag(2,qq|Feed ID: $feedid; \n\n|);
-
-	# Get Feed Data (Return if not found)
-	my $feedrecord = gRSShopper::Feed->new({dbh=>$dbh,id=>$feedid});
-  &diag(2,qq|Feed Title: |.$feedrecord->{feed_title}.qq| <br>\n\n|);
-	unless ($feedrecord) {
-		&diag(2,qq|<div class="harvestererror">Could not find a record for feed number $feedid</div>|);
-		return;
-	}
+print "Feedrecord - ",$feedrecord," - Feedid: ",$feedid,"<p>";
 
 	# Display Feed Record Data
 	my $rep = "<b>Feed Record</b><br>";
@@ -170,8 +212,6 @@ sub harvest_feed {
 	&diag(4,qq|<div class="data">$rep</div>\n\n|);
   # &send_email("stephen\@downes.ca","stephen\@downes.ca","$feedrecord->{feed_title}",$rep);
 
-
-  # Perform The Harvest, storing data into $feedrecord->{feedstring}
 	$feedrecord->{crdate} = time;
 
 	# Harvest Twitter
@@ -199,8 +239,7 @@ sub harvest_feed {
 		 &diag(2,qq|<div class="harvestererror">Could not retrieve data for $feedid</div>|);
 	}
 
-	# Process Data
-	&harvest_process_data($feedrecord);
+
 
 	&diag(2,qq|Havest feed done.\n\n|);
 	&diag(2,qq|</div></div>\n\n|);
@@ -245,24 +284,6 @@ sub harvest_process_data {
 		return;
 	}
 
-  require $Site->{cgif}."harvest/scraper.pl";
-	&scrape_items($feedrecord);
-
-	&clean_feed_input($feedrecord);
-
-  require $Site->{cgif}."harvest/rules.pl";
-  require $Site->{cgif}."harvest/save_feed.pl";
-  &save_records($feedrecord);
-
-
-	#&post_processing($feed);
-	#&diag(9,"<form><textarea cols=140 rows=80>".$feed->{feedstring}."</textarea><form>");
-#my $file = "/var/www/feeds/feeds.feedburner.com_wordpress_ACyV_format_xml";
-
-#my $last = (stat($file))[9];
-
-
-#$feed->{feedstring} = &get_file($file);
 	&diag(2,qq|Process Data done.\n\n|);
 	&diag(2,qq|</div></div>\n\n|);
 	return;

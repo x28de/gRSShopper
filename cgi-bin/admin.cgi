@@ -22,7 +22,9 @@
 #           Admin Functions
 #
 #-------------------------------------------------------------------------------
-#print "Content-type: text/html\n\n";
+  print "Content-type: text/html\n\n";
+
+
 
 
 # Diagnostics
@@ -76,7 +78,8 @@
 # Option to call initialize functions
 
 	if ($vars->{action} eq "initialize") {  $Site->__initialize("command"); }
-
+    print "Content-type: text/html\n\n";
+    while (my($fx,$fy) = each %$vars) { print "$fx = $fy<br>";}   #{%}
 
 # Restrict to Admin
 
@@ -95,9 +98,19 @@
 
 	 #    use Image::Thumbnail 0.65;
 
-
-
-
+#print "Content-type: text/html\n\n";
+	# $sth = $dbh->prepare("SELECT * FROM author");
+	# $sth->execute();
+  # while (my $author = $sth -> fetchrow_hashref()) {
+  #    if ($author->{author_name} eq "") {
+	#			print "Author: ".$author->{author_name}."-".$author->{author_title}."(".$author->{author_id}.")<br>";
+			#	$dbh->do("DELETE FROM author WHERE author_id=".$author->{author_id});
+	#		}
+  #    if ($author->{author_name} =~ /=/) {
+	#			print "Author: ".$author->{author_name}."-".$author->{author_name}."(".$author->{author_id}.")<br>";
+			#	$dbh->do("DELETE FROM author WHERE author_id=".$author->{author_id});
+	#		}
+  # }
 
 #my $psql = "SELECT * FROM product";
 #my $psth = $dbh->prepare($psql);
@@ -119,7 +132,7 @@
 
 #}
 
- #$dbh->do("DELETE FROM project WHERE author_name='theartguy'");
+# $dbh->do("DELETE FROM project WHERE author_name='theartguy'");
 #  $dbh->do("ALTER TABLE course MODIFY course_title varchar(256)");
 #  $dbh->do("ALTER TABLE course MODIFY course_url varchar(256)");
 #&db_drop_table($dbh,"element");
@@ -202,7 +215,7 @@ if ($action) {
 
 														# Editing Functions
 
-		/list/ && do { &list_records($dbh,$query,$table); last;		};		#	- List records
+		/list/ && do { &admin_list_records($dbh,$query,$table); last;		};		#	- List records
 		/edit/i && do { &edit_record($dbh,$query,$table,$id); last; 	};		#	- Edit Record - Show the Editing form
 		/update/ && do { &update_record($dbh,$query,$table,$id);
 			&edit_record($dbh,$query,$table, $id_number);last; };		# 	- Edit Record - Update with input data
@@ -223,7 +236,7 @@ if ($action) {
 		/config/ && do { &admin_update_config($dbh,$query); last;	};		#	- Update config data
 		/export_table/ && do { &admin_db_export($dbh,$query); last;	};		#	- export a table
 		/db_pack/ && do {&admin_db_pack($dbh,$query); last;		};		#	- Make a new pack
-		/addcolumn/ && do { my $msg = &addcolumn($vars->{stable},$vars->{col});
+		/db_add_column/ && do { my $msg = &db_add_column($vars->{stable},$vars->{col});
 			&showcolumns($dbh,$query,$msg); last; };				#	- Add new column to a table
 		/removecolumnwarn/ && do { &removecolumnwarn($dbh,$query); last; };		#	- Remove column - warn user
 		/removecolumndo/ && do { &removecolumndo($dbh,$query); last; };			#	- Remove column - remove it
@@ -397,6 +410,7 @@ print "Where : $where <p>";
 
 }
 
+#%"
 
 # -----------------------------------   Admin: Sorter   -----------------------------------------------
 sub admin_sorter {
@@ -423,182 +437,9 @@ sub admin_sorter {
 #	exit;
 }
 
-# -----------------------------------   Admin: Frame   -----------------------------------------------
-
-sub admin_frame {
 
 
 
-	my ($dbh,$query,$title,$content) = @_;
-	my $vars = $query->Vars;
-
-	return unless (&is_viewable("admin","general")); 		# Permissions
-
-	my $admin_nav = &admin_nav($dbh,$query);
-	$title ||= "Admin Title"; $content ||= "Admin Content";
-	print "Content-type: text/html; charset=utf-8\n\n";
-
-	#my $header = &get_template($dbh,$query,"admin_header",$title);
-	#my $footer = &get_template($dbh,$query,"admin_footer",$title);
-	my $checkbox_style = &checkbox_style();
-	print <<END;
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>$title</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-   <!-- JQuery -->
-   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-
-   <!-- JQuery UI -->
-   <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js""></script>
-
-   <!-- CK Editor -->
-   <script src="//cdn.ckeditor.com/4.7.0/standard/ckeditor.js"></script>
-   <script src="//cdn.ckeditor.com/4.7.0/basic/adapters/jquery.js"></script>
-
-   <!-- Datetimepicker --->
-   <link rel="stylesheet" href="http://www.downes.ca/assets/datetimepicker-master/build/jquery.datetimepicker.min.css">
-   <script src="http://www.downes.ca/assets/datetimepicker-master/build/jquery.datetimepicker.full.min.js"></script>
-
-
-   <!-- gRSShopper -->
-   <script src="http://www.downes.ca/assets/js/grsshopper_admin.js"></script>
-
-   <!-- File Upload -->
-   <script src="http://www.downes.ca/assets/js/jquery.uploadfile.js"></script>
-
-   <!-- gRSShopper -->
-   <script src="http://www.downes.ca/assets/js/grsshopper.js"></script>
-
-   <!-- Style -->
-   $checkbox_style
-
-
-
-
-
-   <!-- JQuery 'Smoothness' Theme -->
-   <link rel="stylesheet" href="http://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
-
-   <link rel="stylesheet" href="http://www.downes.ca/assets/css/datetimepicker.css">
-
-<style>
-#toc {
-    list-style-type: none;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-    background-color: #333333;
-}
-
-#leftnav {
-
-   width:16em;
-   min-width:16em;
-   float:left;
-   margin-left:10px;
-}
-
-#admin-content {
-   width:80%;
-  float:left;
-
-}
-
-.column-name {
-   width:200px;
-}
-
-li {
-    float: left;
-}
-
-li a {
-    display: block;
-    color: white;
-    text-align: center;
-    padding: 20px;
-    text-decoration: none;
-}
-
-li a:hover {
-    background-color: #111111;
-}
-
-table {
-    width: 80%;
-}
-
-table, th, td {
-    border: 1px solid black;
-}
-
-
-th, td {
-    padding: 10px;
-    text-align: left;
-    vertical-align: top;
-}
-
-@media (min-width: 100px) {
-    .container{
-        width: 100%;
-        max-width: 1970px;
-    }
-}
-
- input,textarea,.uneditable-input{width:100%;min-width:100%}
-
-
-
-.editable-buttons {
-    display: block;
-}
-.editable-container.editable-inline, .editableform > .control-group, .editable-input, .editableform .form-control {
-    width:100%;
-}
-
-
-.hiddenClass{visibility:hidden}
-
-</style>
-
-  </head>
-  <body>
-
-   <div class="container">
-   <div id="leftnav" style="width:10%; float:left;"> <img src="http://grsshopper.downes.ca/images/grsshopper_header.jpg"/ width=200>$admin_nav</div>
-
-   <!-- Generated Content Area -->
-END
-
-	print qq|<div id="admin_content_area" style="width:79%; float: left;">|;
-	print &admin_navbar()."<h2>$title</h2>";
-	print qq|<div id="admin_editor_area" style="width:100%;">|.$content.qq|</div>|;
-	print $footer;
-#	exit;
-
-
-}
-
-# -----------------------------------   Admin: Navbar   -----------------------------------------------
-
-sub admin_navbar {
-
-	my $content = qq|<ol id="toc">\n|;
-	foreach my $link (qw|general harvester users newsletters database meetings accounts permissions|) {
-		$content .= qq|<li><a href="$Site->{st_cgi}admin.cgi?action=|.$link.qq|"><span>|.ucfirst($link).qq|</span></a></li>\n|;
-	}
-	$content .= qq|<li><a href="$Site->{st_cgi}page.cgi?action=viewer"><span>Viewer</span></a></li>\n|;  # Direct link to viewer
-	$content .= "</ol>\n";
-	return $content;
-
-
-
-}
 
 # -----------------------------------   Admin: Config Table   -----------------------------------------------
 
@@ -616,7 +457,7 @@ sub admin_configtable {
 		<table cellspacing="0" cellpadding="2" border="0">
 	|;
 	foreach my $v (@vals) {
-		my ($t,$v,$f,$o,$h) = split ":",$v;    # Title, variable name, format
+		my ($t,$v,$f,$o,$h) = split ":",$v;    # Title, variable name, format   #"
 		if ($f eq "yesno") {
 			my $yesselected=""; my $noselected="";
 			if ($Site->{$v} eq "yes") { $yesselected = qq| selected="selected"|; }
@@ -1419,7 +1260,7 @@ sub admin_database {
 
 		# User cannot view or manipulate person or config tables
 		next if ($table eq "person" || $table eq "config");
-		$table=~s/`//g;
+		$table=~s/`//g;  #`
 
 		my $sel; if ($table eq $sst) { $sel = " selected"; } else {$sel = ""; }
 		$table_dropdown  .= qq|		<option value="$table"$sel>$table</option>\n|;
@@ -1435,7 +1276,7 @@ sub admin_database {
 		<select name="stable">$table_dropdown</select><br>\n
 		<select name="action">\n
 		<option value="showcolumns">Show Columns</option>\n
-		<option value="addcolumn">Add Column</option>\n
+		<option value="db_add_column">Add Column</option>\n
 		<option value="removecolumnwarn">Remove Column</option>\n
 		</select>\n
 		<input type="text" name="col" value="" size="12"  style="height:1.8em;"/>\n
@@ -1551,7 +1392,7 @@ sub admin_database {
 		<tr><td valign="top">Use fields:</td><td><select name="fields" multiple="multiple" size="8">|;
 
 	foreach my $tt (@tables) {
-		$tt=~s/`//g;
+		$tt=~s/`//g;              #`
 		next if ($tt =~ /config/);
 		next if ($tt =~ /person/);
 		next if ($tt =~ /cache/);
@@ -1952,17 +1793,16 @@ sub import {
 
 	my ($dbh,$query,$table) = @_;
 
+
 	my $vars = $query->Vars;
-	print "Content-type: text/html\n\n";
+
+  print "Content-type: text/html\n\n";
+  while (my($fx,$fy) = each %$vars) { print "$fx = $fy<br>";}
 	print "<h1>Importing List</h1>";
-	print "Table: $table File: ".$vars->{file_name}."<br>";
-
-
-
-
+	print "Table: $table File: ".$vars->{myfile}."<br>";                  #"
 
 	my $file;
-	if ($query->param("myfile")) { $file = &upload_file($query); }		# Uploaded File
+	if ($query->param("myfile")) { $file = &upload_file(); }		# Uploaded File
 	elsif ($vars->{file_url}) { $file = &upload_url($vars->{file_url}); }		# File from URL
 	$file->{file_format} = $vars->{file_format};
 
@@ -1972,8 +1812,11 @@ sub import {
 
 
 	if ($file->{file_format} =~ /^json$/i) {
+
+print "Yes";
+
 		my $result = &import_json($file,$table);
-		&list_records($dbh,$query,$table);
+		&admin_list_records($dbh,$query,$table);
 		exit;
 	}
 
@@ -2303,52 +2146,6 @@ sub admin_topics {
 
 
 
-# -------   Admin Nav ----------------------------------------------------------
-#
-#	Prints the navigation bar to create and list types of records
-#
-
-sub admin_nav {
-
-	my ($dbh,$query) = @_;
-
-	my @tables = $dbh->tables();
-	my $output;
-
-	# For each table in tables()
-	foreach my $table (@tables) {
-		$table =~ s/`//ig;   #`
-
-		# Make sure the user is allowed to view the table
-		next unless (&is_viewable("nav",$table));
-
-		# Increase limits on some useful tables
-		my $numb;
-		if ($table eq "feed") { $numb = "&number=1000"; }
-		elsif ($table eq "page") { $numb = "&number=1000"; }
-
-		# Normalize the table name (it comes out of tables() as `dbname.tablename` )
-		my ($tdb,$tname) = split /\./,$table; unless ($tname) { $tname = $tdb; }
-
-		# Set a default title and format the output
-		my $title = "List ".$tname."s";
-		$output .= qq|
-			[<a href="?db=$tname&action=edit">New</a>]
-			[<a href="?db=$tname&action=list$numb">List</a>]|.
-			ucfirst($tname).qq| <br />\n
-		|;
-	}
-
-	# Return nicely formatted output
-	return qq|
-		<div id="admincontent">
-		[<a href="$Site->{script}">Admin</a>]<br/><br/>
-		$output
-		</div>
-		|;
-
-}
-
 # -------   News Rollup ----------------------------------------------------------
 #
 #	Gives a quick preview of posts slated for upcoming newsletters
@@ -2487,227 +2284,16 @@ sub save_subscriptions {
 	close OUT;
 }
 
+
 # -------   List Records -------------------------------------------------------
 #
 # List records of a certain type
 #
-sub list_records {
+sub admin_list_records {
 
 	my ($dbh,$query,$table) = @_;
-	my $vars = $query->Vars;
-	my $output = "";
 
-
-
-	$vars->{where} =~ s/[^\w\s]//ig;	# chars only, no SQL injection for you
-
-#while (my($lx,$ly) = each %$vars) { print "$lx = $ly <br>"; }
-#print "Listed<br>";
-
-
-						# Output Format
-	my $format = $table ."_list";
-
-	# Print Page Header
-	$output .= "<h2>List ".$table."s</h2>";
-
-	# Set Up Search Form
-	my $titname; my $titoptions; my $titselected;
-	if ($vars->{titname}) { $titname = $vars->{titname}; }
-	elsif ($table =~ /^author$|^person$|^badge$/) { $titname = "name"; }
-	else { $titname = "title"; }
-	foreach my $tittype (qw{name title email url}) {
-
-		if ($table =~ /^author$|^person$|^badge$/) { next if ($tittype eq "title"); } else { next if ($tittype eq "name"); }
-		if ($tittype eq "email") { next unless ($table eq "person" or $table eq "author"); }
-		if ($titname eq $tittype) {$titselected = " selected"; } else {$titselected = ""; }
-		$titoptions .= qq|<option value="$tittype"$titslected>$tittype</option>\n|;
-	}
-
-
-
-
-	# Print Search Form
-
-	$output .= qq|
-		<p> <form method="post" action="$Site->{st_cgi}admin.cgi"> &nbsp;
-		<input type="hidden" name="db" value="$table">
-		<input type="hidden" name="action" value="list">
-		Find: <input name="where" width="40">
-		In: <select name="titname"  style="width: 10em">$titoptions</select>
-		Sort: <select name="sort" style="width: 12em">
-		<option value="|.$table."_".$titname.qq|">$titname</option>
-		<option value="|.$table.qq|_id">Oldest First</option>
-		<option value="|.$table.qq|_id DESC">Newest First</option>
-		</select>
-		<input type="submit" value="List Again">
-		</form></p>|;
-	if ($vars->{where}) { $output .= "<p>Searching for  $vars->{where} </p>"; }
-
-
-	# Special for certain tables....
-
-	# Event
-
-	if ($table eq "event") {
-		my $ctz = $vars->{timezone} || $Site->{st_timezone};
-		$output .= qq|<p><form method="post" action="admin.cgi">
-			<input type="hidden" name="action" value="list">
-			<input type="hidden" name="db" value="event">
-			Time Zone:
-		|;
-
-		$output .=  &tzdropdown($query,$ctz);
-		$output .=  qq|<input type="submit" value="Select time zone">
-			</form></p>|;
-
-	# Page
-
-	} elsif ($table eq "page") {
-		$output .=  qq|<p><form method="post" action="admin.cgi">
-			<input type="hidden" name="page" value="all">
-			<input type="hidden" name="action" value="publish">
-			<input type="hidden" name="mode" value="report">
-			<input type="submit" class="button" value="Publish all pages">
-			</form></p>|;
-	}
-
-
-	# Print Status Message to Output string
-
-	if ($vars->{msg} || $Site->{msg}) {
-		$output .=  qq|<p class="notice">$vars->{msg}  $Site->{msg}</p>|;
-	}
-
-
-	# Count Number of Items
-	my $count = &db_count($dbh,$table);
-
-	# Set Sort, Start, Number values
-	my ($sort,$start,$number,$limit) = &sort_start_number($query,$table);
-	$output .=  "<p>Listing $start to ".($start+$number)." of $count ".$table."s</p>";
-
-
-
-	# Start multi-select form ( *** Multi-select is Broken **)
-	$output .= qq|<form method="post" action="admin.cgi" name="multi" onSubmit="return confirmPost();">|;
-
-	# Set Conditions Related to Permissions
-	my $permtype = "list_".$table; my $where;
-	if ($Site->{$permtype} eq "owner" && $Person->{person_status} ne "admin") {
-			$where = "WHERE ".$table."_creator = '".$Person->{person_id}."'";
-
-	} else { $where = ""; }
-
-
-	# Set Search Conditions
-	my $titsearch = $table ."_". $titname;
-
-	if ($vars->{where}) {
-		my $w = "where ".$titsearch." LIKE '%".$vars->{where}."%'";
-		if ($where) {
-			$where = "($where) AND ($w)";
-		} else {
-			$where = $w;
-		}
-	} elsif ($table eq "feed") {		# Default search condition for feed
-						# List only harvested feeds ( ie feed_link is not NULL )
-
-		if ($where) { $where .= " AND "; } else {$where = " WHERE "; }
-		$where .= "((feed_link IS NOT NULL) AND (feed_link NOT LIKE ''))";
-
-	}
-
-	# Execute SQL search
-
-	my $stmt = qq|SELECT * FROM $table $where $sort $limit|;
-	# print $stmt;
-
-	my $sthl = $dbh->prepare($stmt);
-	$sthl->execute();
-	if ($sthl->errstr) { print "Content-type: text/html\n\n";print "DB LIST ERROR: ".$sthl->errstr." <p>"; exit; }
-
-	$output .=  "<p>\n";
-
-
-	# Print the output for each item
-
-	while (my $list_record = $sthl -> fetchrow_hashref()) {
-
-		my $rid = $list_record->{$table."_id"};
-
-		# Special for Author
-		if ($table eq "author_list") {
-			$output .= qq|$list_record->{author_list_id}
-			 Author <a href="http://www.downes.ca/author/$list_record->{author_list_author}">$list_record->{author_list_author}</a> $list_record->{author_list_table}
-			 <a href="http://www.downes.ca/$list_record->{author_list_table}/$list_record->{author_list_item}">$list_record->{author_list_item}</a>
-			 <br>|; next;
-		}
-
-
-# 			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Spam&$table=$rid')">Spam</a>]
-
-		# Set up time data (should be replaced by autodates() at some point)
-		my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) =
-                       localtime($list_record->{$table."_crdate"});
-                $year = $year + 1900;
-                my @abbr = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
-
-
-
-#print "<hr>";while (my($lx,$ly) = each %$list_record) { print "$lx = $ly <br>"; }
-
-#&db_update($dbh,"feed", {feed_status => "A"},$list_record->{feed_id} );
-
-#print qq|Format Record $table $list_record->{$table."_id"}<br>|;
-
-
-		# Format Record
-
-		if ($list_record->{page_type} eq "course") { $format = "page_course_list"; }
-		my $record_text = &format_record($dbh,$query,$table,$format,$list_record,1);
-
-		&autodates(\$record_text);
-		&autotimezones($query,\$record_text); 	# Fill timezone dates
-
-
-                # Print raw list if there's no list format
-		unless ($record_text) {
-			my $record_title = $list_record->{$table."_title"}
-				|| $list_record->{$table."_name"}
-				|| $list_record->{$table."_noun"}
-				|| $list_record->{$table."_id"};
-			$output .= qq|
-			[<a href="$Site->{st_cgi}admin.cgi?action=edit&$table=$rid">Edit</a>]
-			[<a href="javascript:confirmDelete('$Site->{st_cgi}admin.cgi?action=Delete&$table=$rid')">Delete</a>]
-			<a href="$Site->{st_url}$table/$rid">$record_title</a>, $mday $abbr[$mon] $year<br/>
-			|;
-			next;
-		}
-
-
-		# Print record to output string
-
-		$output .=  $record_text;
-
-	}
-
-	# Finish multi-select form ( *** Multi-select is Broken **)
-
-	$output .=  "</p>\n<p>\n";
-	$output .= qq|Multi:
-		<input type="hidden" name="multi_db" value="$table">
-		<input type="hidden" name="action" value="multi">
-		<input type="submit" name="multi_action" value="Delete">|;
-	$output .=  "</form></p>\n<p>\n";
-
-
-	# print 'Next' information to output string
-
-	$output .=  &next_button($query,$table,"list",$start,$number,$count);
-
-
-	$sthl->finish( );
+	my $output = &list_records($dbh,$query,$table);
 
 	# print output in Admin frame
 
@@ -3094,8 +2680,12 @@ sub edit_record {
 
 	# Define Form Contents
 
-	my $form_text = &form_editor($dbh,$query,$table,$id_number);
+	my $form_text = &main_window($tabs,"Edit",$table,$id_number,$vars);
+	#&form_editor($dbh,$query,$table,$id_number);
+
 	$form_text =~ s/&#39;/'/mig;
+  $form_text = qq|<script src="http://www.downes.ca/assets/js/jquery.min.js"></script>
+       <script src="http://www.downes.ca/assets/js/grsshopper_admin.js">|.$form_text;
 	if ($viewer) { return $form_text; }							# Send form text to viewer, or
 	else { &admin_frame($dbh,$query,"Edit $table",$form_text); } 				# Print Output
 
@@ -3139,68 +2729,6 @@ sub remove_key {
 
 
 
-# -------  Delete a Record -----------------------------------------------------
-
-# gets rid of a record forever, and doubles as a spamcatcher
-# should only be used by admin
-
-
-sub record_delete {
-	my ($dbh,$query,$table,$id,$mode) = @_;
-
-	my $vars = $query->Vars;
-
-						# Get Record from DB
-
-	my $wp = &db_get_record($dbh,$table,{$table."_id"=>$id});
-	$wp->{post_title} ||= &printlang("Record no longer exists");
-
-
-						# Permissions
-	die "You are not allowed to delete this record" unless (&is_allowed("delete",$table,$wp));
-	my $readername = $Person->{person_name} || $Person->{person_title};
-
-						# Ban spam sender IP
-	my $banned;
-	if ($vars->{action} =~ /spam/i) {
-		my $bs=();
-		$bs->{banned_sites_ip} = &db_record_crip($dbh,$table,$id);
-		&db_insert($dbh,$query,"banned_sites",$bs);
-		$banned = &printlang("Sender banned",$bs->{banned_sites_ip});
-
-	}
-
-						# Delete the record
-
-	&db_delete($dbh,$table,$table."_id",$id);
-
-						# Delete related graph entries
-
-	my $sql = "DELETE FROM graph WHERE graph_tableone=? AND graph_idone = ?";
-	my $sth = $dbh->prepare($sql);
-    	$sth->execute($table,$id);
-	my $sql = "DELETE FROM graph WHERE graph_tabletwo=? AND graph_idtwo = ?";
-	my $sth = $dbh->prepare($sql);
-    	$sth->execute($table,$id);
-
-						# Remove Cache
-#	&db_cache_remove($dbh,$table,$id);
-#	&db_cache_remove($dbh,$table,$wp->{$table."_thread"});
-
-
-
-
-								# Return message
-	$vars->{msg} .= qq|<p><br /> @{[&printlang("Record id deleted",$id,$banned)]} </p>|;
-	$vars->{api} = 	&printlang("Deleted record",$wp->{post_title});		# Needs to be fixed
-	$vars->{title} = &printlang("Table id deleted",&printlang($table),$id,$readername);
-
-	return if ($mode eq "silent");
-	&send_notifications($dbh,$vars,$table,$vars->{title},$vars->{msg});
-	&report_action($vars->{title});
-
-
-}
 
 # -------  Approve a Record -----------------------------------------------------
 
@@ -3288,7 +2816,7 @@ sub report_action {
 		print $vars->{api};
 		exit;
 	} else {
-		&list_records($dbh,$query,$table);
+		&admin_list_records($dbh,$query,$table);
 		exit;
 	}
 
@@ -3486,7 +3014,7 @@ sub cron_tasks {
 	$sth->finish;
 
 
-
+$Site->{st_harvest_on} = "yes";
 
 										# Harvester
 	if ($Site->{st_harvest_on} eq "yes") {
@@ -3501,6 +3029,9 @@ sub cron_tasks {
 			my $status = system($harvester,$siteurl,$Site->{cronkey},"queue");
 			if ($loglevel > 5) { $log .= "\nHarvester run, Status: $status\n"; }
 		}
+
+  #  &send_email("stephen\@downes.ca","stephen\@downes.ca","Harvester - $Site->{st_url}","\nHarvester run, Status: $status\n");
+
 	}
 
 
