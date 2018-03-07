@@ -3305,7 +3305,7 @@ sub upload_file {
 	# Name of input field:  myfile
   my ($upload_file_name) = @_;
 	$upload_file_name ||= "myfile";
-	print "upload file name  $upload_file_name  :   ",$query->param($upload_file_name);
+	#print "upload file name  $upload_file_name  :   ",$query->param($upload_file_name);
 	my $file = gRSShopper::File->new();
 	$file->{file_title} = $query->param($upload_file_name);
 
@@ -4203,6 +4203,8 @@ sub Tab_Publish {
 	return  $output;
 
 }
+
+
 
 	# TABS ----------------------------------------------------------
 	# ------- Harvest --------------------------------------------
@@ -6904,7 +6906,7 @@ sub import_json {
 	use JSON::XS;
 	my $json_text = &get_file($file->{file_location});
 
- print $json_text;
+# print $json_text;
 	my $perl_scalar = decode_json $json_text;
 
 	my $normalize = &import_json_schema($perl_scalar,$table);

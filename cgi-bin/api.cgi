@@ -239,6 +239,8 @@ if ($vars->{cmd}) {
 	 	exit;
   }
 
+
+
 	# CLONE
 	elsif ($vars->{cmd} eq "clone") {
 		print &api_clone();

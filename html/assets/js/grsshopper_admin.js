@@ -7,6 +7,8 @@ var url = 'api.cgi';
 function startUp(url) {
 
 
+
+
   $( document ).ready(function() {
 
     // Load Reader tab

@@ -181,7 +181,7 @@ if ($api) {
 
 } else {					# Default Data Output
 
-	&output_record($dbh,$query,$table,$id,$format);
+	print &output_record($dbh,$query,$table,$id,$format);
 
 }
 
@@ -759,7 +759,7 @@ sub input_vote {
 	my $sum = &update_vote($dbh,$query);
 	$vars->{vote_table} ||= "post";
 
-	&output_record($dbh,$query,$vars->{vote_table},$vars->{vote_post},"html");
+	print &output_record($dbh,$query,$vars->{vote_table},$vars->{vote_post},"html");
 
 }
 
